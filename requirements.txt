@@ -1,3 +1,4 @@
 graphviz
 rdflib
 tqdm
+dill
