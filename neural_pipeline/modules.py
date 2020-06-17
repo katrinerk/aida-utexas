@@ -1,4 +1,7 @@
-# Author of initial model: Su Wang; modified and adapted by: Alexander Tomkovich
+""" PyTorch modules.
+
+Author: Su Wang; 2019.
+"""
 
 import math
 import numpy as np
@@ -7,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 from adapted_data_to_input import *
-from new_batched_utils import *
+from utils import *
 
 class Embeddings(nn.Module):
     """Embedding lookup."""
@@ -166,6 +169,16 @@ class Attention(nn.Module):
             attention_vectors = torch.tanh(self.linear(torch.cat([attender, context_vectors[0], context_vectors[1]], dim=-1)))
         return attention_vectors
 
+def pad(indices):
+    """Pad a list of lists to the longest sublist. Return as a list of lists (easy manip. in run_batch)."""
+    padded_indices = []
+    max_len = max(len(sub_indices) for sub_indices in indices)
+    padded_indices = [sub_indices[:max_len]
+                      if len(sub_indices) >= max_len
+                      else sub_indices + [0] * (max_len - len(sub_indices))
+                      for sub_indices in indices]
+    return padded_indices
+
 
 def to_tensor(inputs, tensor_type=torch.LongTensor, device=torch.device("cpu")):
     return tensor_type(np.array(inputs)).to(device)
@@ -186,23 +199,21 @@ class CoherenceNetWithGCN(nn.Module):
         self.linear_type_adj_stmt_init = nn.Linear(stmt_embed_size, hidden_size)
         self.linear_head_adj_ere_init = nn.Linear(hidden_size, hidden_size)
         self.linear_tail_adj_ere_init = nn.Linear(hidden_size, hidden_size)
-        #self.linear_type_adj_ere_init = nn.Linear(hidden_size, hidden_size)
         self.linear_head_adj_stmt = nn.Linear(hidden_size, hidden_size)
         self.linear_tail_adj_stmt = nn.Linear(hidden_size, hidden_size)
         self.linear_type_adj_stmt = nn.Linear(hidden_size, hidden_size)
         self.linear_head_adj_ere = nn.Linear(hidden_size, hidden_size)
         self.linear_tail_adj_ere = nn.Linear(hidden_size, hidden_size)
-        #self.linear_type_adj_ere = nn.Linear(hidden_size, hidden_size)
         self.linear_ere_init = nn.Linear(ere_embed_size, hidden_size)
         self.linear_stmt_init = nn.Linear(stmt_embed_size, hidden_size)
         self.linear_ere = nn.Linear(hidden_size, hidden_size)
         self.linear_stmt = nn.Linear(hidden_size, hidden_size)
 
-        # if self_attend:
-        #     self.self_attention_eres_init = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
-        #     self.self_attention_stmts_init = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
-        #     self.self_attention_eres = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
-        #     self.self_attention_stmts = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
+        if self_attend:
+            self.self_attention_eres_init = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
+            self.self_attention_stmts_init = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
+            self.self_attention_eres = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
+            self.self_attention_stmts = Self_Attention(attention_type, hidden_size, attention_size, attention_dropout)
 
         self.coherence_attention = Attention(attn_head_stmt_tail, attention_type, hidden_size, attention_size, attention_dropout)
         self.coherence_linear = nn.Linear(attention_size, 1)
@@ -219,7 +230,6 @@ class CoherenceNetWithGCN(nn.Module):
             self.linear_type_adj_stmt_3 = nn.Linear(hidden_size, hidden_size)
             self.linear_head_adj_ere_3 = nn.Linear(hidden_size, hidden_size)
             self.linear_tail_adj_ere_3 = nn.Linear(hidden_size, hidden_size)
-            #self.linear_type_adj_ere_3 = nn.Linear(hidden_size, hidden_size)
             self.linear_ere_3 = nn.Linear(hidden_size, hidden_size)
             self.linear_stmt_3 = nn.Linear(hidden_size, hidden_size)
 
@@ -228,7 +238,6 @@ class CoherenceNetWithGCN(nn.Module):
             torch.nn.init.xavier_uniform_(self.linear_type_adj_stmt_3.weight)
             torch.nn.init.xavier_uniform_(self.linear_head_adj_ere_3.weight)
             torch.nn.init.xavier_uniform_(self.linear_tail_adj_ere_3.weight)
-            #torch.nn.init.xavier_uniform_(self.linear_type_adj_ere_3.weight)
             torch.nn.init.xavier_uniform_(self.linear_ere_3.weight)
             torch.nn.init.xavier_uniform_(self.linear_stmt_3.weight)
 
@@ -238,7 +247,6 @@ class CoherenceNetWithGCN(nn.Module):
             self.linear_type_adj_stmt_4 = nn.Linear(hidden_size, hidden_size)
             self.linear_head_adj_ere_4 = nn.Linear(hidden_size, hidden_size)
             self.linear_tail_adj_ere_4 = nn.Linear(hidden_size, hidden_size)
-            #self.linear_type_adj_ere_4 = nn.Linear(hidden_size, hidden_size)
             self.linear_ere_4 = nn.Linear(hidden_size, hidden_size)
             self.linear_stmt_4 = nn.Linear(hidden_size, hidden_size)
 
@@ -247,7 +255,6 @@ class CoherenceNetWithGCN(nn.Module):
             torch.nn.init.xavier_uniform_(self.linear_type_adj_stmt_4.weight)
             torch.nn.init.xavier_uniform_(self.linear_head_adj_ere_4.weight)
             torch.nn.init.xavier_uniform_(self.linear_tail_adj_ere_4.weight)
-            #torch.nn.init.xavier_uniform_(self.linear_type_adj_ere_4.weight)
             torch.nn.init.xavier_uniform_(self.linear_ere_4.weight)
             torch.nn.init.xavier_uniform_(self.linear_stmt_4.weight)
 
@@ -256,14 +263,12 @@ class CoherenceNetWithGCN(nn.Module):
         torch.nn.init.xavier_uniform_(self.linear_type_adj_stmt_init.weight)
         torch.nn.init.xavier_uniform_(self.linear_head_adj_ere_init.weight)
         torch.nn.init.xavier_uniform_(self.linear_tail_adj_ere_init.weight)
-        #torch.nn.init.xavier_uniform_(self.linear_type_adj_ere_init.weight)
 
         torch.nn.init.xavier_uniform_(self.linear_head_adj_stmt.weight)
         torch.nn.init.xavier_uniform_(self.linear_tail_adj_stmt.weight)
         torch.nn.init.xavier_uniform_(self.linear_type_adj_stmt.weight)
         torch.nn.init.xavier_uniform_(self.linear_head_adj_ere.weight)
         torch.nn.init.xavier_uniform_(self.linear_tail_adj_ere.weight)
-        #torch.nn.init.xavier_uniform_(self.linear_type_adj_ere.weight)
 
         torch.nn.init.xavier_uniform_(self.linear_ere_init.weight)
         torch.nn.init.xavier_uniform_(self.linear_stmt_init.weight)
@@ -281,12 +286,15 @@ class CoherenceNetWithGCN(nn.Module):
         ere_emb = torch.zeros((len(batch), adj_head_list.shape[1], self.ere_embedder.weight.shape[1])).to(device=device)
         stmt_emb = torch.zeros((len(batch), adj_head_list.shape[2], self.stmt_embedder.weight.shape[1])).to(device=device)
 
+
         for batch_iter in range(len(batch)):
             for iter in range(len(batch[batch_iter]['ere_labels'])):
                 ere_emb[batch_iter][iter] = torch.mean(torch.cat([self.ere_embedder(to_tensor(label_set, device=device)).mean(dim=0).reshape((1, -1)) for label_set in ere_labels_list[batch_iter][iter] if len(label_set) > 0], dim=0), dim=0)
+                #ere_emb[iter] = self.ere_embedder(to_tensor([item for sublist in ere_labels[iter] for item in sublist], device=device)).mean(dim=0)
 
             for iter in range(len(batch[batch_iter]['stmt_labels'])):
                 stmt_emb[batch_iter][iter] = torch.mean(torch.cat([self.stmt_embedder(to_tensor(label_set, device=device)).mean(dim=0).reshape((1, -1)) for label_set in stmt_labels_list[batch_iter][iter] if len(label_set) > 0], dim=0), dim=0)
+                #stmt_emb[iter] = self.ere_embedder(to_tensor([item for sublist in stmt_labels[iter] for item in sublist], device=device)).mean(dim=0)
 
 
         gcn_embeds['eres'] = self.linear_ere_init(ere_emb)
@@ -298,7 +306,6 @@ class CoherenceNetWithGCN(nn.Module):
         gcn_embeds['stmts'] = self.linear_stmt_init(stmt_emb)
         gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_head_list, 1, 2), self.linear_head_adj_ere_init(gcn_embeds['eres']))
         gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_tail_list, 1, 2), self.linear_tail_adj_ere_init(gcn_embeds['eres']))
-        #gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_type_list, 1, 2), self.linear_type_adj_ere_init(gcn_embeds['eres']))
         gcn_embeds['stmts'] = self.conv_dropout(F.relu(gcn_embeds['stmts']))
 
         gcn_embeds['eres'] = self.linear_ere(gcn_embeds['eres'])
@@ -310,7 +317,6 @@ class CoherenceNetWithGCN(nn.Module):
         gcn_embeds['stmts'] = self.linear_stmt(gcn_embeds['stmts'])
         gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_head_list, 1, 2), self.linear_head_adj_ere(gcn_embeds['eres']))
         gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_tail_list, 1, 2), self.linear_tail_adj_ere(gcn_embeds['eres']))
-        #gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_type_list, 1, 2), self.linear_type_adj_ere(gcn_embeds['eres']))
         gcn_embeds['stmts'] = self.conv_dropout(F.relu(gcn_embeds['stmts']))
 
         if self.num_layers >= 3:
@@ -323,7 +329,6 @@ class CoherenceNetWithGCN(nn.Module):
             gcn_embeds['stmts'] = self.linear_stmt_3(gcn_embeds['stmts'])
             gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_head_list, 1, 2), self.linear_head_adj_ere_3(gcn_embeds['eres']))
             gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_tail_list, 1, 2), self.linear_tail_adj_ere_3(gcn_embeds['eres']))
-            #gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_type_list, 1, 2), self.linear_type_adj_ere_3(gcn_embeds['eres']))
             gcn_embeds['stmts'] = self.conv_dropout(F.relu(gcn_embeds['stmts']))
 
         if self.num_layers == 4:
@@ -336,7 +341,6 @@ class CoherenceNetWithGCN(nn.Module):
             gcn_embeds['stmts'] = self.linear_stmt_4(gcn_embeds['stmts'])
             gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_head_list, 1, 2), self.linear_head_adj_ere_4(gcn_embeds['eres']))
             gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_tail_list, 1, 2), self.linear_tail_adj_ere_4(gcn_embeds['eres']))
-            #gcn_embeds['stmts'] += torch.bmm(torch.transpose(adj_type_list, 1, 2), self.linear_type_adj_ere_4(gcn_embeds['eres']))
             gcn_embeds['stmts'] = self.conv_dropout(F.relu(gcn_embeds['stmts']))
 
     def forward(self, batch, padded_batch_mats, gcn_embeds, device):
@@ -378,35 +382,4 @@ class CoherenceNetWithGCN(nn.Module):
         coherence_prediction = F.log_softmax(coherence_out, dim=1)
         coherence_prediction = torch.Tensor.masked_fill(coherence_prediction, mask, float('-inf'))
 
-        return coherence_attention_vectors, mask, coherence_prediction, gcn_embeds
-
-    def state_for_critic(self, batch, padded_batch_mats, gcn_embeds, device):
-        # first gcn layer.
-
-        max_query_stmts_size = max([len(batch[iter]['query_stmts']) for iter in range(len(batch))])
-        max_query_eres_size = max([len(batch[iter]['query_eres']) for iter in range(len(batch))])
-        max_candidates_size = max([len(batch[iter]['candidates']) for iter in range(len(batch))])
-
-        stmt_attendees = torch.zeros((len(batch), max_query_stmts_size, self.hidden_size)).to(device=device)
-        ere_attendees = torch.zeros((len(batch), max_query_eres_size, self.hidden_size)).to(device=device)
-        attenders = torch.zeros((len(batch), max_candidates_size, self.hidden_size)).to(device=device)
-
-        for iter in range(stmt_attendees.shape[0]):
-            stmt_attendees[iter][:len(batch[iter]['query_stmts']), :] = gcn_embeds['stmts'][iter][batch[iter]['query_stmts']]
-            ere_attendees[iter][:len(batch[iter]['query_eres']), :] = gcn_embeds['eres'][iter][list(batch[iter]['query_eres'])]
-            attenders[iter][:len(batch[iter]['candidates']), :] = gcn_embeds['stmts'][iter][batch[iter]['candidates']]
-
-        mask_stmt_to_stmt = torch.zeros((len(batch), max_query_stmts_size, max_candidates_size), dtype=torch.bool).to(device=device)
-        mask_ere_to_stmt = torch.zeros((len(batch), max_query_eres_size, max_candidates_size), dtype=torch.bool).to(device=device)
-
-        for iter in range(mask_stmt_to_stmt.shape[0]):
-            mask_stmt_to_stmt[iter][len(batch[iter]['query_stmts']):, :] = 1
-            mask_stmt_to_stmt[iter][:, len(batch[iter]['candidates']):] = 1
-            mask_ere_to_stmt[iter][len(batch[iter]['query_eres']):, :] = 1
-            mask_ere_to_stmt[iter][:, len(batch[iter]['candidates']):] = 1
-
-        coherence_attention_vectors = self.coherence_attention.get_attention_vectors(batch, padded_batch_mats, gcn_embeds, stmt_attendees, ere_attendees, attenders, mask_stmt_to_stmt, mask_ere_to_stmt, device)
-
-        mask = mask_stmt_to_stmt.reshape(-1, mask_stmt_to_stmt.shape[-1])[[i for i in range(0, (len(batch) * max_query_stmts_size), max_query_stmts_size)]]
-
-        return coherence_attention_vectors, mask
+        return coherence_prediction, gcn_embeds
