@@ -9,6 +9,9 @@
 
 ########
 # one AIDA hypothesis
+from collections import defaultdict
+
+
 class AidaHypothesis:
     def __init__(self, graph_obj, stmts = None, stmt_weights = None, core_stmts = None, lweight = 0.0):
         self.graph_obj = graph_obj
@@ -146,13 +149,53 @@ class AidaHypothesis:
     ########
     # readable output: return EREs in this hypothesis, and the statements associated with them
     # string for single ERE
-    def ere_to_s(self, ere_id, prefix = "", withargs = True):
+    def ere_to_s(self, ere_id, roles_ontology):
         if self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id):
-            return self._eventrel_to_s(ere_id, withargs = withargs)
+            return self.eventrel_to_s(ere_id, roles_ontology)
         elif self.graph_obj.is_entity(ere_id):
-            return self._entity_to_s(ere_id)
+            return self.entity_to_s(ere_id)
         else:
             return ""
+
+    def entity_to_s(self, ere_id):
+        retv = self.entity_best_name(ere_id)
+        if retv == '[unknown]':
+            for typelabel in self.ere_each_type(ere_id):
+                retv = typelabel
+                break
+        return retv
+
+    def eventrel_to_s(self, ere_id, roles_ontology):
+        if not (self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id)):
+            return ''
+
+        eventrel_type = None
+        for typelabel in self.ere_each_type(ere_id):
+            eventrel_type = typelabel
+            break
+
+        arg_values = defaultdict(set)
+        for arglabel, value in self.eventrelation_each_argument(ere_id):
+            arg_values[arglabel].add(value)
+
+        if not arg_values:
+            return ''
+
+        if eventrel_type is None:
+            eventrel_type = list(arg_values.keys())[0].rsplit('_', maxsplit=1)[0]
+
+        retv = eventrel_type
+        for arg_key in roles_ontology[eventrel_type].values():
+            retv += '\n    ' + arg_key + ': '
+            arglabel = eventrel_type + '_' + arg_key
+            if arglabel in arg_values:
+                retv += ', '.join(self.entity_to_s(arg_id) for arg_id in arg_values[arglabel])
+
+        # for arglabel, values in arg_values.items():
+        #     retv += '\n' + '    ' + arglabel.rsplit('_', maxsplit=1)[1]
+        #     retv += ': ' + ', '.join(self.entity_to_s(arg_id) for arg_id in values)
+
+        return retv
 
     def _entity_to_s(self, ere_id, prefix = ""):
         retv = ""
@@ -168,7 +211,7 @@ class AidaHypothesis:
         retv += prefix + "handle: " + name + "\n"
 
         return retv
-        
+
     def _eventrel_to_s(self, ere_id, prefix = "", withargs = True):
         retv = ""
         if not (self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id)):
@@ -198,33 +241,40 @@ class AidaHypothesis:
         return retv
 
     # String for whole hypothesis
-    def to_s(self):
+    def to_s(self, roles_ontology):
         retv = ""
 
-        retv += ", ".join(sorted(self.stmts, key = lambda s:self.stmt_weights[s], reverse = True)) + "\n\n"
+        # retv += ", ".join(sorted(self.stmts, key = lambda s:self.stmt_weights[s], reverse = True)) + "\n\n"
 
         # start with core statements
         core = self.core_eres()
         for ere_id in core:
             if self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id):
-                retv += self.ere_to_s(ere_id) + "\n"
-                
-        # make output for each event or relation in the hypothesis
-        for ere_id in self.eres():
-            if ere_id in core:
-                # already done
-                continue
-            
-            if self.graph_obj.is_event(ere_id):
-                retv += self.ere_to_s(ere_id) + "\n"
+                ere_str = self.ere_to_s(ere_id, roles_ontology)
+                if ere_str != '':
+                    retv += ere_str + "\n\n"
 
         # make output for each event or relation in the hypothesis
         for ere_id in self.eres():
             if ere_id in core:
                 # already done
                 continue
-            if self.graph_obj.is_relation(ere_id):
-                retv += self.ere_to_s(ere_id) + "\n"
+
+            if self.graph_obj.is_event(ere_id):
+                ere_str = self.ere_to_s(ere_id, roles_ontology)
+                if ere_str != '':
+                    retv += ere_str + "\n\n"
+
+        # make output for each event or relation in the hypothesis
+        for ere_id in self.eres():
+            if ere_id in core:
+                # already done
+                continue
+
+            if self.graph_obj.is_event(ere_id):
+                ere_str = self.ere_to_s(ere_id, roles_ontology)
+                if ere_str != '':
+                    retv += ere_str + "\n\n"
 
         return retv
 
