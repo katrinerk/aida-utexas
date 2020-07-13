@@ -33,7 +33,8 @@ def get_dir(dir_path: Union[str, Path], create: bool = True) -> Path:
     return dir_path
 
 
-def get_file_list(path: Union[str, Path], suffix: str = None, sort: bool = True) -> List[Path]:
+def get_file_list(path: Union[str, Path], suffix: str = None, sort: bool = True,
+                  ignore_hidden: bool = True) -> List[Path]:
     if isinstance(path, str):
         path = get_input_path(path)
     if path.is_file():
@@ -45,6 +46,9 @@ def get_file_list(path: Union[str, Path], suffix: str = None, sort: bool = True)
             file_list = [f for f in path.glob('*{}'.format(suffix))]
         if sort:
             file_list = sorted(file_list)
+
+    if ignore_hidden:
+        file_list = [f for f in file_list if not f.name.startswith('.')]
 
     return file_list
 

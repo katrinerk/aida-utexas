@@ -20,7 +20,7 @@ from aida_utexas import util
 from aida_utexas.aif import AidaGraph, JsonInterface
 from aida_utexas.soin_processing import process_soin
 
-duplicate_kb_file = 'duplicate_kb_id_mapping.json'
+duplicate_kb_file = 'resources/duplicate_kb_id_mapping.json'
 
 
 def read_graph(kb_path: str):
