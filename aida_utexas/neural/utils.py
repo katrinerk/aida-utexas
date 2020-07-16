@@ -3,15 +3,13 @@
 Author: Su Wang; 2019.
 """
 
-from collections import defaultdict
+import os
+import random
 from copy import deepcopy
+
 import dill
 import numpy as np
-import random
-import os
 import torch
-import collections
-import re
 
 
 def pad(indices):

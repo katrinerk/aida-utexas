@@ -4,13 +4,12 @@ Author: Su Wang; 2019.
 """
 
 import math
-import numpy as np
-import torch
+
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical
-from adapted_data_to_input import *
-from utils import *
+
+from aida_utexas.neural.utils import *
+
 
 class Embeddings(nn.Module):
     """Embedding lookup."""

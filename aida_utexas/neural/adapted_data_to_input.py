@@ -9,7 +9,7 @@ python3 data_to_input.py \
 
 """
 
-import argparse
+import itertools
 import json
 import os
 import random
@@ -22,7 +22,6 @@ from pathlib import Path
 
 import dill
 from tqdm import tqdm
-import itertools
 
 
 ##### GENERAL #####
