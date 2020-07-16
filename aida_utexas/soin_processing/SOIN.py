@@ -74,8 +74,8 @@ class TemporalInfo:
 
 
 class Frame:
-    def __init__(self, id, edge_list):
-        self.id = id
+    def __init__(self, frame_id, edge_list):
+        self.id = frame_id
         self.edge_list = edge_list
 
     def __str__(self):
@@ -103,8 +103,8 @@ class Frame:
 
 
 class Edge:
-    def __init__(self, id, subject, predicate, obj, objType):
-        self.id = id
+    def __init__(self, edge_id, subject, predicate, obj, objType):
+        self.id = edge_id
         self.subject = subject
         self.predicate = predicate
         self.obj = obj
@@ -128,7 +128,7 @@ class Edge:
         obj = self.obj
 
         rep = [
-             subj,
+            subj,
             self.predicate,
             obj
         ]
@@ -153,15 +153,16 @@ class Entrypoint:
 
 
 class SOIN:
-    def __init__(self, in_path, frames, temporal_info, entrypoints):
+    def __init__(self, in_path, soin_id, frames, temporal_info, entrypoints):
         self.in_path = in_path
+        self.id = soin_id
         self.frames = frames
         self.temporal_info = temporal_info
         self.entrypoints = entrypoints
         self.json = {}
 
     def __repr__(self):
-        returnme = "SOIN: " + self.in_path
+        returnme = f"SOIN {self.soin_id}: " + self.in_path
         returnme += "Frames:\n"
         for frame in self.frames:
             returnme += "Frame: " + str(frame)
@@ -214,6 +215,7 @@ def process_xml(in_path, dup_kbid_mapping=None):
     # Construct some data structures to hold key information.
     soin_dict = {
         'in_path': in_path,
+        'soin_id': root.attrib['id'],
         'frames': [],
         'entrypoints': [],
         'temporal_info': [],
@@ -225,14 +227,14 @@ def process_xml(in_path, dup_kbid_mapping=None):
         if div.tag == 'frames':  # information_need|frames
             for frame in div:  # information_need|frames|frame
                 frame_dict = {
-                    'id': frame.attrib['id'],
+                    'frame_id': frame.attrib['id'],
                     'edge_list': [],
                 }
 
                 for edges in frame:  # information_need|frames|frame|edges
                     for edge in edges:  # information_need|frames|frame|edges|edge
                         edge_dict = {
-                            'id': edge.attrib['id'],
+                            'edge_id': edge.attrib['id'],
                             'subject': None,
                             'predicate': None,
                             'obj': None,

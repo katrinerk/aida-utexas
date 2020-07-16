@@ -424,6 +424,8 @@ def process_soin(graph: AidaGraph, soin_file_paths: List[Path], output_dir: Path
 
         write_me = {
             'graph': '',
+            'soin_id': soin.id,
+            'frame_id': [frame.id for frame in soin.frames],
             'entrypoints': ep_dict,
             'entrypointWeights': ep_weights_dict,
             'queries': [],
