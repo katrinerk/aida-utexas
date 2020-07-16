@@ -53,6 +53,9 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
             gcn_embeds = None
 
             while len([ere for ere in batch[0]['query_eres'] if batch[0]['graph_mix'].eres[batch[0]['ere_mat_ind'].get_word(ere)].category in ['Event', 'Relation']]) < 25:
+                if len(batch[0]['candidates']) == 0:
+                    break
+
                 padded_batch_mats = reset_batch_mats(batch, device)
                 if i == 0:
                     prediction, gcn_embeds = model(batch, padded_batch_mats, None, device)
