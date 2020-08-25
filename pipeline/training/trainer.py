@@ -1,3 +1,7 @@
+######
+# This file contains the training pipeline for models trained on graph salads.
+######
+
 import dill
 import math
 import numpy as np

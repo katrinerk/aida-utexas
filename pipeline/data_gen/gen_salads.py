@@ -1,6 +1,11 @@
 # Created by Su Wang, 2019
 # Modified by Alex Tomkovich
 
+######
+# This file generates graph salads (artificial mixtures of source KGs which are merged at common
+# entities/events.
+######
+
 import argparse
 import json
 import os

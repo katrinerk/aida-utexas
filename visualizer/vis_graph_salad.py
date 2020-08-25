@@ -1,3 +1,9 @@
+######
+# This file uses dash-cytoscape, a Python package for visualizing graph structures, to
+# produce visualizations of graph salads.  A single file name (the graph salad to be visualized)
+# is expected as an argument.
+######
+
 import os
 import dill
 import json

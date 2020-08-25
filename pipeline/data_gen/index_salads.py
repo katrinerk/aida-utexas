@@ -1,3 +1,8 @@
+######
+# This file converts names (e.g., "Winston Churchill") and labels (e.g., "person")
+# into indices to be referened in an embeddings matrix.
+######
+
 import dill
 import re
 import torch

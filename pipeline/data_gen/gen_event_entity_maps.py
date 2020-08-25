@@ -1,10 +1,10 @@
-import dill
-import argparse
-from gen_salads import Indexer
-
 # Given a directory containing single-doc Wiki json files, this script generates event and entity name dicts for use in creating
 # graph salads.
 # e.g., event_name_dict['France'] = {'graph_1_ere_2', 'graph_5_ere_7', ...}
+
+import dill
+import argparse
+from gen_salads import Indexer
 
 def process_ere_list(graph, ere_list, names_dict, types_dict, conn_one_dict, conn_two_dict):
     for (ere_id, ere) in ere_list:

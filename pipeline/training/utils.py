@@ -1,6 +1,11 @@
 # Author: Su Wang, 2019
 # Modified by Alex Tomkovich
 
+######
+# This file contains various utilities for sampling graph salads from a data set,
+# updating graph salad inference states, and determining loss during training.
+######
+
 from collections import defaultdict
 from copy import deepcopy
 import dill
