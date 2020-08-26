@@ -19,13 +19,10 @@ if len(sys.argv) == 1:
 else:
     file_name = sys.argv[1]
 
-graph_dict = dill.load(open(file_name, 'rb'))
-stmt_mat_ind = graph_dict['stmt_mat_ind']
-query = {stmt_mat_ind.get_word(item) for item in graph_dict['query_stmts']}
-graph_mix = graph_dict['graph_mix']
-target_graph_id = graph_dict['target_graph_id']
-query_eres = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query])
-cand_stmts = {item for item in graph_mix.stmts.keys() if graph_mix.stmts[item].tail_id and set.intersection({graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}, query_eres) and item not in query}
+origin_id, query_stmts, graph_mix, target_graph_id = dill.load(open(file_name, 'rb'))
+
+query_eres = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query_stmts if graph_mix.stmts[stmt_id].tail_id])
+cand_stmts = {item for item in graph_mix.stmts.keys() if graph_mix.stmts[item].tail_id and set.intersection({graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}, query_eres) and item not in query_stmts}
 
 for stmt_id in graph_mix.stmts.keys():
     if graph_mix.stmts[stmt_id].tail_id:
@@ -78,7 +75,7 @@ for stmt_id in graph_mix.stmts.keys():
     temp['data']['graph_id'] = stmt.graph_id
     temp['data']['label'] = stmt.raw_label
     temp['data']['source'] = stmt.head_id
-    temp['data']['query'] = 'Yes' if stmt_id in query else 'No'
+    temp['data']['query'] = 'Yes' if stmt_id in query_stmts else 'No'
     temp['data']['cand'] = 'Yes' if stmt_id in cand_stmts else 'No'
     if stmt.tail_id:
         temp['data']['target'] = stmt.tail_id
@@ -171,13 +168,6 @@ default_stylesheet = [
         }
     },
     {
-        'selector': 'edge[cand="Yes"]',
-        'style': {
-            'line-color': 'green',
-            'mid-target-arrow-color': 'green'
-        }
-    },
-    {
         'selector': 'node[mix="Yes"]',
         'style': {
             'background-color': 'lightblue'
@@ -245,9 +235,9 @@ def generate_stylesheet(data_edge, data_node_hover, data_node_tap):
         })
 
     label_list = [graph_mix.eres[data_node_hover['id']].label[0]] + ['+' * int(.75 * len(graph_mix.eres[data_node_hover['id']].label[0]))] + [('*' if graph_mix.stmts[stmt_id].graph_id == target_graph_id else '') + graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[data_node_hover['id']].stmt_ids
-                                                                                                                                              if not graph_mix.stmts[stmt_id].tail_id and stmt_id in query]
+                                                                                                                                              if not graph_mix.stmts[stmt_id].tail_id and stmt_id in query_stmts]
     label_list += ['-' * int(1.5 * len(graph_mix.eres[data_node_hover['id']].label[0]))] + [('*' if graph_mix.stmts[stmt_id].graph_id == target_graph_id else '') + graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[data_node_hover['id']].stmt_ids
-                                                                                                                                              if not graph_mix.stmts[stmt_id].tail_id and stmt_id not in query]
+                                                                                                                                              if not graph_mix.stmts[stmt_id].tail_id and stmt_id not in query_stmts]
     stylesheet.append({
         "selector": 'node[id = "{}"]'.format(data_node_hover['id']),
         "style": {
