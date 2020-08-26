@@ -1,0 +1,22 @@
+.5525
+.5565
+.7700
+
+
+
+Way to apply softmax--cloze-style (one-three candidates)
+BCE vs. NLL
+Leet code
+
+Look for a better data set with more competing stories
+Ensure more even distribution of target-to-non-target statements around mixtures points
+Find ways of generating many more mixture points
+Look at longer-range contextualization
+Try self-attention
+
+Name-matching?
+Topical similarity of documents?
+Connectedness vs. equivalence?
+Data generation?
+
+Venezuela  September 21--docker submit
