@@ -1,6 +1,9 @@
+# Original author: Su Wang, 2019
+# Modified by Alex Tomkovich in 2019/2020
+
 ######
 # This file converts names (e.g., "Winston Churchill") and labels (e.g., "person")
-# into indices to be referened in an embeddings matrix.
+# into indices to be referenced in an embeddings matrix.
 ######
 
 import dill
@@ -9,43 +12,41 @@ import torch
 import argparse
 import time
 from collections import Counter
-from adapted_data_to_input import Indexer
 import numpy as np
 import os
 import gensim
-from gen_salads import Indexer
+from gen_single_doc_graphs import Indexer, verify_dir
 
 # Count the number of times each token appears in the training set in names or labels
-def get_tokens(train_paths, word2vec_model, return_freq_cut_set):
+def get_tokens(train_path, word2vec_model, return_freq_cut_set):
     token2count = Counter()
     i = 0
     stmt_labels = set()
 
     start = time.time()
 
-    for path in train_paths:
-        train_list = [os.path.join(path, file_name) for file_name in os.listdir(path)]
+    train_list = [os.path.join(train_path, file_name) for file_name in os.listdir(train_path)]
 
-        for file_name in train_list:
-            _, _, graph_mix, _ = dill.load(open(file_name, "rb"))
-            for ere in graph_mix.eres.values():
-                for label in [item for item in ere.label if item != 'Relation']:
-                    try:
-                        word2vec_model.get_vector(('_').join(label.split()))
-                    except KeyError:
-                        for word in label.split():
-                            token2count[word] += 1
-                    else:
-                        token2count[('_').join(label.split())] += 1
+    for file_name in train_list:
+        _, _, graph_mix, _ = dill.load(open(file_name, "rb"))
+        for ere in graph_mix.eres.values():
+            for label in [item for item in ere.label if item != 'Relation']:
+                try:
+                    word2vec_model.get_vector(('_').join(label.split()))
+                except KeyError:
+                    for word in label.split():
+                        token2count[word] += 1
+                else:
+                    token2count[('_').join(label.split())] += 1
 
-            for stmt in graph_mix.stmts.values():
-                for label in stmt.label:
-                    [stmt_labels.add(word.lower()) for word in re.findall('[a-zA-Z][^A-Z]*', label)]
+        for stmt in graph_mix.stmts.values():
+            for label in stmt.label:
+                [stmt_labels.add(word.lower()) for word in re.findall('[a-zA-Z][^A-Z]*', label)]
 
-            if i % 10000 == 0:
-                print("... processed %d files (%.2fs)." % (i, time.time() - start))
-                start = time.time()
-            i += 1
+        if i % 10000 == 0:
+            print("... processed %d files (%.2fs)." % (i, time.time() - start))
+            start = time.time()
+        i += 1
 
     return set(list(zip(*token2count.most_common(return_freq_cut_set)))[0]), stmt_labels
 
@@ -198,67 +199,60 @@ def convert_labels_to_indices(graph_mix, indexer_info):
 
     return {'graph_mix': graph_mix, 'ere_mat_ind': ere_mat_ind, 'stmt_mat_ind': stmt_mat_ind, 'adj_head': adj_ere_to_stmt_head, 'adj_tail': adj_ere_to_stmt_tail, 'adj_type': adj_ere_to_type_stmt, 'ere_labels': ere_labels, 'stmt_labels': stmt_labels, 'num_word2vec_ere': num_word2vec_ere, 'num_word2vec_stmt': num_word2vec_stmt}
 
-def index(data_dir, indexer_dir, emb_dim, return_freq_cut_set):
+def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
     indexed_data_dir = data_dir + '_Indexed'
-    indexer_dir = os.path.join(indexed_data_dir, indexer_dir)
 
     if not os.path.exists(indexed_data_dir):
         os.makedirs(indexed_data_dir)
 
-    if not os.path.exists(indexer_dir):
-        os.makedirs(indexer_dir)
+    train_path = os.path.join(data_dir, 'Train')
+    val_path = os.path.join(data_dir, 'Val')
+    test_path = os.path.join(data_dir, 'Test')
 
-    data_paths = [os.path.join(data_dir, item) for item in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, item))]
-    train_paths = [os.path.join(item, 'Train') for item in data_paths]
-    val_paths = [os.path.join(item, 'Val') for item in data_paths]
-    test_paths = [os.path.join(item, 'Test') for item in data_paths]
-
-    indexed_data_paths = [os.path.join(indexed_data_dir, item + '_Indexed') for item in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, item))]
-
-    [os.makedirs(path) for path in indexed_data_paths if not os.path.exists(path)]
-    [os.makedirs(os.path.join(path, data_cat)) if not os.path.exists(os.path.join(path, data_cat)) else None for data_cat in ['Train', 'Val', 'Test'] for path in indexed_data_paths]
+    verify_dir(os.path.join(indexed_data_dir, 'Train'))
+    verify_dir(os.path.join(indexed_data_dir, 'Val'))
+    verify_dir(os.path.join(indexed_data_dir, 'Test'))
 
     # Load pretrained Word2Vec model
-    word2vec_model = gensim.models.KeyedVectors.load_word2vec_format('/home/atomko/Google_News_Embeds/GoogleNews-vectors-negative300.bin', binary=True)
+    word2vec_model = gensim.models.KeyedVectors.load_word2vec_format(pre_word2vec_bin, binary=True)
 
     # Create the indexer
-    indexer_info = create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim, return_freq_cut_set)
+    indexer_info = create_indexers_for_corpus(train_path, indexed_data_dir, word2vec_model, emb_dim, return_freq_cut_set)
 
     # Index graph salads
-    for data_iter, paths in enumerate([train_paths, val_paths, test_paths]):
-        for path_iter, path in enumerate(paths):
-            for file_iter, file_name in enumerate(os.listdir(path)):
-                _, query, graph_mix, target_graph_id = dill.load(open(os.path.join(path, file_name), 'rb'))
+    for data_iter, path in enumerate([train_path, val_path, test_path]):
+        for file_iter, file_name in enumerate(os.listdir(path)):
+            _, query, graph_mix, target_graph_id = dill.load(open(os.path.join(path, file_name), 'rb'))
 
-                graph_dict = convert_labels_to_indices(graph_mix, indexer_info)
+            graph_dict = convert_labels_to_indices(graph_mix, indexer_info)
 
-                query_stmt_indices = [graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in query]
+            query_stmt_indices = [graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in query]
 
-                query_ere_indices = set.union(*[set([graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].head_id, add=False), graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].tail_id, add=False)])
-                                                if graph_dict['graph_mix'].stmts[stmt].tail_id else set([graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].head_id, add=False)]) for stmt in query])
+            query_ere_indices = set.union(*[set([graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].head_id, add=False), graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].tail_id, add=False)])
+                                            if graph_dict['graph_mix'].stmts[stmt].tail_id else set([graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].head_id, add=False)]) for stmt in query])
 
-                graph_dict['query_stmts'] = query_stmt_indices
-                graph_dict['query_eres'] = query_ere_indices
-                graph_dict['target_graph_id'] = target_graph_id
+            graph_dict['query_stmts'] = query_stmt_indices
+            graph_dict['query_eres'] = query_ere_indices
+            graph_dict['target_graph_id'] = target_graph_id
 
-                if data_iter == 0:
-                    dill.dump(graph_dict, open(os.path.join(indexed_data_paths[path_iter], 'Train', file_name), 'wb'))
-                elif data_iter == 1:
-                    dill.dump(graph_dict, open(os.path.join(indexed_data_paths[path_iter], 'Val', file_name), 'wb'))
-                else:
-                    dill.dump(graph_dict, open(os.path.join(indexed_data_paths[path_iter], 'Test', file_name), 'wb'))
+            if data_iter == 0:
+                dill.dump(graph_dict, open(os.path.join(indexed_data_dir, 'Train', file_name), 'wb'))
+            elif data_iter == 1:
+                dill.dump(graph_dict, open(os.path.join(indexed_data_dir, 'Val', file_name), 'wb'))
+            else:
+                dill.dump(graph_dict, open(os.path.join(indexed_data_dir, 'Test', file_name), 'wb'))
 
-                print(file_iter)
+            print(file_iter)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="/media/atomko/New Volume/Mixtures_New", help='Directory containing folders of different mixture types')
-    parser.add_argument("--indexer_dir", type=str, default='Indexers', help='Directory where the indexers will be written')
+    parser.add_argument("--data_dir", type=str, default="/home/cc/out_salads", help='Directory containing folders of different mixture types')
+    parser.add_argument("--pre_word2vec_bin", type=str, default='/home/cc/GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
     parser.add_argument("--emb_dim", type=int, default=300, help='Index the x most frequent ERE label tokens')
     parser.add_argument("--return_freq_cut_set", type=int, default=50000, help='Index the x most frequent ERE label tokens')
 
     args = parser.parse_args()
     locals().update(vars(args))
 
-    index(data_dir, indexer_dir, emb_dim, return_freq_cut_set)
+    index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set)
 

@@ -1,10 +1,16 @@
+# Author: Alex Tomkovich, 2019/2020
+
+######
 # Given a directory containing single-doc Wiki json files, this script generates event and entity name dicts for use in creating
 # graph salads.
 # e.g., event_name_dict['France'] = {'graph_1_ere_2', 'graph_5_ere_7', ...}
+######
 
 import dill
 import argparse
-from gen_salads import Indexer
+import os
+from gen_single_doc_graphs import verify_dir
+from collections import defaultdict
 
 def process_ere_list(graph, ere_list, names_dict, types_dict, conn_one_dict, conn_two_dict):
     for (ere_id, ere) in ere_list:
@@ -63,10 +69,12 @@ def generate_name_lists(graph_dir, output_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--graph_dir", type=str, default="Single_Doc_Graphs/", help='Directory containing all single-doc graph instances (as pickled objects)')
-    parser.add_argument("--output_dir", type=str, default="", help='Directory where output will be written')
+    parser.add_argument("--graph_dir", type=str, default="/home/cc/test_file_gen", help='Input directory (abs path) containing all single-doc graph instances (as pickled objects)')
+    parser.add_argument("--output_dir", type=str, default="/home/cc/test_event_entity_map_out", help='Directory (abs path) where output will be written')
 
     args = parser.parse_args()
+
+    verify_dir(args.output_dir)
 
     generate_name_lists(args.graph_dir, args.output_dir)
 

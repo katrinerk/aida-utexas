@@ -4,6 +4,9 @@
 Graph salads are artificial mixtures of topically-similar component graphs which a simulate a multi-narrative setting.
 To create graph salads, we "collapse" two or more EREs from distinct source KGs into single representations.
 
+Setup/Dependencies:
+
+
 The files required for data generation are as follows (in order):
 
 ****************************

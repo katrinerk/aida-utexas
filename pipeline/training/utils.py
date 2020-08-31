@@ -1,5 +1,5 @@
-# Author: Su Wang, 2019
-# Modified by Alex Tomkovich
+# Original author: Su Wang, 2019
+# Modified by Alex Tomkovich in 2019/2020
 
 ######
 # This file contains various utilities for sampling graph salads from a data set,
@@ -19,7 +19,7 @@ import re
 # Get the set of candidate stmts available for evaluation at the current time step;
 # the set of candidate stmts consist of all stmts which are attached to an ERE
 # already captured by the query set
-def get_candidates(graph_dict, evaluate):
+def get_candidates(graph_dict):
     query_stmts = graph_dict['query_stmts']
     query_eres = graph_dict['query_eres']
     stmt_mat_ind = graph_dict['stmt_mat_ind']
@@ -28,8 +28,7 @@ def get_candidates(graph_dict, evaluate):
     candidate_ids = []
     label_inputs = []
 
-    if not evaluate:
-        target_graph_id = graph_dict['target_graph_id']
+    target_graph_id = graph_dict['target_graph_id']
 
     for ere_iter in query_eres:
         neigh_stmts = graph_mix.eres[ere_mat_ind.get_word(ere_iter)].stmt_ids
@@ -38,20 +37,18 @@ def get_candidates(graph_dict, evaluate):
     candidate_ids = list(set(candidate_ids))
 
     # Determine the appropriate class label for each candidate statement
-    if not evaluate:
-        [label_inputs.append(1 if graph_mix.stmts[stmt_mat_ind.get_word(candidate_id)].graph_id == target_graph_id else 0) for candidate_id in candidate_ids]
+    [label_inputs.append(1 if graph_mix.stmts[stmt_mat_ind.get_word(candidate_id)].graph_id == target_graph_id else 0) for candidate_id in candidate_ids]
 
     return candidate_ids, label_inputs
 
 
 class DataIterator:
-    def __init__(self, data_dir, reduce_query_set):
+    def __init__(self, data_dir):
         self.file_paths = [os.path.join(data_dir, file_name) for file_name in os.listdir(data_dir)]
         self.cursor = 0
         self.epoch = 0
         self.shuffle()
         self.size = len(self.file_paths)
-        self.reduce_query_set = reduce_query_set
 
     def shuffle(self):
         self.file_paths = sorted(self.file_paths)
@@ -78,25 +75,8 @@ class DataIterator:
 
         graph_dict = dill.load(open(self.file_paths[self.cursor], "rb"))
 
-        # If "reduce_query_set," change the set of query statements to only consist of statements attached
-        # to the merge ERE with the highest two-step connectedness
-        if self.reduce_query_set:
-            graph_mix = graph_dict['graph_mix']
-            ere_mat_ind = graph_dict['ere_mat_ind']
-            stmt_mat_ind = graph_dict['stmt_mat_ind']
-            query_eres = {ere_mat_ind.get_word(item) for item in graph_dict['query_eres']}
-            query_stmts = {stmt_mat_ind.get_word(item) for item in graph_dict['query_stmts']}
-
-            mix_point = sorted([(ere_id, graph_mix.connectedness_two_step[ere_id]) for ere_id in query_eres if len({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[ere_id].stmt_ids}) == 3], key=lambda x: x[1], reverse=True)[0][0]
-
-            query_eres = set.union({mix_point}, set.intersection(graph_mix.eres[mix_point].neighbor_ere_ids, query_eres))
-            query_stmts = set.union(set.intersection(graph_mix.eres[mix_point].stmt_ids, query_stmts), set.union(*[{item for item in graph_mix.eres[ere_id].stmt_ids if not graph_mix.stmts[item].tail_id} for ere_id in query_eres]))
-
-            graph_dict['query_eres'] = {ere_mat_ind.get_index(item, add=False) for item in query_eres}
-            graph_dict['query_stmts'] = [stmt_mat_ind.get_index(item, add=False) for item in query_stmts]
-
         # Determine the initial list of candidate statements (and their class labels)
-        candidate_ids_list, label_inputs_list = get_candidates(graph_dict, False)
+        candidate_ids_list, label_inputs_list = get_candidates(graph_dict)
 
         self.cursor += 1
 
@@ -140,7 +120,7 @@ def multi_correct_nll_loss(predictions, trues, device=torch.device("cpu")):
     return nll.mean()
 
 # Given the index of the admitted stmt, update the inference state
-def next_state(graph_dict, selected_index, evaluate):
+def next_state(graph_dict, selected_index):
     # Add the selected candidate to the query set
     graph_dict['query_stmts'] = np.insert(graph_dict['query_stmts'], len(graph_dict['query_stmts']), graph_dict['candidates'][selected_index])
 
@@ -157,9 +137,8 @@ def next_state(graph_dict, selected_index, evaluate):
     # Delete the selected candidate list element and its corresponding entry in the list of label inputs
     del graph_dict['candidates'][selected_index]
 
-    if not evaluate:
-        if len(graph_dict['label_inputs']) != 0:##TO-DO
-            del graph_dict['label_inputs'][selected_index]
+    if len(graph_dict['label_inputs']) != 0:##TO-DO
+        del graph_dict['label_inputs'][selected_index]
 
     # Determine the set of EREs (if any) introduced by the candidate statement to the query set
     set_diff = set([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in temp]) - set(graph_dict['query_eres'])
@@ -170,11 +149,10 @@ def next_state(graph_dict, selected_index, evaluate):
             stmt_neighs = torch.cat((torch.nonzero(graph_dict['adj_head'][ere_iter]),
                                      torch.nonzero(graph_dict['adj_tail'][ere_iter]),
                                      torch.nonzero(graph_dict['adj_type'][ere_iter])), dim=0).reshape((-1))
-            stmt_neighs = [stmt_neigh for stmt_neigh in stmt_neighs[stmt_neighs != sel_val].tolist() if
-                           stmt_neigh not in graph_dict['candidates']]
+            stmt_neighs = [stmt_neigh for stmt_neigh in stmt_neighs[stmt_neighs != sel_val].tolist() if stmt_neigh not in graph_dict['candidates']]
             graph_dict['candidates'] += stmt_neighs
 
-            if not evaluate:
-                graph_dict['label_inputs'] = graph_dict['label_inputs'] + [1 if graph_dict['graph_mix'].stmts[graph_dict['stmt_mat_ind'].get_word(stmt_iter)].graph_id == graph_dict['target_graph_id'] else 0 for stmt_iter in stmt_neighs]
+            graph_dict['label_inputs'] = graph_dict['label_inputs'] + [1 if graph_dict['graph_mix'].stmts[graph_dict['stmt_mat_ind'].get_word(stmt_iter)].graph_id == graph_dict['target_graph_id']
+                                                                         else 0 for stmt_iter in stmt_neighs]
 
     graph_dict['query_eres'] = set.union(graph_dict['query_eres'], set_diff)

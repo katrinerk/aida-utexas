@@ -1,5 +1,9 @@
-# Author of initial model: Su Wang;
-# Modified and adapted by: Alexander Tomkovich
+# Original author: Su Wang, 2019
+# Modified by Alex Tomkovich in 2019/2020
+
+######
+# This file contains the torch modules for GCN coherence network.
+######
 
 import math
 import numpy as np
@@ -51,7 +55,7 @@ class Attention(nn.Module):
         torch.nn.init.xavier_uniform_(self.linear.weight)
 
     # Compute attention weights (Eq 1 in source)
-    # We compute (candidate stmt)-to(query stmt) and (candidate stmt)-to-(query ERE) weights separately
+    # We compute (candidate stmt)-to-(query stmt) and (candidate stmt)-to-(query ERE) weights separately
     def get_attention_weights(self, attendee_stmts, attendee_eres, attender):
         unnorm_attention_weights_stmt_to_stmt = self.score_stmt_to_stmt(attendee_stmts, attender)
         unnorm_attention_weights_ere_to_stmt = self.score_ere_to_stmt(attendee_eres, attender)
@@ -257,6 +261,7 @@ class CoherenceNetWithGCN(nn.Module):
         ere_attendees = gcn_embeds['eres'][list(graph_dict['query_eres'])]
         attenders = gcn_embeds['stmts'][graph_dict['candidates']]
 
+        # Get attention vectors for candidate statements
         coherence_attention_vectors = self.coherence_attention.get_attention_vectors(stmt_attendees, ere_attendees, attenders)
 
         # Obtain a final set of logits for the candidate statements (softmax later)

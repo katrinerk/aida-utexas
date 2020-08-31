@@ -1,5 +1,5 @@
-# Created by Su Wang, 2019
-# Modified by Alex Tomkovich
+# Original author: Su Wang, 2019
+# Modified by Alex Tomkovich in 2019/2020
 
 ######
 # This file generates graph salads (artificial mixtures of source KGs which are merged at common
@@ -7,326 +7,17 @@
 ######
 
 import argparse
-import json
 import os
 import random
-import re
 import time
 from collections import defaultdict
 from copy import deepcopy
-from operator import itemgetter
 from pathlib import Path
-
+from gen_single_doc_graphs import verify_dir, Ere, Stmt, Graph
 import dill
 from tqdm import tqdm
 import itertools
 import math
-
-##### GENERAL #####
-
-class Indexer(object):
-    """Word to index bidirectional mapping."""
-
-    def __init__(self, start_symbol="<s>", end_symbol="</s>"):
-        """Initializing dictionaries and (hard coded) special symbols."""
-        self.word_to_index = {}
-        self.index_to_word = {}
-        self.size = 0
-        # Hard-code special symbols.
-        self.get_index("PAD", add=True)
-        self.get_index("UNK", add=True)
-        self.get_index(start_symbol, add=True)
-        self.get_index(end_symbol, add=True)
-
-    def __repr__(self):
-        """Print size info."""
-        return "This indexer currently has %d words" % self.size
-
-    def get_word(self, index):
-        """Get word by index if its in range. Otherwise return `UNK`."""
-        return self.index_to_word[index] if index < self.size and index >= 0 else "UNK"
-
-    def get_index(self, word, add):
-        """Get index by word. If `add` is on, also append word to the dictionaries."""
-        if self.contains(word):
-            return self.word_to_index[word]
-        elif add:
-            self.word_to_index[word] = self.size
-            self.index_to_word[self.size] = word
-            self.size += 1
-            return self.word_to_index[word]
-        return self.word_to_index["UNK"]
-
-    def contains(self, word):
-        """Return True/False to indicate whether a word is in the dictionaries."""
-        return word in self.word_to_index
-
-    def add_sentence(self, sentence, add):
-        """Add all the words in a sentence (a string) to the dictionary."""
-        indices = [self.get_index(word, add) for word in sentence.split()]
-        return indices
-
-    def add_document(self, document_path, add):
-        """Add all the words in a document (a path to a text file) to the dictionary."""
-        indices_list = []
-        with open(document_path, "r") as document:
-            for line in document:
-                indices = self.add_sentence(line, add)
-                indices_list.append(indices)
-        return indices_list
-
-    def to_words(self, indices):
-        """Indices (ints) -> words (strings) conversion."""
-        return [self.get_word(index) for index in indices]
-
-    def to_sent(self, indices):
-        """Indices (ints) -> sentence (1 string) conversion."""
-        return " ".join(self.to_words(indices))
-
-    def to_indices(self, words):
-        """Words (strings) -> indices (ints) conversion."""
-        return [self.get_index(word, add=False) for word in words]
-
-
-##### DATA STRUCTURE #####
-
-class Ere:
-    """Node object."""
-
-    def __init__(self,
-                 graph_id, category,
-                 ere_id, label):
-        """Initializer.
-
-        Args:
-            graph_id: unique id of a graph, e.g. enwiki-20100312_0000494023.
-            category: Event | Relation | Entity.
-            node_id: unique id of the node entry, .e.g. http://www.isi.edu/gaia/....
-            label: node name string, e.g. Ohio.
-            stmt_ids: indices of stmts, for AIDA output.
-        """
-        self.graph_id = graph_id
-        self.category = category
-        self.id = ere_id
-        self.label = label
-        self.neighbor_ere_ids = set()
-        self.stmt_ids = set()
-
-    def __repr__(self):
-        return "[ERE] | ID: %s | Label: %s" % (self.id, self.label)
-
-    @staticmethod
-    def entry_type():
-        return "Ere"
-
-
-class Stmt:
-
-    def __init__(self,
-                 graph_id,
-                 stmt_id, raw_label, label,
-                 head_id, tail_id):
-        """Initializer.
-
-        Args:
-            graph_id: unique id of a graph, e.g. enwiki-20100312_0000494023.
-            edge_id: unique id of the node entry, e.g. ub1bL181C1.
-            label: edge name string, e.g. Conflict.Attack_Attacker.
-            head_id: unique id of the head node of the edge.
-            tail_id: .. of the tail node of the edge.
-        """
-        self.graph_id = graph_id
-        self.id = stmt_id
-        self.dup_ids = set()
-        self.raw_label = raw_label
-        self.label = label
-        self.head_id = head_id
-        self.tail_id = tail_id
-
-    def __repr__(self):
-        return "[STMT] | ID: %s | Label: %s" % (self.id, self.label)
-
-    def link_info(self):
-        return "Head: %s \nTail: %s" % (self.head_id, self.tail_id)
-
-    @staticmethod
-    def entry_type():
-        return "Stmt"
-
-
-class Graph:
-    """Graph wrap for nodes and edges."""
-
-    def __init__(self, graph_id):
-        """Initializer.
-
-        Args:
-            graph_id: unique id of a graph, e.g. enwiki-20100312_0000494023.
-        """
-        self.graph_id = graph_id
-        self.eres = dict()  # a node dictionary.
-        self.stmts = dict()  # an edge dictionary.
-        # the number of neighbors reachable from 1 step of each node
-        self.connectedness_one_step = None
-        # the number of neighbors reachable from 2 steps of each node
-        self.connectedness_two_step = None
-        # the mapping from attributes (types) to node ids
-        self.attribute_to_ere_ids = None
-
-    def __repr__(self):
-        return "[GRAPH] | ID: %s | #N: %d | #E: %d" % (self.graph_id, len(self.eres), len(self.stmts))
-
-    def is_empty(self):
-        return len(self.eres) == 0 and len(self.stmts) == 0
-
-    def unique_id(self, entry_id):
-        return self.graph_id + '_' + entry_id
-
-# Load the EREs from a graph JSON
-def load_eres(graph, graph_js):
-    for entry_id, entry in graph_js.items():
-        # Ignore all Statements, SameAsClusters, and ClusterMemberships first
-        if entry["type"] in ["Statement", "SameAsCluster", "ClusterMembership"]:
-            continue
-
-        ere_id = graph.unique_id(entry_id)
-
-        # Process relation nodes
-        if entry["type"] == "Relation":
-            graph.eres[ere_id] = Ere(
-                graph_id=graph.graph_id,
-                category=entry["type"],
-                ere_id=ere_id,
-                label=["Relation"] # Relation nodes have no explicit name
-            )
-        # Process event/entity nodes
-        else:
-            keep_labels = []
-
-            if "name" in entry.keys():
-                for label in entry["name"]:
-                    match = re.search('[_ ]+', label)
-
-                    # Ensure that the name is not composed entirely of underscores and/or whitespace
-                    if match and match.span()[1] - match.span()[0] == len(label):
-                        continue
-
-                    keep_labels.append(label)
-
-            graph.eres[ere_id] = Ere(
-                graph_id=graph.graph_id,
-                category=entry["type"],
-                ere_id=ere_id,
-                label=keep_labels
-            )
-
-# Load the statements from a graph JSON
-def load_statements(graph, graph_js):
-    seen_stmts = dict()
-
-    for entry_id, entry in graph_js.items():
-        if entry["type"] != "Statement":
-            continue
-
-        stmt_id = graph.unique_id(entry_id)
-        subj_id = graph.unique_id(entry['subject'])
-
-        # Process typing statements
-        if entry["predicate"] == "type":
-            type_id = entry["object"]
-            type_label = entry["object"].split("#")[-1]
-
-            tup = ('Type', subj_id, type_id)
-
-            # Check if this statement already exists as another statement ID
-            if tup in seen_stmts.keys():
-                graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
-                continue
-
-            seen_stmts[tup] = stmt_id
-
-            graph.stmts[stmt_id] = Stmt(
-                graph_id=graph.graph_id,
-                stmt_id=stmt_id,
-                raw_label=type_label,
-                label=re.sub("[.]", " ", type_label).split(),
-                head_id=subj_id,
-                tail_id=None
-            )
-
-            graph.eres[subj_id].stmt_ids.add(stmt_id)
-        # Processing non-typing (event or relation) statements
-        else:
-            obj_id = graph.unique_id(entry['object'])
-
-            split_label = re.sub("[._]", " ", entry["predicate"]).split()
-
-            tup = (' '.join(split_label), subj_id, obj_id)
-
-            if tup in seen_stmts.keys():
-                graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
-                continue
-
-            seen_stmts[tup] = stmt_id
-
-            graph.stmts[stmt_id] = Stmt(
-                graph_id=graph.graph_id,
-                stmt_id=stmt_id,
-                raw_label=entry["predicate"],
-                label=split_label,
-                head_id=subj_id,
-                tail_id=obj_id)
-
-            graph.eres[subj_id].neighbor_ere_ids.add(obj_id)
-            graph.eres[obj_id].neighbor_ere_ids.add(subj_id)
-
-            graph.eres[subj_id].stmt_ids.add(stmt_id)
-            graph.eres[obj_id].stmt_ids.add(stmt_id)
-
-# Remove singleton nodes (nodes with no neighbors)
-def remove_singletons(graph):
-    singleton_ids = [ere_id for ere_id in graph.eres.keys() if len(graph.eres[ere_id].neighbor_ere_ids) == 0]
-
-    for singleton_id in singleton_ids:
-        for stmt_id in graph.eres[singleton_id].stmt_ids:
-            del graph.stmts[stmt_id]
-        del graph.eres[singleton_id]
-
-# Compute one- and two-step connectedness scores for all EREs in a graph
-def compute_connectedness(graph):
-    graph.connectedness_one_step = {}
-    graph.connectedness_two_step = {}
-
-    for ere_id, ere in graph.eres.items():
-        graph.connectedness_one_step[ere_id] = len(ere.neighbor_ere_ids)
-
-        two_step_neighbor_ere_ids = set()
-
-        for neighbor_id in ere.neighbor_ere_ids:
-            two_step_neighbor_ere_ids.update(graph.eres[neighbor_id].neighbor_ere_ids)
-
-        two_step_neighbor_ere_ids.update(ere.neighbor_ere_ids)
-        two_step_neighbor_ere_ids.discard(ere_id)
-
-        graph.connectedness_two_step[ere_id] = len(two_step_neighbor_ere_ids)
-
-# Read in a graph (from a JSON)
-def read_graph(graph_id, graph_js):
-    graph = Graph(graph_id)
-
-    load_eres(graph, graph_js)
-    load_statements(graph, graph_js)
-
-    remove_singletons(graph)
-
-    compute_connectedness(graph)
-
-    return graph
-
-# Make a dir (if it doesn't already exist)
-def verify_dir(dir):
-    if not os.path.exists(dir):
-        os.makedirs(dir)
 
 ##### GRAPH SALAD CREATION #####
 
@@ -693,10 +384,10 @@ def create_mix(graph_list, event_names, entity_names, event_type_maps, entity_ty
     return graph_info, sample_graphs
 
 # This function pre-loads all json graphs in the given folder
-def load_all_graphs_in_folder(graph_js_folder):
-    print('Loading all graphs in {}...'.format(graph_js_folder))
+def load_all_graphs_in_folder(graph_folder):
+    print('Loading all graphs in {}...'.format(graph_folder))
 
-    graph_file_list = sorted([f for f in Path(graph_js_folder).iterdir() if f.is_file()])
+    graph_file_list = sorted([f for f in Path(graph_folder).iterdir() if f.is_file()])
 
     graph_list = dict()
 
@@ -753,14 +444,14 @@ def filter_merge_candidates(ere_name_map, graph_list, one_step_connectedness_map
         del ere_name_map[key]
 
 # Organize (train, val, test) partitions and write graph salads to disk
-def make_mixture_data(wiki_js_folder, event_name_map, entity_name_map, event_type_maps, entity_type_maps, one_step_connectedness_map, two_step_connectedness_map,
+def make_mixture_data(single_doc_graphs_folder, event_name_map, entity_name_map, event_type_maps, entity_type_maps, one_step_connectedness_map, two_step_connectedness_map,
                       out_data_dir, num_sources, num_shared_eres, num_abridge_hops, data_size, max_size, print_every, min_connectedness_one_step, min_connectedness_two_step, max_connectedness_two_step, perc_train, perc_test):
     verify_dir(out_data_dir)
     verify_dir(os.path.join(out_data_dir, 'Train'))
     verify_dir(os.path.join(out_data_dir, 'Val'))
     verify_dir(os.path.join(out_data_dir, 'Test'))
 
-    graph_list = load_all_graphs_in_folder(wiki_js_folder)
+    graph_list = load_all_graphs_in_folder(single_doc_graphs_folder)
 
     # Filter out EREs which do not meet requirements for merging
     filter_merge_candidates(event_name_map, graph_list, one_step_connectedness_map, two_step_connectedness_map, min_connectedness_one_step, min_connectedness_two_step)
@@ -909,47 +600,44 @@ def make_mixture_data(wiki_js_folder, event_name_map, entity_name_map, event_typ
 
     print("\nDone!\n")
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out_data_dir", type=str, default="/home/atomko/backup_drive/Summer_2020/Test_Debug_Mix",
-                        help='Folder where the mixtures will be written (will be created by the script, if it does not already exist)')
-    parser.add_argument("--wiki_js_folder", type=str, default="/home/atomko/backup_drive/Summer_2020/Graph_Singles",
-                        help='Directory containing Wiki json graphs')
-    parser.add_argument("--event_name_maps", type=str, default="/home/atomko/backup_drive/Summer_2020/event_names_uncollapsed.p",
-                        help='Name mapping for events')
-    parser.add_argument("--entity_name_maps", type=str, default="/home/atomko/backup_drive/Summer_2020/entity_names_uncollapsed.p",
-                        help='Name mapping for entities')
-    parser.add_argument("--event_type_maps", type=str, default="/home/atomko/backup_drive/Summer_2020/event_types_uncollapsed.p",
-                        help='Type mapping for events')
-    parser.add_argument("--entity_type_maps", type=str, default="/home/atomko/backup_drive/Summer_2020/entity_types_uncollapsed.p",
-                        help='Type mapping for entities')
-    parser.add_argument("--one_step_connectedness_map", type=str, default="/home/atomko/backup_drive/Summer_2020/connectedness_one_step_uncollapsed.p",
-                        help='One-step connectedness map')
-    parser.add_argument("--two_step_connectedness_map", type=str, default="/home/atomko/backup_drive/Summer_2020/connectedness_two_step_uncollapsed.p",
-                        help='Two-step connectedness map')
+    parser.add_argument("--out_data_dir", type=str, default="/home/cc/out_salads",
+                        help='Folder (abs path) where the mixtures will be written (will be created by the script, if it does not already exist)')
+    parser.add_argument("--single_doc_graphs_folder", type=str, default="/home/cc/test_file_gen",
+                        help='Input folder (abs path) containing Wiki json graphs')
+    parser.add_argument("--event_name_maps", type=str, default="/home/cc/test_event_entity_map_out/event_names.p",
+                        help='File location (abs path) of pickled dict mapping names to event ERE IDs')
+    parser.add_argument("--entity_name_maps", type=str, default="/home/cc/test_event_entity_map_out/entity_names.p",
+                        help='File location (abs path) of pickled dict mapping names to entity ERE IDs')
+    parser.add_argument("--event_type_maps", type=str, default="/home/cc/test_event_entity_map_out/event_types.p",
+                        help='File location (abs path) of pickled dict mapping event ERE IDs to ontology types')
+    parser.add_argument("--entity_type_maps", type=str, default="/home/cc/test_event_entity_map_out/entity_types.p",
+                        help='File location (abs path) of pickled dict mapping entity ERE IDs to ontology types')
+    parser.add_argument("--one_step_connectedness_map", type=str, default="/home/cc/test_event_entity_map_out/connectedness_one_step.p",
+                        help='File location (abs path) of pickled dict mapping ERE IDs to one-step connectedness values')
+    parser.add_argument("--two_step_connectedness_map", type=str, default="/home/cc/test_event_entity_map_out/connectedness_two_step.p",
+                        help='File location (abs path) of pickled dict mapping ERE IDs to two-step connectedness values')
     parser.add_argument("--num_sources", type=int, default=3,
-                        help='Number of single docs to mix at one time')
+                        help='Number of single-doc sources to mix at one time')
     parser.add_argument("--num_shared_eres", type=int, default=3,
-                        help='Required number of mixture points in a produced mixture')
-    parser.add_argument("--num_abridge_hops", type=int, default=1000,
-                        help='Required number of mixture points in a produced mixture')
+                        help='Required number of event merge points in a produced graph salad')
+    parser.add_argument("--num_abridge_hops", type=int, default=None,
+                        help='When set, this value crops the graph salad to extend out a maximum of <num_abridge_hops> hops from each event merge point')
     parser.add_argument("--data_size", type=int, default=1000,
-                        help='Number of mixtures to create')
+                        help='Total number of mixtures to create (train + val + test)')
     parser.add_argument("--max_size", type=int, default=1500,
-                        help='Maximum size of graph mixtures (in KB)')
+                        help='Maximum size of each graph salad (approximately in kilobytes)')
     parser.add_argument("--print_every", type=int, default=100,
-                        help='Print every x mixtures created')
+                        help='Generate a message to stdout each time <print_every> salads are created')
     parser.add_argument("--min_connectedness_one_step", type=int, default=2,
-                        help='The minimum one-step connectedness score for an ERE to be selected as a mixture point')
+                        help='The minimum one-step connectedness score for an ERE to be selected to contribute to an event merge point')
     parser.add_argument("--min_connectedness_two_step", type=int, default=4,
-                        help='The minimum two-step connectedness score for an ERE to be selected as a mixture point')
+                        help='The minimum two-step connectedness score for an ERE to be selected to contribute to an event merge point')
     parser.add_argument("--max_connectedness_two_step", type=int, default=60,
-                        help='Maximum two-step connectedness of merge points')
+                        help='Maximum allowable total two-step connectedness of merge point')
     parser.add_argument("--perc_train", type=float, default=.8,
                         help='Percentage of <data_size> mixtures to assign to the training set')
-    parser.add_argument("--perc_val", type=float, default=.1,
-                        help='Percentage of <data_size> mixtures to assign to the validation set')
     parser.add_argument("--perc_test", type=float, default=.1,
                         help='Percentage of <data_size> mixtures to assign to the test set')
 
@@ -969,7 +657,7 @@ if __name__ == "__main__":
     one_step_connectedness_map = dill.load(open(one_step_connectedness_map, 'rb'))
     two_step_connectedness_map = dill.load(open(two_step_connectedness_map, 'rb'))
 
-    make_mixture_data(wiki_js_folder, event_names, entity_names, event_types, entity_types, one_step_connectedness_map, two_step_connectedness_map,
-                      out_data_dir, num_sources, num_shared_eres, num_abridge_hops, data_size, max_size, print_every, min_connectedness_one_step, min_connectedness_two_step, max_connectedness_two_step, perc_train, perc_val, perc_test)
+    make_mixture_data(single_doc_graphs_folder, event_names, entity_names, event_types, entity_types, one_step_connectedness_map, two_step_connectedness_map,
+                      out_data_dir, num_sources, num_shared_eres, num_abridge_hops, data_size, max_size, print_every, min_connectedness_one_step, min_connectedness_two_step, max_connectedness_two_step, perc_train, perc_test)
 
     print("Done!\n")

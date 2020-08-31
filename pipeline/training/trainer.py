@@ -1,23 +1,21 @@
+# Original author: Su Wang, 2019
+# Modified by Alex Tomkovich in 2019/2020
+
 ######
 # This file contains the training pipeline for models trained on graph salads.
 ######
 
 import dill
-import math
 import numpy as np
 import time
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import json
-import re
-import random
 from copy import deepcopy
 from modules import *
 
 # Run the model on a graph salad
-def run_batch(force, prob_force, model, optimizer, graph_dict, data_group, use_highest_ranked_gold, extraction_size, back_prop, device):
+def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_highest_ranked_gold, extraction_size, back_prop, device):
     graph_mix = graph_dict['graph_mix']
     target_graph_id = graph_dict['target_graph_id']
     ere_mat_ind = graph_dict['ere_mat_ind']
@@ -30,7 +28,7 @@ def run_batch(force, prob_force, model, optimizer, graph_dict, data_group, use_h
     seen_eres = set()
     curr_eres = deepcopy(mix_points)
 
-    # Traverse *via only target-graph stmts* the graph salad starting at the mix points
+    # Traverse *via only target-graph stmts* the graph salad, starting at the mix points
     while len(curr_eres) > 0:
         seen_eres.update(curr_eres)
 
@@ -75,7 +73,7 @@ def run_batch(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         trues.append(get_tensor_labels(graph_dict, device).reshape(-1))
 
         # If teacher forcing is on, draw a random number between (0, 1) and test against the current prob of teacher forcing
-        #
+        # If the test succeeds, admit:
         # (i) a random target-graph candidate statement (if teacher forcing succeeds and a use_highest_ranked_gold is false)
         # (ii) the model's highest-ranked target-graph candidate statement (if teacher forcing succeeds and use_highest_ranked_gold is true)
         # (iii) the model's prediction, if teacher forcing is off/does not succeed
@@ -106,7 +104,7 @@ def run_batch(force, prob_force, model, optimizer, graph_dict, data_group, use_h
     return loss.item(), accuracy
 
 # Train the model on a set of graph salads
-def train(batch_size, extraction_size, reduce_query_set, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend,
+def train(batch_size, extraction_size, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend,
           attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs, learning_rate, save_path, load_path, load_optim,
           use_highest_ranked_gold, valid_every, print_every, device):
     model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
@@ -131,8 +129,10 @@ def train(batch_size, extraction_size, reduce_query_set, weight_decay, force, in
 
     current_epoch = 0
 
-    # Create object to manage data
-    train_iter = DataIterator(train_path, reduce_query_set)
+    best_loss = np.inf
+
+    # Create DataIterator object to manage data
+    train_iter = DataIterator(train_path)
 
     prob_force = init_prob_force
 
@@ -149,9 +149,9 @@ def train(batch_size, extraction_size, reduce_query_set, weight_decay, force, in
 
             # "Artificial" batching; allow gradients to accumulate and only backprop after every <batch_size> graph salads
             if step != 0 and step % batch_size == 0:
-                result = run_batch(force, prob_force, model, optimizer, train_iter.next_batch(), "Train", use_highest_ranked_gold, extraction_size, True, device)
+                result = admit_seq(force, prob_force, model, optimizer, train_iter.next_batch(), "Train", use_highest_ranked_gold, extraction_size, True, device)
             else:
-                result = run_batch(force, prob_force, model, optimizer, train_iter.next_batch(), "Train", use_highest_ranked_gold, extraction_size, False, device)
+                result = admit_seq(force, prob_force, model, optimizer, train_iter.next_batch(), "Train", use_highest_ranked_gold, extraction_size, False, device)
 
             if result: # All graph salads should be valid--we should be able to remove this if condition
                 step += 1
@@ -167,32 +167,34 @@ def train(batch_size, extraction_size, reduce_query_set, weight_decay, force, in
                 # Validate the model on the validation set after every <valid_every> salads
                 if step % valid_every == 0:
                     print("\nRunning valid ...\n")
-                    print("Train (avg) loss = %.6f | accuracy = %.4f" % (np.mean(train_losses), np.mean(train_accuracies)))
-
                     model.eval()
-                    average_valid_loss, average_valid_accuracy = run_no_backprop(valid_path, extraction_size, reduce_query_set, model)
+                    average_valid_loss, average_valid_accuracy = run_no_backprop(valid_path, extraction_size, model)
                     print("Valid (avg): loss = %.6f | accuracy = %.4f" % (average_valid_loss, average_valid_accuracy))
 
-                    # Save a model checkpoint
-                    torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict()}, os.path.join(save_path, 'gcn2-cuda_best' + '_' + str(step) + '_' + str(current_epoch) + '.ckpt'))
+                    # Save checkpoint if the reported loss is lower than all previous reported losses
+                    if average_valid_loss < best_loss:
+                        torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict()}, os.path.join(save_path, 'gcn2-cuda_best' + '_' + str(step) + '_' + str(current_epoch) + '.ckpt'))
+                        best_loss = average_valid_loss
+                        print('New best val checkpoint at step ' + str(step) + ' of epoch ' + str(current_epoch + 1))
+
                     model.train()
 
         current_epoch += 1
 
     # Run the model on the test set
     model.eval()
-    average_test_loss, average_test_accuracy = run_no_backprop(test_path, extraction_size, reduce_query_set, model)
+    average_test_loss, average_test_accuracy = run_no_backprop(test_path, extraction_size, model)
     print("Test (avg): loss = %.6f | accuracy = %.4f" % (average_test_loss, average_test_accuracy))
     model.train()
 
 # Run the model on a set of data for evaluative purposes (called when validating and testing only)
-def run_no_backprop(data_path, extraction_size, reduce_query_set, model):
-    valid_iter = DataIterator(data_path, reduce_query_set)
+def run_no_backprop(data_path, extraction_size, model):
+    valid_iter = DataIterator(data_path)
 
     valid_losses, valid_accuracies = [], []
 
     while valid_iter.epoch == 0:
-        result = run_batch(False, None, model, None, valid_iter.next_batch(), "Val", False, extraction_size, False, device)
+        result = admit_seq(False, None, model, None, valid_iter.next_batch(), "Val", False, extraction_size, False, device)
         if result:
             valid_loss, valid_accuracy = result
             valid_losses.append(valid_loss)
@@ -222,18 +224,16 @@ if __name__ == "__main__":
                         help="During teacher forcing, always provide the model with the target-narrative candidate which was ranked most highly by the model")
     parser.add_argument("--force", action='store_true',
                         help="Enable teacher forcing")
-    parser.add_argument("--reduce_query_set", action='store_true',
-                        help="Enable teacher forcing")
     parser.add_argument("--init_prob_force", type=float, default=.25,
-                        help="Initial probability of admitting a target-narrative candidate when the model's highest-ranked candidate is incorrect")
+                        help="Initial probability of teacher forcing (i.e., admitting a target-narrative candidate when the model's highest-ranked candidate is incorrect)")
     parser.add_argument("--force_decay", type=float, default=.9659,
                         help="Factor by which the current probability of teacher forcing is multiplied every <force_every> training instances")
     parser.add_argument("--force_every", type=int, default=3000,
                         help="The current prob of teacher forcing is multiplied by the factor <force_decay> every <force_every> training instances")
     parser.add_argument("--batch_size", type=int, default=5,
-                        help="Number of layers in the GCN")
+                        help="Number of graph salads per batch")
     parser.add_argument("--extraction_size", type=int, default=25,
-                        help="Maximum number of statements to admit per graph instance")
+                        help="Maximum number of statements to admit per graph salad")
     parser.add_argument("--num_layers", type=int, default=2,
                         help="Number of layers in the GCN")
     parser.add_argument("--attention_type", type=str, default='concat',
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     parser.add_argument("--self_attend", action='store_true',
                         help="Enable a self-attention mechanism during convolution")
     parser.add_argument("--self_attention_type", type=str, default='concat',
-                        help="Attention score type for convolution (can be concat or bilinear)")
+                        help="Attention score type for self-attention (can be concat or bilinear)")
     parser.add_argument("--hidden_size", type=int, default=300,
                         help="Size of hidden representations in model")
     parser.add_argument("--attention_size", type=int, default=300,
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_epochs", type=int, default=2,
                         help="Number of epochs for training")
     parser.add_argument("--weight_decay", type=float, default=None,
-                        help="Learning rate")
+                        help="Weight decay for Adam optimizer")
     parser.add_argument("--learning_rate", type=float, default=1e-5,
                         help="Learning rate")
     parser.add_argument("--save_path", type=str, default="SavedModels_Test",
@@ -279,6 +279,7 @@ if __name__ == "__main__":
     print("Config:\n", args, "\nDevice:\n", device, "\n")
     print("START TRAINING ...\n\n")
 
+    # Check that the directory for saving model checkpoints exists
     verify_dir(save_path)
 
     # Set seeds for debugging/hyperparam comparison
@@ -301,15 +302,15 @@ if __name__ == "__main__":
 
     # Train a fresh model
     if mode == 'train':
-        train(batch_size, extraction_size, reduce_query_set, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
+        train(batch_size, extraction_size, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
                       learning_rate, save_path, load_path, load_optim, use_highest_ranked_gold, valid_every, print_every, device)
     # Evaluate an existing model on test data
     elif mode == 'validate':
         model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
-        model.load_state_dict(torch.load(load_path, map_location='cuda:0')['model'])
+        model.load_state_dict(torch.load(load_path, map_location=device)['model'])
 
-        print("\nRunning valid ...\n")
+        print("\nRunning on test set ...\n")
         model.eval()
-        average_valid_loss, average_valid_accuracy = run_no_backprop(test_path, extraction_size, reduce_query_set, model)
+        average_valid_loss, average_valid_accuracy = run_no_backprop(test_path, extraction_size, model)
         print("Test (avg): loss = %.6f | accuracy = %.4f" % (average_valid_loss, average_valid_accuracy))
         model.train()
