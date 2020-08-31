@@ -1,5 +1,4 @@
 dill
 tqdm
-torch
 numpy
 gensim

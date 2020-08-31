@@ -5,9 +5,10 @@ Graph salads are artificial mixtures of topically-similar component graphs which
 To create graph salads, we "collapse" two or more EREs from distinct source KGs into single representations.
 
 Setup/Dependencies:
+Run 'install_dependencies.sh' script via bash in this directory to install necessary Python packages
+and download pretrained Word2Vec bin file.
 
-
-The files required for data generation are as follows (in order):
+The files required for graph salad data generation are as follows (in order):
 
 ****************************
 (1) gen_single_doc_graphs.py

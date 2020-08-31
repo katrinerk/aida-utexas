@@ -14,9 +14,11 @@ from collections import defaultdict
 
 def process_ere_list(graph, ere_list, names_dict, types_dict, conn_one_dict, conn_two_dict):
     for (ere_id, ere) in ere_list:
+        # Ensure the current ERE is connected to at least one event statement
         if len([stmt_id for stmt_id in graph.eres[ere_id].stmt_ids if (graph.stmts[stmt_id].tail_id and (graph.eres[graph.stmts[stmt_id].head_id].category == 'Event'))]) < 1:
             continue
 
+        # Gather all typing statements for the current ERE
         type_stmts = set([graph.stmts[stmt_id].raw_label for stmt_id in ere.stmt_ids if not graph.stmts[stmt_id].tail_id and graph.stmts[stmt_id].head_id == ere_id])
 
         [names_dict[label].add(ere_id) for label in ere.label]
@@ -57,6 +59,7 @@ def generate_name_lists(graph_dir, output_dir):
         process_ere_list(graph, events, event_names, event_types, connectedness_one_step, connectedness_two_step)
         process_ere_list(graph, entities, entity_names, entity_types, connectedness_one_step, connectedness_two_step)
 
+    # Merge EREs by simple capitalization/plurality heuristic
     simple_merge(event_names)
     simple_merge(entity_names)
 

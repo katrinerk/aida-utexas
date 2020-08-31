@@ -75,24 +75,10 @@ def replace_ere(graph, source_id, target_ere):
                 graph.eres[graph.stmts[stmt_id].tail_id].neighbor_ere_ids.discard(source_id)
                 graph.eres[graph.stmts[stmt_id].tail_id].neighbor_ere_ids.add(target_ere.id)
 
-def abridge_graph(origin_id, query, graph_mix, target_graph_id, num_abridge_hops):
-    for ere_id in graph_mix.eres.keys():
-        graph_mix.eres[ere_id].stmt_ids.update({item for item in graph_mix.stmts.keys() if ere_id in {graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}})
-        graph_mix.eres[ere_id].neighbor_ere_ids = set.union(*[{graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id} for item in graph_mix.eres[ere_id].stmt_ids if graph_mix.stmts[item].tail_id]) - {ere_id}
-
-    for ere_id, ere in graph_mix.eres.items():
-        items_to_del = set()
-
-        if len([item for item in ere.stmt_ids if not graph_mix.stmts[item].tail_id]) > 1:
-            for item in ere.stmt_ids:
-                if not graph_mix.stmts[item].tail_id and graph_mix.stmts[item].graph_id != target_graph_id:
-                    items_to_del.add(item)
-
-        for item in items_to_del:
-            del graph_mix.stmts[item]
-
-            graph_mix.eres[ere_id].stmt_ids.discard(item)
-
+# If an <num_abridge_hops> value is specified, this function crops the graph salad such that all EREs in the
+# cropped graph are no more than <num_abridge_hops> traversals from some merge point.
+def abridge_graph(graph_mix, target_graph_id, num_abridge_hops):
+    # Find all merge points (event or entity)
     merge_points = {item for item in graph_mix.eres.keys() if len({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[item].stmt_ids}) == 3}
 
     seen_eres = set()
@@ -100,60 +86,40 @@ def abridge_graph(origin_id, query, graph_mix, target_graph_id, num_abridge_hops
 
     i = 0
 
+    # Traverse out <num_abridge_hops> from all merge points
     while len(curr_eres) > 0 and i < num_abridge_hops:
         seen_eres.update(curr_eres)
         curr_eres = set.union(*[graph_mix.eres[ere_id].neighbor_ere_ids for ere_id in curr_eres]) - seen_eres
 
         i += 1
 
+    # Determine the set of stmts which are reachable via <num_abridge_hops> or less hops from any merge point.
     reachable_stmts = set.union(*[graph_mix.eres[ere_id].stmt_ids for ere_id in seen_eres])
     seen_eres.update(curr_eres)
 
+    # Make sure we include both relation statements in the set of reachable stmts for each reachable relation node.
     for ere_id in deepcopy(seen_eres):
         if graph_mix.eres[ere_id].category == 'Relation':
             reachable_stmts.update(graph_mix.eres[ere_id].stmt_ids)
             seen_eres.update(graph_mix.eres[ere_id].neighbor_ere_ids)
 
+    # Make sure we add all typing stmts for reachable EREs.
     reachable_stmts.update(set.union(*[{item for item in graph_mix.eres[ere_id].stmt_ids if not graph_mix.stmts[item].tail_id} for ere_id in seen_eres]))
 
+    # Remove all non-reached EREs.
     for ere_id in set(graph_mix.eres.keys()) - seen_eres:
         del graph_mix.eres[ere_id]
 
+    # Remove all non-reached stmts.
     for stmt_id in set(graph_mix.stmts.keys()) - reachable_stmts:
         del graph_mix.stmts[stmt_id]
 
+    # Update each reachable ERE's neighbor EREs and adjacent stmts sets.
     for ere_id in graph_mix.eres.keys():
         graph_mix.eres[ere_id].stmt_ids = set.intersection(graph_mix.eres[ere_id].stmt_ids, reachable_stmts)
         graph_mix.eres[ere_id].neighbor_ere_ids = set.union(*[{graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id} for item in graph_mix.eres[ere_id].stmt_ids if graph_mix.stmts[item].tail_id]) - {ere_id}
 
-    for stmt_id, stmt in graph_mix.stmts.items():
-        head_id = stmt.head_id
-        tail_id = stmt.tail_id
-
-        if not tail_id:
-            assert stmt_id in graph_mix.eres[head_id].stmt_ids
-        else:
-            assert stmt_id in graph_mix.eres[head_id].stmt_ids
-            assert stmt_id in graph_mix.eres[tail_id].stmt_ids
-            assert tail_id in graph_mix.eres[head_id].neighbor_ere_ids
-            assert head_id in graph_mix.eres[tail_id].neighbor_ere_ids
-
-    for ere_id, ere in graph_mix.eres.items():
-        assert ere_id not in ere.neighbor_ere_ids
-
-        assert len([item for item in ere.stmt_ids if not graph_mix.stmts[item].tail_id]) == 1
-        assert graph_mix.stmts[[item for item in ere.stmt_ids if not graph_mix.stmts[item].tail_id][0]].graph_id == ere.graph_id
-
-        assert set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} if graph_mix.stmts[stmt_id].tail_id else {graph_mix.stmts[stmt_id].head_id} for stmt_id in ere.stmt_ids]) - {ere_id} == ere.neighbor_ere_ids
-
-        temp = set()
-
-        for stmt_id, stmt in graph_mix.stmts.items():
-            if ere_id in [stmt.head_id, stmt.tail_id]:
-                temp.add(stmt_id)
-
-        assert temp == ere.stmt_ids
-
+# Get combinations of highly connected mergeable EREs from the chosen source graphs
 def get_query_points(sample_graphs, name_dict, src_to_name_map, num_sources, two_step_connectedness_map, max_connectedness_two_step, ere_type_maps):
     # Determine all ERE names which the chosen source graphs share
     shared_names = set.intersection(*[src_to_name_map[item] for item in sample_graphs])
@@ -202,6 +168,7 @@ def get_query_points(sample_graphs, name_dict, src_to_name_map, num_sources, two
 
     return query_points
 
+# Determine the set of component graphs for each the event query points are mutually reachable via only statements from each component graph.
 def get_possible_target_graph_ids(graph_list, sample_graphs, query_points):
     poss_target_graph_ids = []
 
@@ -247,10 +214,11 @@ def create_mix(graph_list, event_names, entity_names, event_type_maps, entity_ty
         if (set(sample_graphs) - set(graph_list.keys())) or (len(set(sample_graphs)) < num_sources):
             continue
 
+        # Get possible combinations of EREs for query points
         query_event_points = get_query_points(sample_graphs, event_names, event_src_to_name_map, num_sources, two_step_connectedness_map, max_connectedness_two_step, event_type_maps)
         query_entity_points = get_query_points(sample_graphs, entity_names, entity_src_to_name_map, num_sources, two_step_connectedness_map, max_connectedness_two_step, entity_type_maps)
 
-        # Use the <num_shared_eres> query points with the highest two-step connectedness scores
+        # Use the <num_shared_eres> event query points with the highest two-step connectedness scores
         query_event_points = query_event_points[:num_shared_eres]
 
         if len(query_event_points) < num_shared_eres:
@@ -286,6 +254,7 @@ def create_mix(graph_list, event_names, entity_names, event_type_maps, entity_ty
     # Mix the source graphs and create the salads
     graph_info = []
 
+    # For each of the valid target graphs
     for (target_graph_iter, target_graph_id, count) in poss_target_graph_ids:
         graph_copies = [deepcopy(graph_list[item]) for item in sample_graphs]
 
@@ -375,9 +344,57 @@ def create_mix(graph_list, event_names, entity_names, event_type_maps, entity_ty
 
         origin_id = query_event_points[random_start_ind][1][target_graph_iter][0]
 
+        # Graph cleanup
+        for ere_id in graph_mix.eres.keys():
+            graph_mix.eres[ere_id].stmt_ids.update({item for item in graph_mix.stmts.keys() if ere_id in {graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}})
+            graph_mix.eres[ere_id].neighbor_ere_ids = set.union(*[{graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id} for item in graph_mix.eres[ere_id].stmt_ids if graph_mix.stmts[item].tail_id]) - {ere_id}
+
+        # For all merge points, remove all non-target typing statements
+        for ere_id, ere in graph_mix.eres.items():
+            items_to_del = set()
+
+            if len([item for item in ere.stmt_ids if not graph_mix.stmts[item].tail_id]) > 1:
+                for item in ere.stmt_ids:
+                    if not graph_mix.stmts[item].tail_id and graph_mix.stmts[item].graph_id != target_graph_id:
+                        items_to_del.add(item)
+
+            for item in items_to_del:
+                del graph_mix.stmts[item]
+
+                graph_mix.eres[ere_id].stmt_ids.discard(item)
+
         # If requested, reduce the size of the graph by cropping subgraphs pieces more than <num_abridge_hops> away from any given event merge point
         if num_abridge_hops:
-            abridge_graph(origin_id, query, graph_mix, target_graph_id, num_abridge_hops)
+            abridge_graph(graph_mix, target_graph_id, num_abridge_hops)
+
+        # Some sanity checks to make sure we accounted for structural rules.
+        for stmt_id, stmt in graph_mix.stmts.items():
+            head_id = stmt.head_id
+            tail_id = stmt.tail_id
+
+            if not tail_id:
+                assert stmt_id in graph_mix.eres[head_id].stmt_ids
+            else:
+                assert stmt_id in graph_mix.eres[head_id].stmt_ids
+                assert stmt_id in graph_mix.eres[tail_id].stmt_ids
+                assert tail_id in graph_mix.eres[head_id].neighbor_ere_ids
+                assert head_id in graph_mix.eres[tail_id].neighbor_ere_ids
+
+        for ere_id, ere in graph_mix.eres.items():
+            assert ere_id not in ere.neighbor_ere_ids
+
+            assert len([item for item in ere.stmt_ids if not graph_mix.stmts[item].tail_id]) == 1
+            assert graph_mix.stmts[[item for item in ere.stmt_ids if not graph_mix.stmts[item].tail_id][0]].graph_id == ere.graph_id
+
+            assert set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} if graph_mix.stmts[stmt_id].tail_id else {graph_mix.stmts[stmt_id].head_id} for stmt_id in ere.stmt_ids]) - {ere_id} == ere.neighbor_ere_ids
+
+            temp = set()
+
+            for stmt_id, stmt in graph_mix.stmts.items():
+                if ere_id in [stmt.head_id, stmt.tail_id]:
+                    temp.add(stmt_id)
+
+            assert temp == ere.stmt_ids
 
         graph_info.append((origin_id, query, graph_mix, target_graph_id))
 
@@ -602,21 +619,21 @@ def make_mixture_data(single_doc_graphs_folder, event_name_map, entity_name_map,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out_data_dir", type=str, default="/home/cc/out_salads",
+    parser.add_argument("--out_data_dir", type=str, default="/home/atomko/out_salads",
                         help='Folder (abs path) where the mixtures will be written (will be created by the script, if it does not already exist)')
-    parser.add_argument("--single_doc_graphs_folder", type=str, default="/home/cc/test_file_gen",
+    parser.add_argument("--single_doc_graphs_folder", type=str, default="/home/atomko/test_file_gen",
                         help='Input folder (abs path) containing Wiki json graphs')
-    parser.add_argument("--event_name_maps", type=str, default="/home/cc/test_event_entity_map_out/event_names.p",
+    parser.add_argument("--event_name_maps", type=str, default="/home/atomko/test_event_entity_map_out/event_names.p",
                         help='File location (abs path) of pickled dict mapping names to event ERE IDs')
-    parser.add_argument("--entity_name_maps", type=str, default="/home/cc/test_event_entity_map_out/entity_names.p",
+    parser.add_argument("--entity_name_maps", type=str, default="/home/atomko/test_event_entity_map_out/entity_names.p",
                         help='File location (abs path) of pickled dict mapping names to entity ERE IDs')
-    parser.add_argument("--event_type_maps", type=str, default="/home/cc/test_event_entity_map_out/event_types.p",
+    parser.add_argument("--event_type_maps", type=str, default="/home/atomko/test_event_entity_map_out/event_types.p",
                         help='File location (abs path) of pickled dict mapping event ERE IDs to ontology types')
-    parser.add_argument("--entity_type_maps", type=str, default="/home/cc/test_event_entity_map_out/entity_types.p",
+    parser.add_argument("--entity_type_maps", type=str, default="/home/atomko/test_event_entity_map_out/entity_types.p",
                         help='File location (abs path) of pickled dict mapping entity ERE IDs to ontology types')
-    parser.add_argument("--one_step_connectedness_map", type=str, default="/home/cc/test_event_entity_map_out/connectedness_one_step.p",
+    parser.add_argument("--one_step_connectedness_map", type=str, default="/home/atomko/test_event_entity_map_out/connectedness_one_step.p",
                         help='File location (abs path) of pickled dict mapping ERE IDs to one-step connectedness values')
-    parser.add_argument("--two_step_connectedness_map", type=str, default="/home/cc/test_event_entity_map_out/connectedness_two_step.p",
+    parser.add_argument("--two_step_connectedness_map", type=str, default="/home/atomko/test_event_entity_map_out/connectedness_two_step.p",
                         help='File location (abs path) of pickled dict mapping ERE IDs to two-step connectedness values')
     parser.add_argument("--num_sources", type=int, default=3,
                         help='Number of single-doc sources to mix at one time')

@@ -8,7 +8,6 @@
 
 import dill
 import re
-import torch
 import argparse
 import time
 from collections import Counter
@@ -50,7 +49,7 @@ def get_tokens(train_path, word2vec_model, return_freq_cut_set):
 
     return set(list(zip(*token2count.most_common(return_freq_cut_set)))[0]), stmt_labels
 
-
+# Create indexers based on vocabulary in training graph salads.
 def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim, return_freq_cut_set):
     ere_indexer = Indexer()
     ere_indexer.word_to_index = {}
@@ -145,11 +144,14 @@ def convert_labels_to_indices(graph_mix, indexer_info):
     # contains a 1 in position (x, y) if statement y is attached to ERE x at the head/subject (does NOT include typing statements)
     # adj_ere_to_stmt_tail: same as above, but for statements attached to EREs at the tail
     # adj_ere_to_stmt_head: same as above, but for typing statements attached to EREs
-    adj_ere_to_stmt_head = torch.zeros((ere_mat_ind.size, stmt_mat_ind.size), dtype=torch.uint8)
-    adj_ere_to_stmt_tail = torch.zeros((ere_mat_ind.size, stmt_mat_ind.size), dtype=torch.uint8)
-    adj_ere_to_type_stmt = torch.zeros((ere_mat_ind.size, stmt_mat_ind.size), dtype=torch.uint8)
-    #inv_sqrt_degree_mat_eres = torch.zeros((ere_mat_ind.size, ere_mat_ind.size))
-    #inv_sqrt_degree_mat_stmts = torch.zeros((stmt_mat_ind.size, stmt_mat_ind.size))
+    adj_ere_to_stmt_head = np.zeros((ere_mat_ind.size, stmt_mat_ind.size), dtype=bool)
+    adj_ere_to_stmt_tail = np.zeros((ere_mat_ind.size, stmt_mat_ind.size), dtype=bool)
+    adj_ere_to_type_stmt = np.zeros((ere_mat_ind.size, stmt_mat_ind.size), dtype=bool)
+
+    # Old: for dividing adjacency matrix by node degree
+    #inv_sqrt_degree_mat_eres = np.zeros((ere_mat_ind.size, ere_mat_ind.size))
+    #inv_sqrt_degree_mat_stmts = np.zeros((stmt_mat_ind.size, stmt_mat_ind.size))
+
     ere_labels = [[] for _ in range(ere_mat_ind.size)]
     stmt_labels = [[] for _ in range(stmt_mat_ind.size)]
 
@@ -199,6 +201,7 @@ def convert_labels_to_indices(graph_mix, indexer_info):
 
     return {'graph_mix': graph_mix, 'ere_mat_ind': ere_mat_ind, 'stmt_mat_ind': stmt_mat_ind, 'adj_head': adj_ere_to_stmt_head, 'adj_tail': adj_ere_to_stmt_tail, 'adj_type': adj_ere_to_type_stmt, 'ere_labels': ere_labels, 'stmt_labels': stmt_labels, 'num_word2vec_ere': num_word2vec_ere, 'num_word2vec_stmt': num_word2vec_stmt}
 
+# Index graph salads and write them to disk.
 def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
     indexed_data_dir = data_dir + '_Indexed'
 
@@ -228,6 +231,7 @@ def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
 
             query_stmt_indices = [graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in query]
 
+            # Find the indices of all EREs captured by statements in the query set.
             query_ere_indices = set.union(*[set([graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].head_id, add=False), graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].tail_id, add=False)])
                                             if graph_dict['graph_mix'].stmts[stmt].tail_id else set([graph_dict['ere_mat_ind'].get_index(graph_dict['graph_mix'].stmts[stmt].head_id, add=False)]) for stmt in query])
 
@@ -246,8 +250,8 @@ def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="/home/cc/out_salads", help='Directory containing folders of different mixture types')
-    parser.add_argument("--pre_word2vec_bin", type=str, default='/home/cc/GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
+    parser.add_argument("--data_dir", type=str, default="/home/atomko/out_salads", help='Directory containing folders of different mixture types')
+    parser.add_argument("--pre_word2vec_bin", type=str, default='/home/atomko/GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
     parser.add_argument("--emb_dim", type=int, default=300, help='Index the x most frequent ERE label tokens')
     parser.add_argument("--return_freq_cut_set", type=int, default=50000, help='Index the x most frequent ERE label tokens')
 
