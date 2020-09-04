@@ -33,9 +33,7 @@ def main():
     hypothesis_path = util.get_input_path(args.hypothesis_path)
     output_dir = util.get_dir(args.output_dir, create=True)
 
-    logging.info('Loading graph JSON from {} ...'.format(graph_path))
-    with open(str(graph_path), 'r') as fin:
-        json_graph = JsonGraph.from_dict(json.load(fin))
+    json_graph = JsonGraph.load(graph_path)
 
     hypothesis_file_paths = util.get_file_list(hypothesis_path, suffix='.json', sort=True)
 

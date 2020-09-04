@@ -16,8 +16,7 @@ def main():
     args = parser.parse_args()
 
     graph_path = util.get_input_path(args.graph_path)
-    with open(str(graph_path), 'r') as fin:
-        json_graph = JsonGraph.from_dict(json.load(fin))
+    json_graph = JsonGraph.load(graph_path)
 
     hypothesis_path = util.get_input_path(args.hypothesis_path)
     with open(str(hypothesis_path), 'r') as fin:

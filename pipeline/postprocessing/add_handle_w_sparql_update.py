@@ -4,7 +4,6 @@ from operator import itemgetter
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
-from aida_utexas.json_graph_helper import build_cluster_member_mappings
 
 update_prefix = \
     'PREFIX ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#>\n' \
@@ -52,11 +51,9 @@ def main():
     hypotheses_json_path = util.get_input_path(args.hypotheses_json_path)
     output_dir = util.get_dir(args.output_dir, create=True)
 
-    print('Reading the graph from {}'.format(graph_json_path))
-    with open(str(graph_json_path), 'r') as fin:
-        json_graph = JsonGraph.from_dict(json.load(fin))
+    json_graph = JsonGraph.load(graph_json_path)
 
-    member_to_clusters = build_cluster_member_mappings(json_graph)['member_to_clusters']
+    member_to_clusters = json_graph.build_cluster_member_mappings()['member_to_clusters']
 
     print('Reading the hypotheses from {}'.format(hypotheses_json_path))
     with open(str(hypotheses_json_path), 'r') as fin:

@@ -126,9 +126,7 @@ def main():
     output_dir = util.get_dir(args.output_dir, create=True)
 
     graph_name = graph_path.name
-    logging.info('Loading JSON graph from {} ...'.format(graph_path))
-    with open(str(graph_path), 'r') as fin:
-        json_graph = JsonGraph.from_dict(json.load(fin))
+    json_graph = JsonGraph.load(graph_path)
 
     query_file_paths = util.get_file_list(query_path, suffix='.json', sort=True)
 

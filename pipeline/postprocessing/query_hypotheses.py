@@ -5,7 +5,6 @@ from operator import itemgetter
 from aida_utexas import sparql_helper
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
-from aida_utexas.json_graph_helper import build_cluster_member_mappings
 
 AIF_HEADER_PREFIXES = \
     '@prefix ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#> .\n' \
@@ -288,11 +287,9 @@ def main():
     args = parser.parse_args()
 
     graph_json_path = util.get_input_path(args.graph_json_path)
-    print('Reading the graph from {}'.format(graph_json_path))
-    with open(str(graph_json_path), 'r') as fin:
-        json_graph = JsonGraph.from_dict(json.load(fin))
+    json_graph = JsonGraph.load(graph_json_path)
 
-    mappings = build_cluster_member_mappings(json_graph)
+    mappings = json_graph.build_cluster_member_mappings()
     member_to_clusters = mappings['member_to_clusters']
     cluster_to_prototype = mappings['cluster_to_prototype']
     prototype_set = set(mappings['prototype_to_clusters'].keys())

@@ -25,7 +25,6 @@ from typing import Dict
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
 from aida_utexas.aif.json_graph import ERENode, StatementNode
-from aida_utexas.json_graph_helper import build_cluster_member_mappings
 
 
 def make_stmt_keys(stmt_entry, member_to_prototypes):
@@ -56,7 +55,7 @@ def make_stmt_keys(stmt_entry, member_to_prototypes):
 
 def build_mappings(json_graph: JsonGraph):
     # Build mappings among clusters, members, and prototypes
-    mappings = build_cluster_member_mappings(json_graph)
+    mappings = json_graph.build_cluster_member_mappings()
 
     # Build mappings from old statement labels to new statement labels
     stmt_count = 0
@@ -233,9 +232,7 @@ def main():
     output_graph_path = util.get_output_path(args.output_graph_path)
     output_log_path = util.get_output_path(args.output_log_path)
 
-    logging.info('Reading json graph from {} ...'.format(input_graph_path))
-    with open(str(input_graph_path), 'r') as fin:
-        input_json_graph = JsonGraph.from_dict(json.load(fin))
+    input_json_graph = JsonGraph.load(input_graph_path)
 
     num_old_eres = len(list(input_json_graph.each_ere()))
     assert num_old_eres == len(input_json_graph.eres)
