@@ -6,7 +6,7 @@ input_dir=$1
 output_dir=$2
 count=$3
 
-mkdir "${output_dir}"
+mkdir -p "${output_dir}"
 
 for i in $(seq -f "%03g" 1 "${count}")
 do
