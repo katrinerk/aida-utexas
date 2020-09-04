@@ -1,9 +1,12 @@
 """
-Author: Katrin Erk July 2019
-simple post-hoc filter for hypothesis files
+Author: Katrin Erk, Jul 2019
+- Simple post-hoc filter for hypothesis files
 
-Update: Pengxiang May 2020
-re-writing for dockerization
+Update: Pengxiang Cheng, May 2020
+- Re-writing for dockerization
+
+Update: Pengxiang Cheng, Aug 2020
+- Use the new JsonGraph API
 """
 
 import json
@@ -11,7 +14,7 @@ import logging
 from argparse import ArgumentParser
 
 from aida_utexas import util
-from aida_utexas.aif import AidaJson
+from aida_utexas.aif import JsonGraph
 from aida_utexas.seeds import AidaHypothesisCollection, AidaHypothesisFilter, ClusterExpansion
 
 
@@ -32,7 +35,7 @@ def main():
 
     logging.info('Loading graph JSON from {} ...'.format(graph_path))
     with open(str(graph_path), 'r') as fin:
-        graph_json = AidaJson(json.load(fin))
+        json_graph = JsonGraph.from_dict(json.load(fin))
 
     hypothesis_file_paths = util.get_file_list(hypothesis_path, suffix='.json', sort=True)
 
@@ -41,12 +44,12 @@ def main():
 
         with open(str(hypothesis_file_path), 'r') as fin:
             json_hypotheses = json.load(fin)
-        hypothesis_collection = AidaHypothesisCollection.from_json(json_hypotheses, graph_json)
+        hypothesis_collection = AidaHypothesisCollection.from_json(json_hypotheses, json_graph)
 
         # create the filter
-        hypothesis_filter = AidaHypothesisFilter(graph_json)
+        hypothesis_filter = AidaHypothesisFilter(json_graph)
 
-        cluster_expansion = ClusterExpansion(graph_json, hypothesis_collection)
+        cluster_expansion = ClusterExpansion(json_graph, hypothesis_collection)
         cluster_expansion.type_completion()
         cluster_expansion.affiliation_completion()
 

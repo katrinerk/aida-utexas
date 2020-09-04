@@ -1,5 +1,7 @@
 # PyCharm configuration files
 .idea
+tmp
+notebook
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

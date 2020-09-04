@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from operator import itemgetter
 
 from aida_utexas import util
+from aida_utexas.aif import JsonGraph
 from aida_utexas.json_graph_helper import build_cluster_member_mappings
 
 update_prefix = \
@@ -15,7 +16,7 @@ update_prefix = \
     'PREFIX utexas: <http://www.utexas.edu/aida/>\n\n'
 
 
-def compute_importance_mapping(graph_json, hypothesis, member_to_clusters):
+def compute_importance_mapping(json_graph, hypothesis, member_to_clusters):
     stmt_importance = {}
     node_importance = {}
 
@@ -25,11 +26,9 @@ def compute_importance_mapping(graph_json, hypothesis, member_to_clusters):
         else:
             stmt_weight = 0.0001
 
-        stmt_entry = graph_json['theGraph'][stmt_label]
-
-        stmt_subj = stmt_entry.get('subject', None)
-        stmt_pred = stmt_entry.get('predicate', None)
-        stmt_obj = stmt_entry.get('object', None)
+        stmt_subj = json_graph.stmt_subject(stmt_label)
+        stmt_pred = json_graph.stmt_predicate(stmt_label)
+        stmt_obj = json_graph.stmt_object(stmt_label)
 
         assert stmt_subj is not None
         assert stmt_pred is not None
@@ -38,7 +37,7 @@ def compute_importance_mapping(graph_json, hypothesis, member_to_clusters):
         if stmt_pred != 'type':
             stmt_importance[(stmt_subj, stmt_pred, stmt_obj)] = stmt_weight
 
-        if graph_json['theGraph'][stmt_subj]['type'] in ['Event', 'Relation']:
+        if json_graph.is_event(stmt_subj) or json_graph.is_relation(stmt_subj):
             # if stmt_subj not in node_importance:
             #     node_importance[stmt_subj] = stmt_weight
             # elif node_importance[stmt_subj] < stmt_weight:
@@ -71,9 +70,9 @@ def main():
 
     print('Reading the graph from {}'.format(graph_json_path))
     with open(str(graph_json_path), 'r') as fin:
-        graph_json = json.load(fin)
+        json_graph = JsonGraph.from_dict(json.load(fin))
 
-    member_to_clusters = build_cluster_member_mappings(graph_json)['member_to_clusters']
+    member_to_clusters = build_cluster_member_mappings(json_graph)['member_to_clusters']
 
     print('Reading the hypotheses from {}'.format(hypotheses_json_path))
     with open(str(hypotheses_json_path), 'r') as fin:
@@ -112,7 +111,7 @@ def main():
         update_str += '  {} a aida:Subgraph .\n'.format(subgraph_name)
 
         stmt_importance, node_importance = compute_importance_mapping(
-            graph_json, hypothesis, member_to_clusters)
+            json_graph, hypothesis, member_to_clusters)
 
         for node_id, importance_value in node_importance.items():
             update_str += '  <{}> aida:importance "{:.4f}"^^xsd:double .\n'.format(

@@ -1,1 +1,0 @@
-from aida_utexas.soin_processing.process_soin import process_soin

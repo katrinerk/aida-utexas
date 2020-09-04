@@ -1,13 +1,17 @@
 """
-Author: Pengxiang Cheng August 2019
+Author: Pengxiang Cheng, Aug 2019
+- Helper function to construct mappings on clusters, members, and prototypes from an AidaGraph.
 
-Helper function to construct mappings on clusters, members, and prototypes from an AidaGraph
+Update: Pengxiang Cheng, Aug 2020
+- Adapt to new JsonGraph APIs.
 """
 
 from collections import Counter, defaultdict
 
+from aida_utexas.aif import JsonGraph
 
-def build_cluster_member_mappings(graph_json, debug=False):
+
+def build_cluster_member_mappings(json_graph: JsonGraph, debug=False):
     # Build mappings between clusters and members, and mappings between
     # clusters and prototypes
     print('\nBuilding mappings among clusters, members and prototypes ...')
@@ -19,10 +23,9 @@ def build_cluster_member_mappings(graph_json, debug=False):
     cluster_to_prototype = {}
     prototype_to_clusters = defaultdict(set)
 
-    for node_label, node in graph_json['theGraph'].items():
-        if node['type'] == 'ClusterMembership':
-            cluster = node.get('cluster', None)
-            member = node.get('clusterMember', None)
+    for node_label, node in json_graph.node_dict.items():
+        if node.type == 'ClusterMembership':
+            cluster, member = node.cluster, node.clusterMember
             assert cluster is not None and member is not None
 
             cluster_to_members[cluster].add(member)
@@ -33,14 +36,12 @@ def build_cluster_member_mappings(graph_json, debug=False):
                     cluster, member))
             cluster_membership_key_mapping[(cluster, member)].add(node_label)
 
-        elif node['type'] == 'SameAsCluster':
+        elif node.type == 'SameAsCluster':
             assert node_label not in cluster_to_prototype
+            assert node.prototype is not None
 
-            prototype = node.get('prototype', None)
-            assert prototype is not None
-
-            cluster_to_prototype[node_label] = prototype
-            prototype_to_clusters[prototype].add(node_label)
+            cluster_to_prototype[node_label] = node.prototype
+            prototype_to_clusters[node.prototype].add(node_label)
 
     num_clusters = len(cluster_to_members)
     num_members = len(member_to_clusters)
@@ -110,8 +111,8 @@ def build_cluster_member_mappings(graph_json, debug=False):
     # unless the TA2 output we get don't conform to the NIST-restricted
     # formatting requirements.
     ere_nodes_not_in_clusters = set()
-    for node_label, node in graph_json['theGraph'].items():
-        if node['type'] in ['Entity', 'Relation', 'Event']:
+    for node_label, node in json_graph.node_dict.items():
+        if node.type in ['Entity', 'Relation', 'Event']:
             if node_label not in member_to_prototypes:
                 ere_nodes_not_in_clusters.add(node_label)
     if len(ere_nodes_not_in_clusters) > 0:

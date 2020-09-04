@@ -1,27 +1,25 @@
-"""RDF graph:
-takes as input an rdflib Graph
-generated from an AIDA interchange format file
-(the AIDA interchange format is based on the GAIA proposal)
+"""
+Author: Katrin Erk, Oct 2018
+- Takes as input an AIDA interchange format file, reads it via the rdflib library, and
+transforms it into a mapping from node ids to node entries for each subject of the graph.
 
-Transforms the graph into the following format:
-one node for each subject of the rdflib Graph
-an entry for each predicate/object pair associated with this subject
-in the rdflib graph
+- Each node entry contains a list of predicate/object pairs for its outgoing edges, and a list of
+predicate/subject pairs for its incoming edges.
 
-Here is how rdflib reads an AIDA interchange format file:
+- Here is how rdflib reads an AIDA interchange format file:
 
 original:
 
     <http://darpa.mil/annotations/ldc/assertions/388>
-            a               rdf:Statement ;
-            rdf:object      ldcOnt:GeopoliticalEntity ;
-            rdf:predicate   rdf:type ;
-            rdf:subject     ldc:E781145.00381 ;
-            aif:confidence  [ a                    aif:Confidence ;
-                              aif:confidenceValue  "1.0"^^<http://www.w3.org/2001/XMLSchema#double> ;
-                              aif:system           ldc:LDCModelGenerator
-                            ] ;
-            aif:system      ldc:LDCModelGenerator .
+        a               rdf:Statement ;
+        rdf:object      ldcOnt:GeopoliticalEntity ;
+        rdf:predicate   rdf:type ;
+        rdf:subject     ldc:E781145.00381 ;
+        aif:confidence  [ a                    aif:Confidence ;
+                          aif:confidenceValue  "1.0"^^<http://www.w3.org/2001/XMLSchema#double> ;
+                          aif:system           ldc:LDCModelGenerator
+                        ] ;
+        aif:system      ldc:LDCModelGenerator .
 
     ldc:E781145.00381  a  aif:Entity ;
             aif:system  ldc:LDCModelGenerator .
@@ -63,11 +61,17 @@ turned into:
 and so on.
 
 so subj and obj are nodes, and pred is an edge label on the edge from subj to obj
+
+Updated: Pengxiang Cheng, Aug 2020
+- Small fix on cleanup and incorporating rdflib calls in the class.
 """
 
+import logging
 import os
-import urllib
 from collections import defaultdict
+from urllib.parse import urlsplit
+
+import rdflib
 
 
 class RDFNode:
@@ -78,78 +82,92 @@ class RDFNode:
     """
 
     # initialization: remember the subj, and start an empty dict of pred/obj pairs
-    def __init__(self, nodename):
-        self.name = nodename
-        self.outedge = defaultdict(set)
-        self.inedge = defaultdict(set)
+    def __init__(self, node_name):
+        self.name = node_name
+        self.out_edge = defaultdict(set)
+        self.in_edge = defaultdict(set)
 
-    # adding a pred/obj pair
-    def add(self, pred, obj):
-        self.outedge[pred].add(obj)
+    # adding a pred/obj pair to a subj node
+    def add_out_edge(self, pred, obj):
+        self.out_edge[pred].add(obj)
 
-    # adding a pred/subj pair
-    def add_inedge(self, pred, subj):
-        self.inedge[pred].add(subj)
+    # adding a pred/subj pair to an obj node
+    def add_in_edge(self, pred, subj):
+        self.in_edge[pred].add(subj)
 
     # shorten any label by removing the URI path and keeping only the last bit
     @staticmethod
-    def shortlabel(label):
-        urlpieces = urllib.parse.urlsplit(label)
-        if urlpieces.fragment == "":
-            return os.path.basename(urlpieces.path)
+    def short_label(label):
+        url_pieces = urlsplit(label)
+        if url_pieces.fragment == '':
+            return os.path.basename(url_pieces.path)
         else:
-            return urlpieces.fragment
+            return url_pieces.fragment
 
     # shorten the node name
-    def shortname(self):
-        return self.shortlabel(self.name)
+    def short_name(self):
+        return self.short_label(self.name)
 
-    # prettyprint: write the node name, and all pred/object pairs, all in short form
+    # write the node name, and all pred/object pairs, all in short form
     def prettyprint(self, omit=None):
-        print("Node name", self.shortname())
-        for pred, obj in self.outedge.items():
-            if omit is None or self.shortlabel(pred) not in omit:
-                print("\t", self.shortlabel(pred), ":", " ".join(self.shortlabel(o) for o in obj))
+        node_str = 'Node name: {}'.format(self.short_name())
+        for pred, objs in self.out_edge.items():
+            if omit is None or pred not in omit:
+                node_str += '\n\t{}: {}'.format(pred, ' '.join(self.short_label(o) for o in objs))
+        return node_str
 
-    # get: given a pred, return the obj's that go with it
-    def get(self, targetpred, shorten=False):
-        if targetpred in self.outedge:
-            return self._maybe_shorten(self.outedge[targetpred], shorten)
-        else:
-            for pred in self.outedge.keys():
-                if self.shortlabel(pred) == targetpred:
-                    return self._maybe_shorten(self.outedge[pred], shorten)
-        return set([])
-
-    def _maybe_shorten(self, labellist, shorten=False):
+    # given a pred, return the objs that go with it
+    def get(self, pred, shorten=False):
+        objs = self.out_edge.get(pred, set())
         if shorten:
-            return set([self.shortlabel(l) for l in labellist])
+            return set(self.short_label(o) for o in objs)
         else:
-            return set(labellist)
+            return objs
 
 
 class RDFGraph:
     # initialization builds an empty graph
-    def __init__(self, nodeclass=RDFNode):
+    def __init__(self, node_cls=RDFNode):
         self.node_dict = {}
-        self.nodeclass = nodeclass
+        self.node_cls = node_cls
 
-    # adding another RDF file to the graph of this object
-    def add_graph(self, rdflibgraph):
+    # build the RDF graph from a file, default format is ttl (turtle)
+    def build_graph(self, graph_path, fmt='ttl'):
+        # load triples from the file
+        logging.info('Loading RDF graph from {} ...'.format(graph_path))
+
+        graph = rdflib.Graph()
+        graph.parse(graph_path, format=fmt)
+
+        logging.info('Done. Found {} triples.'.format(len(graph)))
+
         # for each new triple, record it
-        for subj, pred, obj in rdflibgraph:
-            
+        logging.info('Building RDF graph ...')
+
+        for subj, pred, obj in graph:
+            # get the short label for predicate
+            pred = RDFNode.short_label(pred)
+
             if subj not in self.node_dict:
-                self.node_dict[subj] = self.nodeclass(subj)
+                self.node_dict[subj] = self.node_cls(subj)
 
             if obj not in self.node_dict:
-                self.node_dict[obj] = self.nodeclass(obj)
-                
-            self.node_dict[subj].add(pred, obj)
-            self.node_dict[obj].add_inedge(pred, subj)
+                self.node_dict[obj] = self.node_cls(obj)
+
+            self.node_dict[subj].add_out_edge(pred, obj)
+            self.node_dict[obj].add_in_edge(pred, subj)
+
+        logging.info('Done.')
 
     # printing out the graph in readable form
-    def prettyprint(self):
+    def prettyprint(self, max_nodes=None):
+        graph_str = ''
+
+        node_count = 0
         for node in self.node_dict.values():
-            print("==============")
-            node.prettyprint()
+            graph_str += '\n\n{}\n{}'.format('=' * 14, node.prettyprint())
+            node_count += 1
+            if max_nodes and node_count >= max_nodes:
+                break
+
+        return graph_str

@@ -24,8 +24,8 @@ from typing import Dict, List
 
 from aida_utexas import util
 from aida_utexas.aif import AidaGraph
-from aida_utexas.soin_processing import SOIN
-from aida_utexas.soin_processing.templates_and_constants import DEBUG, SCORE_WEIGHTS, \
+from aida_utexas.legacy.soin_processing import SOIN
+from aida_utexas.legacy.soin_processing.templates_and_constants import DEBUG, SCORE_WEIGHTS, \
     DEBUG_SCORE_FLOOR, ROLE_PENALTY_DEBUG
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
@@ -37,7 +37,7 @@ def get_cluster_mappings(graph):
     entities_to_roles = {}
 
     for node in graph.nodes():
-        if node.is_sameas_cluster():
+        if node.is_same_as_cluster():
             cluster_to_prototype[node.name] = next(iter(node.get('prototype')))
         elif node.is_cluster_membership():
             cluster_member = next(iter(node.get('clusterMember')))

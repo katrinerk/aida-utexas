@@ -4,6 +4,7 @@ from operator import itemgetter
 
 from aida_utexas import sparql_helper
 from aida_utexas import util
+from aida_utexas.aif import JsonGraph
 from aida_utexas.json_graph_helper import build_cluster_member_mappings
 
 AIF_HEADER_PREFIXES = \
@@ -22,7 +23,7 @@ QUERY_PREFIXES = \
 
 
 def queries_for_aida_result(
-        graph_json, hypothesis, member_to_clusters, cluster_to_prototype, prototype_set,
+        json_graph, hypothesis, member_to_clusters, cluster_to_prototype, prototype_set,
         num_node_queries=5, num_stmts_per_query=3000,
         query_just=False, query_conf=False):
     ere_id_list = []
@@ -36,14 +37,12 @@ def queries_for_aida_result(
     # Extract all aida:system definitions.
     stmt_query_item_list.append('{?x a aida:System .}')
 
-    for stmt in hypothesis['statements']:
-        stmt_entry = graph_json['theGraph'][stmt]
+    for stmt_label in hypothesis['statements']:
+        assert json_graph.is_statement(stmt_label)
 
-        assert stmt_entry['type'] == 'Statement'
-
-        subject_id = stmt_entry['subject']
-        predicate_id = stmt_entry['predicate']
-        object_id = stmt_entry['object']
+        subject_id = json_graph.stmt_subject(stmt_label)
+        predicate_id = json_graph.stmt_predicate(stmt_label)
+        object_id = json_graph.stmt_object(stmt_label)
 
         # add subject to node_str_list for node query
         ere_query_item_list.append('<{}>'.format(subject_id))
@@ -291,9 +290,9 @@ def main():
     graph_json_path = util.get_input_path(args.graph_json_path)
     print('Reading the graph from {}'.format(graph_json_path))
     with open(str(graph_json_path), 'r') as fin:
-        graph_json = json.load(fin)
+        json_graph = JsonGraph.from_dict(json.load(fin))
 
-    mappings = build_cluster_member_mappings(graph_json)
+    mappings = build_cluster_member_mappings(json_graph)
     member_to_clusters = mappings['member_to_clusters']
     cluster_to_prototype = mappings['cluster_to_prototype']
     prototype_set = set(mappings['prototype_to_clusters'].keys())
@@ -320,7 +319,7 @@ def main():
         hypothesis = hypotheses_json['support'][result_idx]
         node_query_list, stmt_query_list, just_query_list, conf_query_list = \
             queries_for_aida_result(
-                graph_json=graph_json,
+                json_graph=json_graph,
                 hypothesis=hypothesis,
                 member_to_clusters=member_to_clusters,
                 cluster_to_prototype=cluster_to_prototype,

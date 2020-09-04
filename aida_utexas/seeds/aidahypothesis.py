@@ -1,464 +1,363 @@
-# Katrin Erk April 2019
-# Simple class for keeping an AIDA hypothesis.
-# As a data structure, a hypothesis is simply a list of statements.
-# We additionally track core statements so they can be visualized separately if needed.
-# The class also provides access functions to determine EREs that are mentioned in the hypothesis,
-# as well as their types, arguments, etc.
-# All this is computed dynamically and not kept in the data structure. 
+"""
+Author: Katrin Erk, Apr 2019
+- Simple class for keeping an AIDA hypothesis.
+- As a data structure, a hypothesis is simply a list of statements.
+- We additionally track core statements so they can be visualized separately if needed.
+- The class also provides access functions to determine EREs that are mentioned in the hypothesis,
+    as well as their types, arguments, etc.
+- All this is computed dynamically and not kept in the data structure.
 
+Update: Pengxiang Cheng, Aug 2020
+- Use new JsonGraph API
+- Refactor and clean-up
+"""
 
-########
-# one AIDA hypothesis
 from collections import defaultdict
+from typing import Dict, Iterable, List
+
+from aida_utexas.aif import JsonGraph
 
 
 class AidaHypothesis:
-    def __init__(self, graph_obj, stmts = None, stmt_weights = None, core_stmts = None, lweight = 0.0):
-        self.graph_obj = graph_obj
-        if stmts is None:
-            self.stmts = set()
-        else:
-            self.stmts = set(stmts)
+    def __init__(self, json_graph: JsonGraph, stmts: Iterable = None, stmt_weights: Dict = None,
+                 core_stmts: Iterable = None, weight: float = 0.0):
+        self.json_graph = json_graph
 
-        if stmt_weights is None:
-            self.stmt_weights = { }
-        else:
-            self.stmt_weights = stmt_weights
+        # list of all statements in the hypothesis
+        self.stmts = set(stmts) if stmts is not None else set()
 
-        if core_stmts is None:
-            self.core_stmts = set()
-        else:
-            self.core_stmts = set(core_stmts)
+        # mapping from statement labels to their weights
+        self.stmt_weights = stmt_weights if stmt_weights is not None else {}
 
-        # failed queries are added from outside, as they are needed in the json object
-        self.failed_queries = [ ]
+        # list of core statements in the hypothesis
+        self.core_stmts = set(core_stmts) if core_stmts is not None else set()
 
         # hypothesis weight
-        self.lweight = lweight
+        self.weight = weight
+
+        # failed queries are added from outside, as they are needed in the json object
+        self.failed_queries = []
 
         # query variables and fillers, for quick access to the core answer that this query gives
-        self.qvar_filler = { }
+        self.qvar_filler = {}
 
-        # weight if none is given
-        self.default_weight = -100.0
+        # default weight for non-core statements
+        self.default_stmt_weight = -100.0
 
-    #####
-    # extending a hypothesis: adding a statement outright,
-    # or making a new hypothesis and adding the statement there
-    def add_stmt(self, stmtlabel, core = False, weight = None):
-        if stmtlabel in self.stmts:
+    # extending a hypothesis: adding a statement in place
+    def add_stmt(self, stmt_label: str, core: bool = False, weight: float = None):
+        if stmt_label in self.stmts:
             return
-        
+
+        self.stmts.add(stmt_label)
+
         if core:
-            self.core_stmts.add(stmtlabel)
+            self.core_stmts.add(stmt_label)
 
-        self.stmts.add(stmtlabel)
-
+        # if weight is provided, use it
         if weight is not None:
-            self.stmt_weights[ stmtlabel ] = weight
+            self.stmt_weights[stmt_label] = weight
+        # otherwise if it is a core statement, use weight 0.0
         elif core:
-            self.stmt_weights[stmtlabel ] = 0.0
+            self.stmt_weights[stmt_label] = 0.0
+        # otherwise, use the default weight for non-core statements
         else:
-            self.stmt_weights[stmtlabel] = self.default_weight
+            self.stmt_weights[stmt_label] = self.default_stmt_weight
 
-    def extend(self, stmtlabel, core = False, weight = None):
-        if stmtlabel in self.stmts:
+    # extending a hypothesis: making a new hypothesis and adding the statement there
+    def extend(self, stmt_label: str, core: bool = False, weight: float = None):
+        if stmt_label in self.stmts:
             return self
-        
+
         new_hypothesis = self.copy()
-        new_hypothesis.add_stmt(stmtlabel, core = core, weight = weight)
+        new_hypothesis.add_stmt(stmt_label, core, weight)
         return new_hypothesis
 
     def copy(self):
         new_hypothesis = AidaHypothesis(
-            self.graph_obj,
-            stmts = self.stmts.copy(),
-            core_stmts = self.core_stmts.copy(),
-            stmt_weights = self.stmt_weights.copy(),
-            lweight=self.lweight
+            json_graph=self.json_graph,
+            stmts=self.stmts.copy(),
+            core_stmts=self.core_stmts.copy(),
+            stmt_weights=self.stmt_weights.copy(),
+            weight=self.weight
         )
         new_hypothesis.add_failed_queries(self.failed_queries)
         return new_hypothesis
 
-    #########3
-    # give weights to type statements in this hypothesis:
-    # single type, or type of an event/relation used in an event/relation argument:
-    # weight of maximum neighbor.
-    # otherwise, low default weight
-    def set_typeweights(self):
+    # set weights of type statements in this hypothesis:
+    # for single type, or type of an event/relation used in an event/relation argument: set it to
+    # the weight of maximum neighbor.
+    # otherwise, set it to the low default weight.
+    def set_type_stmt_weights(self):
 
         # map each ERE to adjacent type statements
-        ere_types = { }
+        ere_to_type_stmts = defaultdict(list)
         for stmt in self.stmts:
-            if self.graph_obj.is_typestmt(stmt):
-                ere = self.graph_obj.stmt_subject(stmt)
-                if ere is not None:
-                    if ere not in ere_types: ere_types[ere] = [ ]
-                    ere_types[ere].append(stmt)
+            if self.json_graph.is_type_stmt(stmt):
+                ere_label = self.json_graph.stmt_subject(stmt)
+                if ere_label is not None:
+                    ere_to_type_stmts[ere_label].append(stmt)
 
-        for ere, typestmts in ere_types.items():
-            ere_weight = max(self.stmt_weights.get(stmt, self.default_weight) for stmt in self.graph_obj.each_ere_adjacent_stmt_anyrel(ere))
-            # print("HIER1", ere, ere_weight)
-            if len(typestmts) == 1:
-                # one type statement only: gets weight of maximum-weight edge adjacent to ere
-                # print("HIER2 single type statement", ere, typestmts[0], ere_weight)
-                self.stmt_weights[ typestmts[0] ] = ere_weight
+        # for each ERE adjacent to some type statements
+        for ere, type_stmts in ere_to_type_stmts.items():
+            # get the weight of the maximum-weight edge adjacent to the ERE
+            ere_max_weight = max(self.stmt_weights.get(stmt, self.default_stmt_weight)
+                                 for stmt in self.json_graph.each_ere_adjacent_stmt(ere))
+
+            # only one type statement for the ERE: set the type statement weight to ere_max_weight
+            if len(type_stmts) == 1:
+                self.stmt_weights[type_stmts[0]] = ere_max_weight
+
             else:
                 # multiple type statements for ere
                 # what outgoing event/relation edges does it have?
-                eventrel_roles_ere = [ self.graph_obj.shorten_label(rolelabel) for rolelabel, arg in self.eventrelation_each_argument(ere)]
-                for typestmt in typestmts:
-                    typelabel = self.graph_obj.stmt_object(typestmt)
-                    if typelabel is None:
-                        self.stmt_weights[stmt] = self.default_weight
+                edge_role_labels = [self.json_graph.shorten_label(pred_label)
+                                    for pred_label, _ in self.event_rel_each_arg(ere)]
+
+                for type_stmt in type_stmts:
+                    type_label = self.json_graph.stmt_object(type_stmt)
+                    if type_label is None:
+                        self.stmt_weights[type_label] = self.default_stmt_weight
                         continue
-                    
-                    typelabel = self.graph_obj.shorten_label(typelabel)
-                    if any(rolelabel.startswith(typelabel) and len(rolelabel) > len(typelabel) for rolelabel in eventrel_roles_ere):
+
+                    type_label = self.json_graph.shorten_label(type_label)
+                    if any(role_label.startswith(type_label) for role_label in edge_role_labels):
                         # this is a type that is used in an outgoing edge of this ERE
-                        # print("HIER3 used type", ere, typelabel, eventrel_roles_ere, ere_weight)
-                        self.stmt_weights[ typestmt ] = ere_weight
+                        self.stmt_weights[type_stmt] = ere_max_weight
                     else:
                         # no reason not to give a low default weight to this edge
-                        # print("HIER4 default wt", ere, typelabel, self.default_weight)
-                        self.stmt_weights[stmt] = self.default_weight
-                        
-        
-    ########
-    # json output as a hypothesis
-    # make a json object describing this hypothesis
-    def to_json(self):
-        stmtlist = list(self.stmts)
-        return {
-            "statements" : stmtlist,
-            "statementWeights" : [ self.stmt_weights.get(s, self.default_weight) for s in stmtlist],
-            "failedQueries": self.failed_queries,
-            "queryStatements" : list(self.core_stmts)
-            }
+                        self.stmt_weights[type_stmt] = self.default_stmt_weight
 
     def add_failed_queries(self, failed_queries):
         self.failed_queries = failed_queries
 
-    # update the log weight 
-    def update_lweight(self, added_lweight):
-        self.lweight += added_lweight
+    # update hypothesis weight
+    def update_weight(self, added_weight):
+        self.weight += added_weight
 
     def add_qvar_filler(self, qvar_filler):
         self.qvar_filler = qvar_filler
-    
-    ########
-    # readable output: return EREs in this hypothesis, and the statements associated with them
-    # string for single ERE
-    def ere_to_s(self, ere_id, roles_ontology):
-        if self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id):
-            return self.eventrel_to_s(ere_id, roles_ontology)
-        elif self.graph_obj.is_entity(ere_id):
-            return self.entity_to_s(ere_id)
+
+    # json output of the hypothesis
+    def to_json(self):
+        stmt_list = list(self.stmts)
+        stmt_weight_list = [self.stmt_weights.get(s, self.default_stmt_weight) for s in stmt_list]
+
+        return {
+            'statements': stmt_list,
+            'statementWeights': stmt_weight_list,
+            'failedQueries': self.failed_queries,
+            'queryStatements': list(self.core_stmts)
+        }
+
+    @classmethod
+    def from_json(cls, json_obj: Dict, json_graph: JsonGraph, weight: float):
+        hypothesis = cls(
+            json_graph=json_graph,
+            stmts=json_obj['statements'],
+            core_stmts=json_obj['queryStatements'],
+            stmt_weights=dict(zip(json_obj['statements'], json_obj['statementWeights'])),
+            weight=weight)
+
+        hypothesis.add_failed_queries(json_obj['failedQueries'])
+        return hypothesis
+
+    # human-readable output for an ERE
+    def ere_to_str(self, ere_label, roles_ontology: Dict):
+        if self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label):
+            return self.event_rel_to_str(ere_label, roles_ontology)
+        elif self.json_graph.is_entity(ere_label):
+            return self.entity_to_str(ere_label)
         else:
-            return ""
-
-    def entity_to_s(self, ere_id):
-        retv = self.entity_best_name(ere_id)
-        if retv == '[unknown]':
-            for typelabel in self.ere_each_type(ere_id):
-                retv = typelabel
-                break
-        return retv
-
-    def eventrel_to_s(self, ere_id, roles_ontology):
-        if not (self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id)):
             return ''
 
-        eventrel_type = None
-        for typelabel in self.ere_each_type(ere_id):
-            eventrel_type = typelabel
+    # human-readable output for an entity
+    def entity_to_str(self, ere_label):
+        result = self.entity_best_name(ere_label)
+        if result == '[unknown]':
+            for type_label in self.ere_types(ere_label):
+                result = type_label
+                break
+        return result
+
+    # human-readable output for an event or relation
+    def event_rel_to_str(self, ere_label, roles_ontology: Dict):
+        if not (self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label)):
+            return ''
+
+        event_rel_type = None
+        for type_label in self.ere_types(ere_label):
+            event_rel_type = type_label
             break
 
-        arg_values = defaultdict(set)
-        for arglabel, value in self.eventrelation_each_argument(ere_id):
-            arg_values[arglabel].add(value)
+        event_rel_roles = defaultdict(set)
+        for pred_label, arg_label in self.event_rel_each_arg(ere_label):
+            event_rel_roles[pred_label].add(arg_label)
 
-        if not arg_values:
+        if not event_rel_roles:
             return ''
 
-        if eventrel_type is None:
-            eventrel_type = list(arg_values.keys())[0].rsplit('_', maxsplit=1)[0]
+        if event_rel_type is None:
+            event_rel_type = list(event_rel_roles.keys())[0].rsplit('_', maxsplit=1)[0]
 
-        retv = eventrel_type
-        for arg_key in roles_ontology[eventrel_type].values():
-            retv += '\n    ' + arg_key + ': '
-            arglabel = eventrel_type + '_' + arg_key
-            if arglabel in arg_values:
-                retv += ', '.join(self.entity_to_s(arg_id) for arg_id in arg_values[arglabel])
+        result = event_rel_type
+        for role_label in roles_ontology[event_rel_type].values():
+            result += '\n    ' + role_label + ': '
+            pred_label = event_rel_type + '_' + role_label
+            if pred_label in event_rel_roles:
+                result += ', '.join(self.entity_to_str(arg_label)
+                                    for arg_label in event_rel_roles[pred_label])
 
-        # for arglabel, values in arg_values.items():
-        #     retv += '\n' + '    ' + arglabel.rsplit('_', maxsplit=1)[1]
-        #     retv += ': ' + ', '.join(self.entity_to_s(arg_id) for arg_id in values)
+        return result
 
-        return retv
+    # human-readable output for whole hypothesis
+    def to_str(self, roles_ontology: Dict):
+        result = ''
 
-    def _entity_to_s(self, ere_id, prefix = ""):
-        retv = ""
-        # print info on this argument
-        retv += prefix + self.nodetype(ere_id) + " " + ere_id + "\n"
+        core_eres = self.core_eres()
 
-        # add type information if present
-        for typelabel in self.ere_each_type(ere_id):
-            retv += prefix + "ISA: " + typelabel + "\n"
-
-        # print string label
-        name = self.entity_best_name(ere_id)
-        retv += prefix + "handle: " + name + "\n"
-
-        return retv
-
-    def _eventrel_to_s(self, ere_id, prefix = "", withargs = True):
-        retv = ""
-        if not (self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id)):
-            return retv
-
-        retv += prefix + self.nodetype(ere_id) + " " + ere_id + "\n"
-
-        # add type information if present
-        for typelabel in self.ere_each_type(ere_id):
-            retv += prefix + "ISA: " + typelabel + "\n"
-
-        # add argument information:
-        if withargs:
-            # first sort by argument label
-            arg_values = { }
-            for arglabel, value in self.eventrelation_each_argument(ere_id):
-                if arglabel not in arg_values: arg_values[arglabel] = set()
-                arg_values[ arglabel ].add(value)
-
-            # then add to string
-            for arglabel, values in arg_values.items():
-                retv += "\n" + prefix + "  " + arglabel + "\n"
-                additionalprefix = "    "
-                for arg_id in values:
-                    retv += prefix + self._entity_to_s(arg_id, prefix + additionalprefix)
-
-        return retv
-
-    # String for whole hypothesis
-    def to_s(self, roles_ontology):
-        retv = ""
-
-        # retv += ", ".join(sorted(self.stmts, key = lambda s:self.stmt_weights[s], reverse = True)) + "\n\n"
-
-        # start with core statements
-        core = self.core_eres()
-        for ere_id in core:
-            if self.graph_obj.is_event(ere_id) or self.graph_obj.is_relation(ere_id):
-                ere_str = self.ere_to_s(ere_id, roles_ontology)
+        # start with core EREs
+        for ere_label in core_eres:
+            if self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label):
+                ere_str = self.ere_to_str(ere_label, roles_ontology)
                 if ere_str != '':
-                    retv += ere_str + "\n\n"
+                    result += ere_str + '\n\n'
 
-        # make output for each event or relation in the hypothesis
-        for ere_id in self.eres():
-            if ere_id in core:
-                # already done
-                continue
-
-            if self.graph_obj.is_event(ere_id):
-                ere_str = self.ere_to_s(ere_id, roles_ontology)
+        # make output for each non-core event in the hypothesis
+        for ere_label in self.eres():
+            if ere_label not in core_eres and self.json_graph.is_event(ere_label):
+                ere_str = self.ere_to_str(ere_label, roles_ontology)
                 if ere_str != '':
-                    retv += ere_str + "\n\n"
+                    result += ere_str + '\n\n'
 
-        # make output for each event or relation in the hypothesis
-        for ere_id in self.eres():
-            if ere_id in core:
-                # already done
-                continue
-
-            if self.graph_obj.is_event(ere_id):
-                ere_str = self.ere_to_s(ere_id, roles_ontology)
+        # make output for each non-core relation in the hypothesis
+        for ere_label in self.eres():
+            if ere_label not in core_eres and self.json_graph.is_relation(ere_label):
+                ere_str = self.ere_to_str(ere_label, roles_ontology)
                 if ere_str != '':
-                    retv += ere_str + "\n\n"
+                    result += ere_str + '\n\n'
 
-        return retv
+        return result
 
-    # String for a statement
-    def statement_to_s(self, stmtlabel):
-        if stmtlabel not in self.stmts:
-            return ""
-
-        retv = ""
-        stmt = self.graph_obj.thegraph[stmtlabel]
-        retv += "Statement " + stmtlabel + "\n"
-        
-        retv += "Subject:\n " 
-        if self.graph_obj.is_node(stmt["subject"]):
-            retv += self.ere_to_s(stmt["subject"], withargs = False, prefix = "    ") + "\n"
-        else:
-            retv += stmt["subject"] + "\n"
-
-        retv += "Predicate: " + stmt["predicate"] + "\n"
-
-        retv += "Object:\n " 
-        if self.graph_obj.is_node(stmt["object"]):
-            retv += self.ere_to_s(stmt["object"], withargs = False, prefix = "    ") + "\n"
-        else:
-            retv += stmt["object"] + "\n"
-        
-
-    #############
-    # access functions
+    # helper functions
 
     # list of EREs adjacent to the statements in this hypothesis
     def eres(self):
-        return list(set(nodelabel for stmtlabel in self.stmts for nodelabel in self.graph_obj.statement_args(stmtlabel) \
-                        if self.graph_obj.is_ere(nodelabel)))
+        return list(set(node_label for stmt_label in self.stmts
+                        for node_label in self.json_graph.statement_args(stmt_label)
+                        if self.json_graph.is_ere(node_label)))
 
     # list of EREs adjacent to core statements of this hypothesis
     def core_eres(self):
-        return list(set(nodelabel for stmtlabel in self.core_stmts for nodelabel in self.graph_obj.statement_args(stmtlabel) \
-                        if self.graph_obj.is_ere(nodelabel)))
-                        
-    def eres_of_stmt(self, stmtlabel):
-        if stmtlabel not in self.stmts:
-            return [ ]
-        else:
-            return list(set(nodelabel for nodelabel in self.graph_obj.statement_args(stmtlabel) \
-                        if self.graph_obj.is_ere(nodelabel)))
+        return list(set(node_label for stmt_label in self.core_stmts
+                        for node_label in self.json_graph.statement_args(stmt_label)
+                        if self.json_graph.is_ere(node_label)))
 
+    # list of EREs adjacent to a statement
+    def eres_of_stmt(self, stmt_label):
+        if stmt_label not in self.stmts:
+            return []
+        else:
+            return list(set(node_label for node_label in self.json_graph.statement_args(stmt_label)
+                            if self.json_graph.is_ere(node_label)))
 
     # iterate over arguments of an event or relation in this hypothesis
-    # yield tuples of (statement, argument label, ERE ID)
-    def eventrelation_each_argstmt(self, eventrel_id):
-        if not (self.graph_obj.is_event(eventrel_id) or self.graph_obj.is_relation(eventrel_id)):
+    # yield tuples of (statement label, predicate label, ERE label)
+    def event_rel_each_arg_stmt(self, ere_label):
+        if not (self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label)):
             return
 
-        for stmtlabel in self.graph_obj.each_ere_adjacent_stmt_anyrel(eventrel_id):
-            if stmtlabel in self.stmts:
-                stmt = self.graph_obj.thegraph[stmtlabel]
-                if stmt["subject"] == eventrel_id and self.graph_obj.is_ere(stmt["object"]):
-                    yield (stmtlabel, stmt["predicate"], stmt["object"])
+        for stmt_label in self.json_graph.each_ere_adjacent_stmt(ere_label, ere_role='subject'):
+            stmt_obj = self.json_graph.stmt_object(stmt_label)
+            if self.json_graph.is_ere(stmt_obj):
+                yield stmt_label, self.json_graph.stmt_predicate(stmt_label), stmt_obj
+
+    # iterate over arguments of an event or relation with pred_label as the predicate
+    # yield pairs of (statement label, ERE label)
+    def event_rel_each_arg_stmt_labeled(self, ere_label, pred_label):
+        for stmt_label, stmt_pred, stmt_obj in self.event_rel_each_arg_stmt(ere_label):
+            if stmt_pred == pred_label:
+                yield stmt_label, stmt_obj
+
+    # iterate over arguments of an event or relation whose predicate starts with class_label and
+    # ends with role_label
+    # yield pairs of (statement label, ERE label)
+    def event_rel_each_arg_stmt_labeled_like(self, ere_label, class_label, role_label):
+        for stmt_label, stmt_pred, stmt_obj in self.event_rel_each_arg_stmt(ere_label):
+            if stmt_pred.startswith(class_label) and stmt_pred.endswith(role_label):
+                yield stmt_label, stmt_obj
 
     # iterate over arguments of an event or relation in this hypothesis
-    # yield pairs of (argument label, ERE ID)
-    def eventrelation_each_argument(self, eventrel_id):
-        for stmtlabel, predicate, object in self.eventrelation_each_argstmt(eventrel_id):
-            yield (predicate, object)
+    # yield pairs of (predicate label, ERE label)
+    def event_rel_each_arg(self, ere_label):
+        for _, stmt_pred, stmt_obj in self.event_rel_each_arg_stmt(ere_label):
+            yield stmt_pred, stmt_obj
 
-    # return each argument of the event or relation eventrel_id that has rolelabel as its label
-    # exact match!!
-    def eventrelation_each_argument_labeled(self, eventrel_id, rolelabel):
-        for thisrolelabel, filler in self.eventrelation_each_argument(eventrel_id):
-            if thisrolelabel == rolelabel:
-                yield filler
+    # return each argument of the event or relation that has pred_label as the predicate
+    def event_rel_each_arg_labeled(self, ere_label, pred_label):
+        for stmt_pred, stmt_obj in self.event_rel_each_arg(ere_label):
+            if stmt_pred == pred_label:
+                yield stmt_obj
 
-    # return each argument of the event or relation eventrel_id that has rolelabel as its label
-    # exact match!!
-    def eventrelation_each_argument_labeled_like(self, eventrel_id, classlabel, rolelabel):
-        for thisrolelabel, filler in self.eventrelation_each_argument(eventrel_id):
-            if self.graph_obj.rolelabel_isa(thisrolelabel, classlabel, rolelabel):
-                yield filler
-                
-    def eventrelation_each_argstmt_labeled(self, eventrel_id, rolelabel):
-        for stmt, thisrolelabel, filler in self.eventrelation_each_argstmt(eventrel_id):
-            if thisrolelabel == rolelabel:
-                yield (stmt, filler)
-                
-    def eventrelation_each_argstmt_labeled_like(self, eventrel_id, classlabel, rolelabel):
-        for stmt, thisrolelabel, filler in self.eventrelation_each_argstmt(eventrel_id):
-            if self.graph_obj.rolelabel_isa(thisrolelabel, classlabel, rolelabel):
-                yield (stmt, filler)
-        
-            
+    # return each argument of the event or relation whose predicate starts with class_label and
+    # ends with role_label
+    def event_rel_each_arg_labeled_like(self, ere_label, class_label, role_label):
+        for stmt_pred, stmt_obj in self.event_rel_each_arg(ere_label):
+            if stmt_pred.startswith(class_label) and stmt_pred.endswith(role_label):
+                yield stmt_obj
 
     # types of an ERE node in this hypothesis
-    def ere_each_type(self, ere_id):
-        if not self.graph_obj.is_ere(ere_id):
+    def ere_types(self, ere_label):
+        if not self.json_graph.is_ere(ere_label):
             return
-        for stmtlabel in self.graph_obj.each_ere_adjacent_stmt(ere_id, "type", "subject"):
-            if stmtlabel in self.stmts:
-                yield self.graph_obj.shorten_label(self.graph_obj.thegraph[stmtlabel]["object"])
-            
-        
-    
+        for stmt_label in self.json_graph.each_ere_adjacent_stmt(ere_label, 'type', 'subject'):
+            if stmt_label in self.stmts:
+                yield self.json_graph.shorten_label(self.json_graph.stmt_object(stmt_label))
+
+    # affiliations of an ERE in this hypothesis
+    def ere_affiliations(self, ere_label):
+        for stmt1, _, stmt2 in self.json_graph.ere_affiliation_triples(ere_label):
+            if stmt1 in self.stmts and stmt2 in self.stmts:
+                yield self.json_graph.stmt_object(stmt2)
+
     # node type: Entity, Event, Relation, Statement
-    def nodetype(self, nodelabel):
-        if self.graph_obj.is_node(nodelabel):
-            return self.graph_obj.thegraph[nodelabel]["type"]
+    def node_type(self, node_label):
+        if self.json_graph.has_node(node_label):
+            return self.json_graph.node_dict[node_label].type
         else:
             return None
 
-    # names of an entity
-    def entity_names(self, ere_id):
-        #return self.graph_obj.english_names(self.graph_obj.ere_names(ere_id))
-        return self.graph_obj.ere_names(ere_id)
-
     # "best" name of an entity
-    def entity_best_name(self, ere_id):
-        names = self.entity_names(ere_id)
-        if names is None or names == [ ]:
+    def entity_best_name(self, ere_label):
+        names = self.json_graph.ere_names(ere_label)
+        if names is None or names == []:
             return "[unknown]"
-        english_names = self.graph_obj.english_names(names)
+        english_names = self.json_graph.english_names(names)
         if len(english_names) > 0:
-            return min(english_names, key = lambda n:len(n))
+            return min(english_names, key=lambda n: len(n))
         else:
-            return min(names, key = lambda n: len(n))
+            return min(names, key=lambda n: len(n))
 
 
-    # possible affiliations of an ERE:
-    # yield ERE that is the affiliation
-    def ere_each_possible_affiliation(self, ere_id):
-        for affiliation_id in self.graph_obj.possible_affiliations(ere_id):
-            yield affiliation_id
-
-    # actual affiliations of an ERE in this hypothesis
-    def ere_each_affiliation(self, ere_id):
-        for stmt1, affiliation_ere, stmt2 in self.graph_obj.possible_affiliation_triples(ere_id):
-            if stmt1 in self.stmts and stmt2 in self.stmts:
-                affiliation_id = self.graph_obj.stmt_object(stmt2)
-                yield affiliation_id
-
-    # is this ERE listed as an affiliation, though not necessarily in this hypothesis?
-    def ere_possibly_isaffiliation(self, ere_id):
-        for stmt in self.graph_obj.each_ere_adjacent_stmt_anyrel(ere_id):
-            if self.graph_obj.stmt_object(stmt) == ere_id and self.graph_obj.is_affiliation_rolelabel(self.graph_obj.stmt_predicate(stmt)):
-                return True
-        
-############3
 # collection of hypotheses, after initial cluster seed generation has been done
 class AidaHypothesisCollection:
-    def __init__(self, hypotheses):
+    def __init__(self, hypotheses: List[AidaHypothesis]):
         self.hypotheses = hypotheses
 
     def add(self, hypothesis):
         self.hypotheses.append(hypothesis)
-        
-    # compile json object that lists all the hypotheses with their statements
+
+    # make a list of strings for human-readable output
+    def to_str(self, roles_ontology: Dict):
+        return [hyp.to_str(roles_ontology) for hyp in self.hypotheses]
+
     def to_json(self):
-       
-        # make a json in the right format.
-        # entries: "probs", "support". "probs": add dummy uniform probabilities
-        json_out = { "probs": [h.lweight for h in self.hypotheses],
-                     "support" : [ ]
-                   }
-        for hyp in self.hypotheses:
-            json_out["support"].append(hyp.to_json())
+        return {
+            'probs': [hyp.weight for hyp in self.hypotheses],
+            'support': [hyp.to_json() for hyp in self.hypotheses]
+        }
 
-        return json_out
-
-    # make a list of strings with the new cluster seeds in readable form
-    def to_s(self):
-        return [ hyp.to_s() for hyp in self.hypotheses ]
-        
-    @staticmethod
-    # generate an AidaHypothesisCollection from a json file
-    def from_json(json_obj, graph_obj):
-        def hypothesis_from_json(j, wt):
-            h = AidaHypothesis(graph_obj, stmts = j["statements"], core_stmts = j["queryStatements"],
-                                    stmt_weights = dict((j["statements"][i], j["statementWeights"][i]) for i in range(len(j["statements"]))),
-                                   lweight = wt)
-        
-            h.add_failed_queries(j["failedQueries"])
-            return h
-            
-        return AidaHypothesisCollection([hypothesis_from_json(json_obj["support"][i], json_obj["probs"][i]) for i in range(len(json_obj["support"]))])
-
-        
-        
-
+    @classmethod
+    def from_json(cls, json_obj: Dict, json_graph: JsonGraph):
+        return cls([AidaHypothesis.from_json(hyp_json_obj, json_graph, hyp_weight)
+                    for hyp_json_obj, hyp_weight in zip(json_obj['support'], json_obj['probs'])])

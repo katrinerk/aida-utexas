@@ -1,4 +1,4 @@
-from aida_utexas.soin_processing.templates_and_constants import DEBUG, BB_DEBUG, BB_DEBUG_FLOOR
+from aida_utexas.legacy.soin_processing.templates_and_constants import DEBUG, BB_DEBUG, BB_DEBUG_FLOOR
 
 
 def compute_string_overlap(observed, target):

@@ -1,322 +1,283 @@
-# Katrin Erk April 2019
-#
-# Class for filtering hypotheses for logical consistency
-# Rule-based filtering
+"""
+Author: Katrin Erk, Apr 2019
+- Class for rule-based filtering hypotheses for logical consistency
+- Filter tests: they take in a hypothesis-under-construction, the statement (which is part of the
+    hypothesis) to test, and (optionally) the full hypothesis (if that is available).
+    - Some filters only work post-hoc, namely the ones that make use of the full hypothesis.
+    - They return False if there is a problem, and True otherwise
+    - They assume the hypothesis is error-free except for possibly this statement.
+        (This can be achieved by filtering as each new statement is added)
+
+Update: Pengxiang, Aug 2020
+- Refactoring and clean-up
+- Might need some further clean-up on unifying ad-hoc and post-hoc filters
+"""
 
 from collections import deque
+from typing import List
 
+from aida_utexas.aif import JsonGraph
 from aida_utexas.seeds.aidahypothesis import AidaHypothesis
 
 
 class AidaHypothesisFilter:
-    def __init__(self, thegraph):
-        self.graph_obj = thegraph
+    def __init__(self, json_graph: JsonGraph):
+        self.json_graph = json_graph
 
+    def event_attack_attacker_instrument_compatible(self, hypothesis: AidaHypothesis,
+                                                    test_stmt: str):
+        """
+        All attackers in a conflict.attack event need to have one possible affiliation in common,
+        also all instruments, and all attackers and instruments
+        If there is no known affiliation that is also okay.
+        Entities that are possible affiliates of any affiliation relation are counted as their own
+        affiliates. For example, Ukraine counts as being affiliated with Ukraine.
 
-    ##############################################################
-    # Tests
-    # They take in a hypothesis-under-construction, the statement (which is part of the hypothesis) to test,
-    # and the full hypothesis (if that is available).
-    #
-    # Some filters only work post-hoc, namely the ones that make use of the full hypothesis.
-    #
-    # They return False if there is a problem, and True otherwise
-    # Assumed invariant: the hypothesis is error-free except for possibly this statement.
-    # (This can be achieved by filtering as each new statement is added)
-    
-    #######
-    #
-    ## # All attackers in a conflict.attack event need to have one possible affiliation in common,
-    ## # also all instruments,
-    ## # and all attackers and instruments
-    ## # (if there is no known affiliation that is also okay).
-    ## # Entities that are possible affiliates of any affiliation relation
-    ## # are counted as their own affiliates.
-    ## # For example, Ukraine counts as being affiliated with Ukraine.
-    #
-    # This filter does not use the full hypothesis, and hence can be used during hypothesis construction
-    def event_attack_attacker_instrument_compatible(self, hypothesis, test_stmt, fullhypothesis = None):
-
+        This filter does not use the full hypothesis, so it can be used in hypothesis construction.
+        """
         # is stmt an event role of a conflict.attack event, specifically an attacker or instrument?
-        if not self.graph_obj.is_eventrole_stmt(test_stmt):
+        if not self.json_graph.is_event_role_stmt(test_stmt):
             return True
-        if not self.graph_obj.stmt_predicate(test_stmt).startswith("Conflict.Attack"):
+        if not self.json_graph.stmt_predicate(test_stmt).startswith('Conflict.Attack'):
             return True
-        if not self.graph_obj.stmt_predicate(test_stmt).endswith("Instrument") or self.graph_obj.stmt_predicate(test_stmt).endswith("Attacker"):
+        if not (self.json_graph.stmt_predicate(test_stmt).endswith('Instrument') or
+                self.json_graph.stmt_predicate(test_stmt).endswith('Attacker')):
             return True
 
-        # this is an event role of a conflict.attack.
-        # its subject is the event ERE.
-        event_ere = self.graph_obj.stmt_subject(test_stmt)
-        
+        # this is an event role of a conflict.attack, so its subject is the event ERE.
+        event_label = self.json_graph.stmt_subject(test_stmt)
+
         # getting argument EREs for attackers and instruments
-        attackers = list(hypothesis.eventrelation_each_argument_labeled_like(event_ere, "Conflict.Attack", "Attacker"))
-        instruments = list(hypothesis.eventrelation_each_argument_labeled_like(event_ere, "Conflict.Attack", "Instrument"))
+        attackers = list(hypothesis.event_rel_each_arg_labeled_like(
+            event_label, 'Conflict.Attack', 'Attacker'))
+        instruments = list(hypothesis.event_rel_each_arg_labeled_like(
+            event_label, 'Conflict.Attack', 'Instrument'))
 
         # if there are multiple attackers but no joint affiliation: problem
-        attacker_affiliations_intersect = self._possible_affiliation_intersect(hypothesis, attackers)
-        if attacker_affiliations_intersect is not None and len(attacker_affiliations_intersect) == 0:
-            # print("HIER1 no intersection between attacker affiliations")
+        attacker_affl_intersect = self._possible_affiliation_intersect(attackers)
+        if attacker_affl_intersect is not None and len(attacker_affl_intersect) == 0:
             return False
 
-        instrument_affiliations_intersect = self._possible_affiliation_intersect(hypothesis, instruments)
-        if instrument_affiliations_intersect is not None and len(instrument_affiliations_intersect) == 0:
-            # print("HIER2 no intersection between instrument affiliations")
-            return False
-        
-        if attacker_affiliations_intersect is not None and instrument_affiliations_intersect is not None and len(attacker_affiliations_intersect.intersection(instrument_affiliations_intersect)) == 0:
-            # print("no intersection betwen attacker and instrument affiliations", attacker_affiliations_intersect, instrument_affiliations_intersect)
+        # if there are multiple instrument but no joint affiliation: problem
+        instrument_affl_intersect = self._possible_affiliation_intersect(instruments)
+        if instrument_affl_intersect is not None and len(instrument_affl_intersect) == 0:
             return False
 
-        # no problem here
-        return True
-
-    #######
-    #
-    ## All roles of an attack event need to be filled by different fillers
-    # (so, no attacking yourself)
-    #
-    # This filter does not use the full hypothesis, and hence can be used during hypothesis construction
-    def event_attack_all_roles_different(self, hypothesis, test_stmt, fullhypothesis = None):
-        # is stmt an event role of a conflict.attack event, specifically an attacker or instrument?
-        if not self.graph_obj.is_eventrole_stmt(test_stmt):
-            return True
-        if not self.graph_obj.stmt_predicate(test_stmt).startswith("Conflict.Attack"):
-            return True
-
-        event_ere = self.graph_obj.stmt_subject(test_stmt)
-        arg_ere = self.graph_obj.stmt_object(test_stmt)
-
-        # print("HIER2", [(stmt, label, stmtarg, stmtarg == arg_ere, stmt == test_stmt) for stmt, label, stmtarg in hypothesis.eventrelation_each_argstmt(event_ere)])
-        if any(stmtarg == arg_ere for stmt, label, stmtarg in hypothesis.eventrelation_each_argstmt(event_ere) if stmt != test_stmt):
-            # print("two attack roles filled by same argument, discarding", test_stmt)
+        # if there is not joint affiliation between attacker(s) and instrument(s): problem
+        # noinspection PyUnresolvedReferences
+        if attacker_affl_intersect is not None and instrument_affl_intersect is not None and \
+                len(attacker_affl_intersect.intersection(instrument_affl_intersect)) == 0:
             return False
 
         return True
-        
-    #######
-    #
-    # Don't have multiple types on an event or relation.
-    #
-    # This filter takes the full hypothesis into account and hence only works post-hoc.
-    def single_type_per_eventrel(self, hypothesis, test_stmt, fullhypothesis):
+
+    # helper functions: intersection of possible affiliation labels of EREs.
+    # returns None if no known affiliations
+    def _possible_affiliation_intersect(self, ere_labels: List[str]):
+        joint_affiliations = None
+
+        for ere_label in ere_labels:
+            affiliations = set(self.json_graph.ere_affiliations(ere_label))
+            if self.json_graph.is_ere_affiliation(ere_label):
+                affiliations.add(ere_label)
+            if len(affiliations) > 0:
+                if joint_affiliations is None:
+                    joint_affiliations = affiliations
+                else:
+                    joint_affiliations.intersection_update(affiliations)
+
+        return joint_affiliations
+
+    def event_attack_all_roles_different(self, hypothesis: AidaHypothesis, test_stmt: str):
+        """
+        All roles of an attack event need to be filled by different fillers (no attacking yourself)
+        This filter does not use the full hypothesis, so it can be used in hypothesis construction.
+        """
+        if not self.json_graph.is_event_role_stmt(test_stmt):
+            return True
+        if not self.json_graph.stmt_predicate(test_stmt).startswith("Conflict.Attack"):
+            return True
+
+        event_label = self.json_graph.stmt_subject(test_stmt)
+        event_arg_label = self.json_graph.stmt_object(test_stmt)
+
+        if any(arg_label == event_arg_label for stmt_label, _, arg_label
+               in hypothesis.event_rel_each_arg_stmt(event_label) if stmt_label != test_stmt):
+            return False
+
+        return True
+
+    def single_type_per_event_rel(self, hypothesis: AidaHypothesis, test_stmt: str,
+                                  full_hypothesis: AidaHypothesis):
+        """
+        Don't have multiple types on an event or relation.
+        This filter takes the full hypothesis into account and hence only works post-hoc.
+        """
         # potential problem only if this is a type statement
-        if not self.graph_obj.is_typestmt(test_stmt):
+        if not self.json_graph.is_type_stmt(test_stmt):
             return True
 
-        ere = self.graph_obj.stmt_subject(test_stmt)
+        ere_label = self.json_graph.stmt_subject(test_stmt)
 
         # no problem if we have an entity
-        if self.graph_obj.is_entity(ere):
+        if self.json_graph.is_entity(ere_label):
             return True
 
-        # okay, we have an event or relation.
-        # check whether this ere has another type
-        types = [typelabel for typelabel in hypothesis.ere_each_type(ere)]
+        # we have an event or relation: now check whether this ere has another type
+        types = list(hypothesis.ere_types(ere_label))
         if len(types) > 1:
-            # print("more than one type statement, flagging", test_stmt, self.graph_obj.stmt_object(test_stmt), types)
             return False
 
-        # this is an only type. Check to see whether it coincides with any roles of this event or relation
-        # IN THE FULL HYPOTHESIS (this is the part that only works post-hoc)
-        eventrel_roles_ere = [ self.graph_obj.shorten_label(rolelabel) for rolelabel, arg in fullhypothesis.eventrelation_each_argument(ere) ]
-        typelabel = self.graph_obj.shorten_label(self.graph_obj.stmt_object(test_stmt))
-        if not(any(rolelabel.startswith(typelabel) and len(rolelabel) > len(typelabel) for rolelabel in eventrel_roles_ere)):
+        # this is an only type: check to see whether it coincides with any roles of this event or
+        # relation IN THE FULL HYPOTHESIS (this is the part that only works post-hoc)
+        role_labels = [self.json_graph.shorten_label(pred_label) for pred_label, arg_label
+                       in full_hypothesis.event_rel_each_arg(ere_label)]
+        type_label = self.json_graph.shorten_label(self.json_graph.stmt_object(test_stmt))
+        if not any(role_label.startswith(type_label) for role_label in role_labels):
             # no, this type label does not coincide with any role label
-            # print("type statement not matching any role, flagging", test_stmt, self.graph_obj.stmt_object(test_stmt), eventrel_roles_ere)
             return False
 
         return True
-        
-    #######
-    #
-    # Don't have relations with only one argument.
-    #
-    # This filter takes the full hypothesis into account and hence only works post-hoc.
-    def relations_need_twoargs(self, hypothesis, test_stmt, fullhypothesis):
+
+    def relations_need_two_args(self, hypothesis: AidaHypothesis, test_stmt: str,
+                                full_hypothesis: AidaHypothesis):
+        """
+        Don't have relations with only one argument.
+        This filter takes the full hypothesis into account and hence only works post-hoc.
+        """
         # is this an argument of a relation
-        if not(self.graph_obj.is_relation(self.graph_obj.stmt_subject(test_stmt)) and self.graph_obj.is_ere(self.graph_obj.stmt_object(test_stmt))):
-            # no: then we don't have a problem
+        if not self.json_graph.is_relation_role_stmt(test_stmt):
             return True
 
-        rel_ere = self.graph_obj.stmt_subject(test_stmt)
+        rel_label = self.json_graph.stmt_subject(test_stmt)
 
-        # check if this relation ERE has more than one argument IN THE FULL HYPOTHESIS (this is the part
-        # that only works post-hoc)
-        rel_roles = set(rolelabel for rolelabel, arg in fullhypothesis.eventrelation_each_argument(rel_ere))
-        if len(rel_roles) > 1:
-            # print("keeping arg of role", rel_ere, rel_roles)
+        # check if this relation ERE has more than one argument IN THE FULL HYPOTHESIS
+        # (this is the part that only works post-hoc)
+        if len(list(full_hypothesis.event_rel_each_arg(rel_label))) > 1:
             return True
 
         # this is the only argument of this relation. don't add it
         return False
-    
-    #######
-    #
-    # Don't have events with only one argument, except when they are core EREs (that is, adjacent to
-    # one of the core statements)
-    #
-    # This filter takes the full hypothesis into account and hence only works post-hoc.
-    def events_need_twoargs(self, hypothesis, test_stmt, fullhypothesis):
-        # is this an argument of a relation
-        if not(self.graph_obj.is_event(self.graph_obj.stmt_subject(test_stmt)) and self.graph_obj.is_ere(self.graph_obj.stmt_object(test_stmt))):
-            # no: then we don't have a problem
+
+    def events_need_two_args(self, hypothesis: AidaHypothesis, test_stmt: str,
+                             full_hypothesis: AidaHypothesis):
+        """
+        Don't have events with only one argument, except when they are core EREs (that is,
+        adjacent to one of the core statements).
+        This filter takes the full hypothesis into account and hence only works post-hoc.
+        """
+        # is this an argument of an event
+        if not self.json_graph.is_event_role_stmt(test_stmt):
             return True
 
-        event_ere = self.graph_obj.stmt_subject(test_stmt)
-        arg_ere = self.graph_obj.stmt_object(test_stmt)
+        event_label = self.json_graph.stmt_subject(test_stmt)
+        arg_label = self.json_graph.stmt_object(test_stmt)
 
-        if arg_ere in hypothesis.core_eres():
-            # then it's fine, keep the one-argument event
-            # print("keeping one-argument event, as the argument is a core ERE", test_stmt)
+        # if the argument is a core ERE, it's fine, keep the one-argument event
+        if arg_label in hypothesis.core_eres():
             return True
 
-        # check if this event ERE has more than one argument IN THE FULL HYPOTHESIS (this is the part
-        # that only works post-hoc)
-        event_roles = set(rolelabel for rolelabel, arg in fullhypothesis.eventrelation_each_argument(event_ere))
-        if len(event_roles) > 1:
+        # check if this event ERE has more than one argument IN THE FULL HYPOTHESIS
+        # (this is the part that only works post-hoc)
+        if len(list(full_hypothesis.event_rel_each_arg(event_label))) > 1:
             return True
 
-        # this is the only argument of this relation. don't add it
+        # this is the only argument of this event. don't add it
         return False
-    
-    ##########################################
-    # main checking function
-    # check one single statement, which is part of the hypothesis.
+
+    # main checking function: check one single statement, which is part of the hypothesis.
     # assumption: this statement is the only potentially broken statement in the hypothesis
-    def validate(self, hypothesis, stmt, fullhypothesis = None):
+    def validate(self, hypothesis: AidaHypothesis, test_stmt: str,
+                 full_hypothesis: AidaHypothesis = None):
+        for test_func in [self.event_attack_attacker_instrument_compatible,
+                          self.event_attack_all_roles_different]:
+            if not test_func(hypothesis, test_stmt):
+                return False
 
-        if fullhypothesis is None:
-            # interactive filtering, only use tests usable for that
-            # print("interactive filtering")
-            tests = [
-                self.event_attack_attacker_instrument_compatible,
-                self.event_attack_all_roles_different
-                ]
-
-            for test_okay in tests:
-                if not test_okay(hypothesis, stmt):
+        # post-hoc filtering, requires full hypothesis
+        if full_hypothesis is not None:
+            for test_func in [self.single_type_per_event_rel,
+                              self.relations_need_two_args,
+                              self.events_need_two_args]:
+                if not test_func(hypothesis, test_stmt, full_hypothesis):
                     return False
 
-        else:
-            # print("posthoc filtering")
-            tests = [
-                self.event_attack_attacker_instrument_compatible,
-                self.event_attack_all_roles_different,
-                self.single_type_per_eventrel,
-                self.relations_need_twoargs,
-                self.events_need_twoargs
-                ]
-
-            for test_okay in tests:
-                if not test_okay(hypothesis, stmt, fullhypothesis):
-                    return False
-                
         return True
 
-    #############################################
     # other main function:
     # post-hoc, remove statements from the hypothesis that shouldn't be there.
     # do this by starting a new hypothesis and re-inserting statements there by statement weight,
     # using the validate function
-    def filtered(self, hypothesis):
-        
-        # new hypothesis: "incremental" because we add in things one at a time.
-        # start with the core statements
-        incr_hypothesis = AidaHypothesis(self.graph_obj, stmts = hypothesis.core_stmts.copy(),
-                                             core_stmts = hypothesis.core_stmts.copy(),
-                                             stmt_weights = dict((stmt, wt) for stmt, wt in hypothesis.stmt_weights.items() if stmt in hypothesis.core_stmts),
-                                             lweight = hypothesis.lweight)
-        incr_hypothesis.add_failed_queries(hypothesis.failed_queries)
-        incr_hypothesis.add_qvar_filler(hypothesis.qvar_filler)
-        incr_hypothesis_eres = set(incr_hypothesis.eres())
+    def filtered(self, hypothesis: AidaHypothesis):
+        # new hypothesis: start with the core statements, then add in things one at a time.
+        new_hypothesis = AidaHypothesis(
+            json_graph=self.json_graph,
+            stmts=hypothesis.core_stmts.copy(),
+            core_stmts=hypothesis.core_stmts.copy(),
+            stmt_weights={
+                stmt: stmt_weight for stmt, stmt_weight in hypothesis.stmt_weights.items()
+                if stmt in hypothesis.core_stmts
+            },
+            weight=hypothesis.weight
+        )
 
-        # print("HIER0", sorted(incr_hypothesis.stmts))
+        new_hypothesis.add_failed_queries(hypothesis.failed_queries)
+        new_hypothesis.add_qvar_filler(hypothesis.qvar_filler)
 
-        # all other statements are candidates, sorted by their weights in the hypothesis, highest first
-        candidates = [ stmt for stmt in hypothesis.stmts if stmt not in hypothesis.core_stmts]
-        candidates.sort(key = lambda stmt:hypothesis.stmt_weights[stmt], reverse = True)
+        new_hypothesis_eres = set(new_hypothesis.eres())
+
+        # all non-core statements are candidates, sorted by their weights, highest first
+        candidates = [stmt for stmt in hypothesis.stmts if stmt not in hypothesis.core_stmts]
+        candidates.sort(key=lambda s: hypothesis.stmt_weights[s], reverse=True)
         candidates = deque(candidates)
 
-        # candidates are set aside if they currently don't connect to any ERE in the incremental hypothesis
+        # candidates are set aside if they currently don't connect to any ERE in the new hypothesis
         candidates_set_aside = deque()
 
         while len(candidates) > 0:
-            ##
             # any set-aside candidates that turn out to be connected to the hypothesis after all?
-            resurrected_stmts = [ ]
+            resurrected_stmts = []
             for stmt in candidates_set_aside:
-                if any(ere in incr_hypothesis_eres for ere in self.graph_obj.statement_args(stmt)):
-                    # yes, check now whether this candidate should be inserted
-                    # print("resurrecting", stmt)
+                if any(ere in new_hypothesis_eres for ere in self.json_graph.statement_args(stmt)):
+                    # yes, now check whether this candidate should be inserted
                     resurrected_stmts.append(stmt)
-                    incr_hypothesis, new_eres = self._test_and_insert_candidate(stmt, incr_hypothesis, hypothesis)
-                    incr_hypothesis_eres.update(new_eres)
-                    # print("HIER2", sorted(incr_hypothesis.stmts))
-            for stmt in resurrected_stmts: candidates_set_aside.remove ( stmt )
+                    new_hypothesis, new_eres = self._test_and_insert_candidate(
+                        stmt, new_hypothesis, hypothesis)
+                    new_hypothesis_eres.update(new_eres)
+
+            for stmt in resurrected_stmts:
+                candidates_set_aside.remove(stmt)
 
             # now test the next non-set-aside candidate
             stmt = candidates.popleft()
             # does it need to be set aside?
-            if not(self.graph_obj.stmt_subject(stmt) in incr_hypothesis_eres) and not(self.graph_obj.stmt_object(stmt) in incr_hypothesis_eres):
-                # print("setting aside", stmt)
+            if not any(ere in new_hypothesis_eres for ere in self.json_graph.statement_args(stmt)):
                 candidates_set_aside.append(stmt)
             else:
                 # no, we can test this one now.
-                incr_hypothesis, new_eres = self._test_and_insert_candidate(stmt, incr_hypothesis, hypothesis)
-                incr_hypothesis_eres.update(new_eres)
+                new_hypothesis, new_eres = self._test_and_insert_candidate(
+                    stmt, prev_hypothesis=new_hypothesis, full_hypothesis=hypothesis)
+                new_hypothesis_eres.update(new_eres)
 
-            # print("HIER", sorted(incr_hypothesis.stmts))
-
-        # no candidates left in the candidate set, but maybe something from the set-aside candidate list
-        # has become connected to the core by the last candidate to be added
+        # now no candidates left in the candidate set, but maybe something from the set-aside
+        # candidate list has become connected to the core by the last candidate to be added
         for stmt in candidates_set_aside:
-            if any(ere in incr_hypothesis_eres for ere in self.graph_obj.statement_args(stmt)):
+            if any(ere in new_hypothesis_eres for ere in self.json_graph.statement_args(stmt)):
                 # yes, check now whether this candidate should be inserted
-                # print("resurrecting", stmt)
-                incr_hypothesis, new_eres = self._test_and_insert_candidate(stmt, incr_hypothesis, hypothesis)
-                incr_hypothesis_eres.update(new_eres)
-                # print("HIER2", sorted(hypothesis.stmts))        
+                new_hypothesis, new_eres = self._test_and_insert_candidate(
+                    stmt, prev_hypothesis=new_hypothesis, full_hypothesis=hypothesis)
+                new_hypothesis_eres.update(new_eres)
 
-        return incr_hypothesis
-        
-
+        return new_hypothesis
 
     def _test_and_insert_candidate(self, stmt, prev_hypothesis, full_hypothesis):
-        testhypothesis = prev_hypothesis.extend(stmt, weight = full_hypothesis.stmt_weights[stmt])
+        test_hypothesis = prev_hypothesis.extend(stmt, weight=full_hypothesis.stmt_weights[stmt])
 
-        new_eres = set()
-        if self.validate(testhypothesis, stmt, full_hypothesis):
-            # yes, statement is fine. add the statement's EREs to the incremental EREs
-            # print("keeping stmt", stmt)
-            for nodelabel in [ self.graph_obj.stmt_subject(stmt), self.graph_obj.stmt_object(stmt) ]:
-                if self.graph_obj.is_ere(nodelabel):
-                    new_eres.add(nodelabel)
-                # retain the extended hypothesis
-                return (testhypothesis, new_eres)
+        if self.validate(test_hypothesis, stmt, full_hypothesis):
+            # yes, statement is fine. add the statement's EREs to the new set of EREs
+            new_eres = [ere_label for ere_label in self.json_graph.statement_args(stmt)
+                        if self.json_graph.is_ere(ere_label)]
+            return test_hypothesis, new_eres
         else:
             # don't add stmt after all
-            return (prev_hypothesis, new_eres)
-        
-
-    #######3
-    # helper functions
-    
-    # intersection of possible affiliation IDs of EREs.
-    # returns None if no known affiliations
-    #
-    # input: list of filler EREs
-    def _possible_affiliation_intersect(self, hypothesis, ere_ids):
-        affiliations = None
-        
-        for ere_id in ere_ids:
-            these_affiliations = set(hypothesis.ere_each_possible_affiliation(ere_id))
-            if hypothesis.ere_possibly_isaffiliation(ere_id):
-                these_affiliations.add(ere_id)
-            if len(these_affiliations) > 0:
-                if affiliations is None:
-                    affiliations = these_affiliations
-                else:
-                    affiliations.intersection_update(these_affiliations)
-
-        return affiliations
+            return prev_hypothesis, []
