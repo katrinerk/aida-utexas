@@ -1,3 +1,6 @@
+import json
+import logging
+import shutil
 import sys
 from pathlib import Path
 from typing import List, Union
@@ -22,13 +25,18 @@ def get_output_path(path: Union[str, Path], overwrite_warning: bool = True) -> P
     return path
 
 
-def get_dir(dir_path: Union[str, Path], create: bool = True) -> Path:
+def get_output_dir(dir_path: Union[str, Path], overwrite_warning: bool = True) -> Path:
     if isinstance(dir_path, str):
         dir_path = Path(dir_path)
-    if create:
-        dir_path.mkdir(exist_ok=True, parents=True)
-    else:
-        assert dir_path.exists(), f'{dir_path} does not exist!'
+
+    if dir_path.is_dir() and any(True for _ in dir_path.iterdir()):
+        if overwrite_warning:
+            if not query_yes_no(f'{dir_path} already exists and is not empty, delete it first?',
+                                default='yes'):
+                sys.exit(0)
+        shutil.rmtree(str(dir_path.resolve()))
+
+    dir_path.mkdir(exist_ok=True, parents=True)
 
     return dir_path
 
@@ -81,3 +89,11 @@ def query_yes_no(question, default=None):
             return valid[choice]
         else:
             print('Please respond with \'yes\' or \'no\' (or \'y\' or \'n\')')
+
+
+def read_json_file(file_path: Union[str, Path], file_desc: str = None):
+    file_path = get_input_path(file_path, check_exist=True)
+    file_desc = file_desc or 'JSON object'
+    logging.info(f'Reading {file_desc} from {file_path} ...')
+    with open(str(file_path), 'r') as fin:
+        return json.load(fin)

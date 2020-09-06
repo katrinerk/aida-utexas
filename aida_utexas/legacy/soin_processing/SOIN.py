@@ -2,8 +2,7 @@ import logging
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 
-from aida_utexas.soin_processing.TypedDescriptor import *
-from aida_utexas.soin_processing.templates_and_constants import *
+from aida_utexas.legacy.soin_processing.templates_and_constants import *
 
 _LOG = logging.getLogger('read_soin')
 in_path = "/Users/eholgate/Desktop/SOIN/new_SOINs/R103.xml"

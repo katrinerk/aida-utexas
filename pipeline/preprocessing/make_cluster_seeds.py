@@ -1,9 +1,12 @@
 """
-Author: Katrin Erk March 2019
-rule-based creation of initial hypotheses from a JSON variant of a statement of information need
+Author: Katrin Erk, Mar 2019
+- Rule-based creation of initial hypotheses from a JSON variant of a statement of information need.
 
-Update: Pengxiang Cheng May 2020
-refactoring and cleanup for dockerization
+Update: Pengxiang Cheng, May 2020
+- Refactoring and cleanup for dockerization.
+
+Update: Pengxiang Cheng, Aug 2020
+- Use new JsonGraph API
 """
 
 import json
@@ -13,64 +16,65 @@ from pathlib import Path
 from typing import Dict
 
 from aida_utexas import util
-from aida_utexas.aif import AidaJson
+from aida_utexas.aif import JsonGraph
 from aida_utexas.seeds import ClusterExpansion, ClusterSeeds
 
 
 # helper function for logging
-def shortest_name(label: str, graph_json: AidaJson):
-    if label in graph_json.thegraph and 'name' in graph_json.thegraph[label]:
-        names = graph_json.english_names(graph_json.thegraph[label]['name'])
-        if len(names) > 0:
-            return sorted(names, key=lambda s: len(s))[0]
+def shortest_name(ere_label: str, json_graph: JsonGraph):
+    names = json_graph.english_names(json_graph.ere_names(ere_label))
+    if len(names) > 0:
+        return sorted(names, key=lambda n: len(n))[0]
     return None
 
 
-def make_cluster_seeds(graph_json: AidaJson, query_json: Dict, output_path: Path, graph_name: str,
+def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Path, graph_name: str,
                        max_num_seeds: int = None, discard_failed_queries: bool = False,
                        early_cutoff: bool = False, rank_cutoff: bool = None, log: bool = False):
     # create cluster seeds
     logging.info('Creating cluster seeds .')
-    cluster_seeds = ClusterSeeds(graph_json, query_json,
-                                 discard_failedqueries=discard_failed_queries,
-                                 earlycutoff=early_cutoff,
-                                 qs_cutoff=rank_cutoff)
+    cluster_seeds = ClusterSeeds(
+        json_graph=json_graph,
+        query_json=query_json,
+        discard_failed_queries=discard_failed_queries,
+        early_cutoff=early_cutoff,
+        qs_cutoff=rank_cutoff)
 
     # and expand on them
     logging.info('Expanding cluster seeds ...')
-    cluster_expansion = ClusterExpansion(graph_json, cluster_seeds.finalize())
+    cluster_expansion = ClusterExpansion(json_graph, cluster_seeds.finalize())
     cluster_expansion.type_completion()
     cluster_expansion.affiliation_completion()
 
-    json_seeds = cluster_expansion.to_json()
+    seeds_json = cluster_expansion.to_json()
 
     # possibly prune seeds
     if max_num_seeds is not None:
-        json_seeds['probs'] = json_seeds['probs'][:max_num_seeds]
-        json_seeds['support'] = json_seeds['support'][:max_num_seeds]
+        seeds_json['probs'] = seeds_json['probs'][:max_num_seeds]
+        seeds_json['support'] = seeds_json['support'][:max_num_seeds]
 
     # add graph filename and queries
-    json_seeds['graph'] = graph_name
-    json_seeds['queries'] = query_json['queries']
+    seeds_json['graph'] = graph_name
+    seeds_json['queries'] = query_json['queries']
 
     # write hypotheses out in json format.
     logging.info('Writing seeds to {} ...'.format(output_path))
     with open(str(output_path), 'w') as fout:
-        json.dump(json_seeds, fout, indent=1)
+        json.dump(seeds_json, fout, indent=1)
 
     if log:
         log_path = output_path.with_suffix('.log')
 
         with open(str(log_path), 'w') as fout:
-            print('Number of hypotheses:', len(json_seeds['support']), file=fout)
+            print('Number of hypotheses:', len(seeds_json['support']), file=fout)
             print('Number of hypotheses without failed queries:',
-                  len([h for h in json_seeds['support'] if len(h['failedQueries']) == 0]),
+                  len([h for h in seeds_json['support'] if len(h['failedQueries']) == 0]),
                   file=fout)
 
             for hyp in cluster_expansion.hypotheses()[:10]:
-                print('hypothesis log wt', hyp.lweight, file=fout)
+                print('hypothesis weight', hyp.weight, file=fout)
                 for qvar, filler in sorted(hyp.qvar_filler.items()):
-                    name = shortest_name(filler, graph_json)
+                    name = shortest_name(filler, json_graph)
                     if name is not None:
                         print(qvar, ':', filler, name, file=fout)
                     else:
@@ -93,7 +97,7 @@ def main():
     # discard hypotheses with failed queries? Try not to use this one during evaluation at first,
     # so that we don't discard hypotheses we might still need. If we have too many hypotheses and
     # the script runs too slowly, then use this.
-    parser.add_argument('-f', '--discard_failed_queries', action='store_true', default=False,
+    parser.add_argument('-d', '--discard_failed_queries', action='store_true', default=False,
                         help='discard hypotheses that have failed queries')
     # early cutoff: discard queries below the best k based only on entry point scores. Try not to
     # use this one during evaluation at first, so that we don't discard hypotheses we might still
@@ -112,28 +116,26 @@ def main():
     parser.add_argument('-l', '--log', action='store_true', default=False,
                         help='write log files to output directory')
 
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
+
     args = parser.parse_args()
 
     graph_path = util.get_input_path(args.graph_path)
-    query_path = util.get_input_path(args.query_path)
-    output_dir = util.get_dir(args.output_dir, create=True)
 
     graph_name = graph_path.name
-    logging.info('Loading graph JSON from {} ...'.format(graph_path))
-    with open(str(graph_path), 'r') as fin:
-        graph_json = AidaJson(json.load(fin))
+    json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
 
-    query_file_paths = util.get_file_list(query_path, suffix='.json', sort=True)
+    query_file_paths = util.get_file_list(args.query_path, suffix='.json', sort=True)
+
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
     for query_file_path in query_file_paths:
-        logging.info('Processing query: {} ...'.format(query_file_path))
-        with open(str(query_file_path), 'r') as fin:
-            query_json = json.load(fin)
-
+        query_json = util.read_json_file(query_file_path, 'query')
         query_name = query_file_path.name
-        output_path = util.get_output_path(output_dir / (query_name.split('_')[0] + '_seeds.json'))
+        output_path = output_dir / (query_name.split('_')[0] + '_seeds.json')
 
-        make_cluster_seeds(graph_json=graph_json,
+        make_cluster_seeds(json_graph=json_graph,
                            query_json=query_json,
                            output_path=output_path,
                            graph_name=graph_name,

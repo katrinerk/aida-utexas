@@ -128,7 +128,7 @@ class JsonInterface:
                     self.json_just_obj[nodelabel] = this_justification
                 
             # node describing a cluster: has a prototypical member and a handle (preferred name)
-            elif node.is_sameas_cluster():
+            elif node.is_same_as_cluster():
                 self.json_obj["theGraph"][nodelabel] = {"type": "SameAsCluster"}
                 
                 content = node.get("prototype", shorten=False)
@@ -283,7 +283,7 @@ class JsonInterface:
         retv = set()
 
         # check all the neighbor nodes for whether they are statements
-        for rel, neighbornodelabels in node.inedge.items():
+        for rel, neighbornodelabels in node.in_edge.items():
             for neighbornodelabel in neighbornodelabels:
 
                 neighbornode = self._getnode(neighbornodelabel)
@@ -298,7 +298,7 @@ class JsonInterface:
     ##     retv = set()
 
     ##     # check all the neighbor nodes for whether they are statements
-    ##     for rel, neighbornodelabels in node.inedge.items():
+    ##     for rel, neighbornodelabels in node.in_edge.items():
     ##         for neighbornodelabel in neighbornodelabels:
 
     ##             neighbornode = self._getnode(neighbornodelabel)
@@ -314,7 +314,7 @@ class JsonInterface:
     ##     retv = set()
 
     ##     # check all the neighbor nodes for whether they are statements
-    ##     for rel, neighbornodelabels in node.inedge.items():
+    ##     for rel, neighbornodelabels in node.in_edge.items():
     ##         for neighbornodelabel in neighbornodelabels:
 
     ##             neighbornode = self._getnode(neighbornodelabel)
@@ -417,8 +417,8 @@ class JsonInterface:
     # return all node labels that have an incoming or outgoing edge to/from the node with label nodelabel
     def _valid_neighbors(self, node, visitlabels):
         retv = set()
-        for nset in node.outedge.values(): retv.update(nset)
-        for nset in node.inedge.values(): retv.update(nset)
+        for nset in node.out_edge.values(): retv.update(nset)
+        for nset in node.in_edge.values(): retv.update(nset)
         return retv.intersection(visitlabels)
 
 
@@ -554,7 +554,7 @@ class JsonInterface:
         return list(self.mygraph.justifications_associated_with(node.name))
 
         ## self.json_just_obj[node.name] = [ ]
-        ## textjustifications = list(self.mygraph.sources_and_textjust_associated_with(node.name))
+        ## textjustifications = list(self.mygraph.sources_and_text_just_associated_with(node.name))
         ## if len(textjustifications) > 0:
         ##     self.json_just_obj[node.name] = textjustifications                
 

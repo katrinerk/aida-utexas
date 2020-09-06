@@ -1,10 +1,9 @@
-import json
 from argparse import ArgumentParser
 from operator import itemgetter
 
 from aida_utexas import sparql_helper
 from aida_utexas import util
-from aida_utexas.json_graph_helper import build_cluster_member_mappings
+from aida_utexas.aif import JsonGraph
 
 AIF_HEADER_PREFIXES = \
     '@prefix ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#> .\n' \
@@ -22,7 +21,7 @@ QUERY_PREFIXES = \
 
 
 def queries_for_aida_result(
-        graph_json, hypothesis, member_to_clusters, cluster_to_prototype, prototype_set,
+        json_graph, hypothesis, member_to_clusters, cluster_to_prototype, prototype_set,
         num_node_queries=5, num_stmts_per_query=3000,
         query_just=False, query_conf=False):
     ere_id_list = []
@@ -36,14 +35,12 @@ def queries_for_aida_result(
     # Extract all aida:system definitions.
     stmt_query_item_list.append('{?x a aida:System .}')
 
-    for stmt in hypothesis['statements']:
-        stmt_entry = graph_json['theGraph'][stmt]
+    for stmt_label in hypothesis['statements']:
+        assert json_graph.is_statement(stmt_label)
 
-        assert stmt_entry['type'] == 'Statement'
-
-        subject_id = stmt_entry['subject']
-        predicate_id = stmt_entry['predicate']
-        object_id = stmt_entry['object']
+        subject_id = json_graph.stmt_subject(stmt_label)
+        predicate_id = json_graph.stmt_predicate(stmt_label)
+        object_id = json_graph.stmt_object(stmt_label)
 
         # add subject to node_str_list for node query
         ere_query_item_list.append('<{}>'.format(subject_id))
@@ -274,9 +271,9 @@ def queries_for_aida_result(
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('graph_json_path', help='path to the graph json file')
-    parser.add_argument('hypotheses_json_path', help='path to the hypotheses json file')
-    parser.add_argument('db_path_prefix', help='prefix of tdb database path')
+    parser.add_argument('graph_path', help='path to the graph json file')
+    parser.add_argument('hypotheses_path', help='path to the hypotheses json file')
+    parser.add_argument('db_dir', help='directory with copies of tdb databases')
     parser.add_argument('output_dir', help='path to output directory')
     parser.add_argument('--top', default=14, type=int,
                         help='number of top hypothesis to output')
@@ -285,31 +282,26 @@ def main():
                              'files, without actually executing the queries')
     parser.add_argument('--query_just', action='store_true')
     parser.add_argument('--query_conf', action='store_true')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    graph_json_path = util.get_input_path(args.graph_json_path)
-    print('Reading the graph from {}'.format(graph_json_path))
-    with open(str(graph_json_path), 'r') as fin:
-        graph_json = json.load(fin)
+    json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
 
-    mappings = build_cluster_member_mappings(graph_json)
+    mappings = json_graph.build_cluster_member_mappings()
     member_to_clusters = mappings['member_to_clusters']
     cluster_to_prototype = mappings['cluster_to_prototype']
     prototype_set = set(mappings['prototype_to_clusters'].keys())
 
-    hypotheses_json_path = util.get_input_path(args.hypotheses_json_path)
-    print('Reading the hypotheses from {}'.format(hypotheses_json_path))
-    with open(str(hypotheses_json_path), 'r') as fin:
-        hypotheses_json = json.load(fin)
-
+    hypotheses_json = util.read_json_file(args.hypotheses_path, 'hypotheses')
     print('Found {} hypotheses with probabilities of {}'.format(
         len(hypotheses_json['probs']), hypotheses_json['probs']))
 
-    output_dir = util.get_dir(args.output_dir, create=True)
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
-    db_path_prefix = util.get_dir(args.db_path_prefix)
-    db_path_list = [str(path) for path in sorted(db_path_prefix.glob('copy*'))]
+    db_dir = util.get_input_path(args.db_dir)
+    db_path_list = [str(path) for path in sorted(db_dir.glob('copy*'))]
     print('Using the following tdb databases to query: {}'.format(db_path_list))
 
     num_node_queries = len(db_path_list)
@@ -320,7 +312,7 @@ def main():
         hypothesis = hypotheses_json['support'][result_idx]
         node_query_list, stmt_query_list, just_query_list, conf_query_list = \
             queries_for_aida_result(
-                graph_json=graph_json,
+                json_graph=json_graph,
                 hypothesis=hypothesis,
                 member_to_clusters=member_to_clusters,
                 cluster_to_prototype=cluster_to_prototype,

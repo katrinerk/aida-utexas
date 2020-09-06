@@ -8,7 +8,7 @@ run_id=$3
 soin_id=$4
 count=$5
 
-mkdir "${output_dir}"
+mkdir -p "${output_dir}"
 
 for i in $(seq -f "%03g" 1 "${count}")
 do

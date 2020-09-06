@@ -1,7 +1,7 @@
 """
 Author: Pengxiang Cheng August 2019
 
-Construct subgraphs for each cluster seed by starting at the entry points and
+Construct sub-graphs for each cluster seed by starting at the entry points and
 """
 
 import argparse
@@ -20,6 +20,17 @@ def stmts_to_eres(graph, hop_idx, this_hop_stmts, nodes_so_far, verbose=False):
     this_hop_relations = set()
     this_hop_events = set()
 
+    def _process_stmt_arg(stmt_arg):
+        this_hop_eres.add(stmt_arg)
+        arg_node = graph['theGraph'][stmt_arg]
+        if arg_node['type'] == 'Entity':
+            this_hop_entities.add(stmt_arg)
+        elif arg_node['type'] == 'Relation':
+            this_hop_relations.add(stmt_arg)
+        else:
+            assert arg_node['type'] == 'Event'
+            this_hop_events.add(stmt_arg)
+
     for stmt_label in this_hop_stmts:
         stmt_node = graph['theGraph'][stmt_label]
 
@@ -28,30 +39,14 @@ def stmts_to_eres(graph, hop_idx, this_hop_stmts, nodes_so_far, verbose=False):
 
         assert stmt_subj is not None and stmt_subj in graph['theGraph']
         if stmt_subj not in nodes_so_far['eres']:
-            this_hop_eres.add(stmt_subj)
-            subj_node = graph['theGraph'][stmt_subj]
-            if subj_node['type'] == 'Entity':
-                this_hop_entities.add(stmt_subj)
-            elif subj_node['type'] == 'Relation':
-                this_hop_relations.add(stmt_subj)
-            else:
-                assert subj_node['type'] == 'Event'
-                this_hop_events.add(stmt_subj)
+            _process_stmt_arg(stmt_subj)
 
         assert stmt_obj is not None
         if stmt_obj in graph['theGraph']:
             this_hop_general_stmts.add(stmt_label)
 
             if stmt_obj not in nodes_so_far['eres']:
-                this_hop_eres.add(stmt_obj)
-                obj_node = graph['theGraph'][stmt_obj]
-                if obj_node['type'] == 'Entity':
-                    this_hop_entities.add(stmt_obj)
-                elif obj_node['type'] == 'Relation':
-                    this_hop_relations.add(stmt_obj)
-                else:
-                    assert obj_node['type'] == 'Event'
-                    this_hop_events.add(stmt_obj)
+                _process_stmt_arg(stmt_obj)
 
         else:
             assert stmt_node.get('predicate', None) == 'type', stmt_node
@@ -185,22 +180,15 @@ def main():
                         help='number of hops to extend from')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='print more details in each hop of extraction')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    graph_file = util.get_input_path(args.graph_file)
-    print('\nLoading json graph from {}'.format(graph_file))
-    with open(str(graph_file), 'r') as fin:
-        graph_json = json.load(fin)
-    print('\tDone.')
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
-    seed_file = util.get_input_path(args.seed_file)
-    print('\nLoading cluster seeds from {}'.format(seed_file))
-    with open(str(seed_file), 'r') as fin:
-        seed_json = json.load(fin)
-    print('\tDone.')
-
-    output_dir = util.get_dir(args.output_dir, create=True)
+    graph_json = util.read_json_file(args.graph_file, 'JSON graph')
+    seed_json = util.read_json_file(args.seed_file, 'cluster seeds')
 
     for hypothesis_idx, (prob, hypothesis) in enumerate(
             zip(seed_json['probs'], seed_json['support'])):
@@ -212,7 +200,7 @@ def main():
             num_hops=args.num_hops,
             verbose=args.verbose
         )
-        output_path = util.get_output_path(output_dir / f'subgraph_{hypothesis_idx}.json')
+        output_path = output_dir / f'subgraph_{hypothesis_idx}.json'
         print('Writing subgraph json to {}'.format(output_path))
         with open(str(output_path), 'w') as fout:
             json.dump(subgraph, fout, indent=2)

@@ -1,9 +1,14 @@
-# Pengxiang Cheng Fall 2018
-# pre- and postprocessing for the AIDA eval
+"""
+Author: Pengxiang Cheng, Oct 2018
+- Helper method to run SPARQL queries for M09 evaluation
+
+Update: Pengxiang Cheng, Aug 2019
+- Update for M18 evaluation
+"""
 
 import subprocess
-from os import makedirs
-from os.path import exists, join
+from pathlib import Path
+from typing import List, Union
 
 
 # split node_query_item_list evenly into num_node_queries partitions,
@@ -25,7 +30,7 @@ def produce_node_queries(node_query_item_list, num_node_queries):
             node_query_list.append(
                 node_query_prefix +
                 ' '.join(node_query_item_list[
-                    split_num * node_query_idx: split_num * (node_query_idx + 1)]))
+                         split_num * node_query_idx: split_num * (node_query_idx + 1)]))
         else:
             node_query_list.append(
                 node_query_prefix + ' '.join(node_query_item_list[split_num * node_query_idx:]))
@@ -134,13 +139,13 @@ def produce_conf_queries(
 # on a bunch of TDB database copies. The number of node queries should be
 # equal to the number of DB copies.
 # set dry_run = True to only write the query files without executing them.
-def execute_sparql_queries(node_query_list, stmt_query_list, just_query_list, conf_query_list,
-                           db_path_list, output_dir, filename_prefix, header_prefixes,
-                           dry_run=False):
+def execute_sparql_queries(
+        node_query_list: List[str], stmt_query_list: List[str], just_query_list: List[str],
+        conf_query_list: List[str], db_path_list: List, output_dir: Union[Path, str],
+        filename_prefix: str, header_prefixes: str, dry_run: bool = False):
     assert len(node_query_list) == len(db_path_list)
 
-    if not exists(output_dir):
-        makedirs(output_dir)
+    output_dir = Path(output_dir)
 
     query_cmd_list = []
 
@@ -148,14 +153,12 @@ def execute_sparql_queries(node_query_list, stmt_query_list, just_query_list, co
 
     print('Writing queries to files ...')
     for node_query_idx, node_query in enumerate(node_query_list):
-        node_query_path = join(output_dir, '{}-node-query-{}.rq'.format(
-            filename_prefix, node_query_idx))
-        with open(node_query_path, 'w') as fout:
+        node_query_path = output_dir / f'{filename_prefix}-node-query-{node_query_idx}.rq'
+        with open(str(node_query_path), 'w') as fout:
             fout.write(node_query + '\n')
 
-        node_query_result_path = join(
-            output_dir, '{}-node-query-{}-result.ttl'.format(
-                filename_prefix, node_query_idx))
+        node_query_result_path = \
+            output_dir / f'{filename_prefix}-node-query-{node_query_idx}-result.ttl'
         query_result_path_list.append(node_query_result_path)
 
         query_cmd_list.append(
@@ -167,14 +170,12 @@ def execute_sparql_queries(node_query_list, stmt_query_list, just_query_list, co
     num_stmt_query = len(stmt_query_list)
 
     for stmt_query_idx, stmt_query in enumerate(stmt_query_list):
-        stmt_query_path = join(output_dir, '{}-stmt-query-{}.rq'.format(
-            filename_prefix, stmt_query_idx))
-        with open(stmt_query_path, 'w') as fout:
+        stmt_query_path = output_dir / f'{filename_prefix}-stmt-query-{stmt_query_idx}.rq'
+        with open(str(stmt_query_path), 'w') as fout:
             fout.write(stmt_query + '\n')
 
-        stmt_query_result_path = join(
-            output_dir, '{}-stmt-query-{}-result.ttl'.format(
-                filename_prefix, stmt_query_idx))
+        stmt_query_result_path = \
+            output_dir / f'{filename_prefix}-stmt-query-{stmt_query_idx}-result.ttl'
         query_result_path_list.append(stmt_query_result_path)
 
         db_idx = int(stmt_query_idx / num_stmt_query * num_db)
@@ -185,14 +186,12 @@ def execute_sparql_queries(node_query_list, stmt_query_list, just_query_list, co
     num_just_query = len(just_query_list)
 
     for just_query_idx, just_query in enumerate(just_query_list):
-        just_query_path = join(output_dir, '{}-just-query-{}.rq'.format(
-            filename_prefix, just_query_idx))
+        just_query_path = output_dir / f'{filename_prefix}-just-query-{just_query_idx}.rq'
         with open(just_query_path, 'w') as fout:
             fout.write(just_query + '\n')
 
-        just_query_result_path = join(
-            output_dir, '{}-just-query-{}-result.ttl'.format(
-                filename_prefix, just_query_idx))
+        just_query_result_path = \
+            output_dir / f'{filename_prefix}-just-query-{just_query_idx}-result.ttl'
         query_result_path_list.append(just_query_result_path)
 
         db_idx = int(just_query_idx / num_just_query * num_db)
@@ -203,14 +202,12 @@ def execute_sparql_queries(node_query_list, stmt_query_list, just_query_list, co
     num_conf_query = len(conf_query_list)
 
     for conf_query_idx, conf_query in enumerate(conf_query_list):
-        conf_query_path = join(output_dir, '{}-conf-query-{}.rq'.format(
-            filename_prefix, conf_query_idx))
+        conf_query_path = output_dir / f'{filename_prefix}-conf-query-{conf_query_idx}.rq'
         with open(conf_query_path, 'w') as fout:
             fout.write(conf_query + '\n')
 
-        conf_query_result_path = join(
-            output_dir, '{}-conf-query-{}-result.ttl'.format(
-                filename_prefix, conf_query_idx))
+        conf_query_result_path = \
+            output_dir / f'{filename_prefix}-conf-query-{conf_query_idx}-result.ttl'
         query_result_path_list.append(conf_query_result_path)
 
         db_idx = int(conf_query_idx / num_conf_query * num_db)
@@ -227,7 +224,7 @@ def execute_sparql_queries(node_query_list, stmt_query_list, just_query_list, co
             process.wait()
 
     if not dry_run:
-        merged_result_path = join(output_dir, '{}-raw.ttl'.format(filename_prefix))
+        merged_result_path = output_dir / f'{filename_prefix}-raw.ttl'
         print('Merging query outputs to {} ...'.format(merged_result_path))
 
         with open(merged_result_path, 'w') as fout:

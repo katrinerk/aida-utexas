@@ -1,13 +1,13 @@
 """
 Author: Katrin Erk October 2018
-read aida results json object, along with log object from from coref.py, to produce an
-aidaresults.json that looks as if aidabaseline.wppl had run without coref transformation
+- Read aida results json object, along with log object from from coref.py, to produce another
+aida results json that looks as if the results are produced without coref transformation
 
 Update: Pengxiang Cheng August 2019
-rewrite for M18 evaluation
+- Rewrite for M18 evaluation
 
 Update: Pengxiang Cheng May 2020
-slight re-formatting for dockerization
+- Slight re-formatting for dockerization
 """
 
 import json
@@ -18,7 +18,7 @@ from aida_utexas import util
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('input_hypotheses_path',
+    parser.add_argument('hypotheses_path',
                         help='path to the input json file for hypotheses, or a directory with '
                              'a list of hypotheses files')
     parser.add_argument('output_dir',
@@ -29,33 +29,21 @@ def main():
                         help='path to the compressed graph json file')
     parser.add_argument('input_log_path',
                         help='path to log file from coref compression')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    input_hypotheses_path = util.get_input_path(args.input_hypotheses_path)
-    output_dir = util.get_dir(args.output_dir, create=True)
-    original_graph_path = util.get_input_path(args.original_graph_path)
-    compressed_graph_path = util.get_input_path(args.compressed_graph_path)
-    input_log_path = util.get_input_path(args.input_log_path)
+    hypotheses_file_paths = util.get_file_list(args.hypotheses_path, suffix='.json', sort=True)
 
-    input_hypotheses_files = util.get_file_list(input_hypotheses_path, suffix='.json', sort=True)
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
-    print('Reading coref log from {}'.format(input_log_path))
-    with open(str(input_log_path), 'r') as fin:
-        input_log_json = json.load(fin)
+    original_graph_json = util.read_json_file(args.original_graph_path, 'original JSON graph')
+    compressed_graph_json = util.read_json_file(args.compressed_graph_path, 'compressed JSON graph')
+    input_log_json = util.read_json_file(args.input_log_path, 'coref log')
 
-    print('Reading original json graph from {}'.format(original_graph_path))
-    with open(str(original_graph_path), 'r') as fin:
-        original_graph_json = json.load(fin)
-
-    print('Reading compressed json graph from {}'.format(compressed_graph_path))
-    with open(str(compressed_graph_path), 'r') as fin:
-        compressed_graph_json = json.load(fin)
-
-    for input_hypotheses_file in input_hypotheses_files:
-        print('Reading hypotheses from {}'.format(input_hypotheses_file))
-        with open(str(input_hypotheses_file), 'r') as fin:
-            input_hypotheses_json = json.load(fin)
+    for hypotheses_file_path in hypotheses_file_paths:
+        input_hypotheses_json = util.read_json_file(hypotheses_file_path, 'hypotheses')
 
         # probs do not change
         output_hypotheses_json = {'probs': input_hypotheses_json['probs'], 'support': []}
@@ -132,9 +120,10 @@ def main():
         if 'queries' in input_hypotheses_json:
             output_hypotheses_json['queries'] = input_hypotheses_json['queries']
 
-        output_hypotheses_path = util.get_output_path(output_dir / input_hypotheses_file.name)
-        print('Writing coref-recovered hypotheses to {}'.format(output_hypotheses_path))
-        with open(str(output_hypotheses_path), 'w') as fout:
+        output_path = util.get_output_path(output_dir / hypotheses_file_path.name,
+                                           overwrite_warning=not args.force)
+        print('Writing coref-recovered hypotheses to {}'.format(output_path))
+        with open(str(output_path), 'w') as fout:
             json.dump(output_hypotheses_json, fout, indent=2)
 
 

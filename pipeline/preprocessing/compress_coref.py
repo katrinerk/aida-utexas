@@ -1,14 +1,17 @@
 """
 Author: Katrin Erk October 2018
-resolve all coreferences in an aidagraph.json data structure, and write a reduced aidagraph.json
+- Resolve all coreferences in an aidagraph.json data structure, and write a reduced aidagraph.json
 data structure without coreferring EREs or statements, along with a second .json file that details
-which original EREs/statements correspond to which reduced ones
+which original EREs/statements correspond to which reduced ones.
 
-Update: Pengxiang Cheng August 2019
-rewrite for M18 evaluation
+Update: Pengxiang Cheng, August 2019
+- Rewrite for M18 evaluation.
 
-Update: Pengxiang Cheng May 2020
-slight re-formatting for dockerization
+Update: Pengxiang Cheng, May 2020
+- Slight re-formatting for dockerization.
+
+Update: Pengxiang Cheng, August 2020
+- Adapt to new JsonGraph APIs.
 """
 
 import itertools
@@ -16,14 +19,16 @@ import json
 import logging
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
+from copy import deepcopy
+from typing import Dict
 
 from aida_utexas import util
-from aida_utexas.aif import AidaJson
-from aida_utexas.json_graph_helper import build_cluster_member_mappings
+from aida_utexas.aif import JsonGraph
+from aida_utexas.aif.json_graph import ERENode, StatementNode
 
 
 def make_stmt_keys(stmt_entry, member_to_prototypes):
-    subj = stmt_entry["subject"]
+    subj = stmt_entry.subject
     if subj in member_to_prototypes:
         new_subj_set = member_to_prototypes[subj]
     else:
@@ -31,9 +36,9 @@ def make_stmt_keys(stmt_entry, member_to_prototypes):
                         'any ClusterMembership node'.format(subj))
         new_subj_set = {subj}
 
-    pred = stmt_entry["predicate"]
+    pred = stmt_entry.predicate
 
-    obj = stmt_entry["object"]
+    obj = stmt_entry.object
     if pred != 'type':
         if obj in member_to_prototypes:
             new_obj_set = member_to_prototypes[obj]
@@ -48,9 +53,9 @@ def make_stmt_keys(stmt_entry, member_to_prototypes):
             in itertools.product(new_subj_set, new_obj_set)]
 
 
-def build_mappings(input_graph_json):
+def build_mappings(json_graph: JsonGraph):
     # Build mappings among clusters, members, and prototypes
-    mappings = build_cluster_member_mappings(input_graph_json)
+    mappings = json_graph.build_cluster_member_mappings()
 
     # Build mappings from old statement labels to new statement labels
     stmt_count = 0
@@ -60,8 +65,8 @@ def build_mappings(input_graph_json):
     old_stmt_to_new_stmts = defaultdict(set)
     new_stmt_to_old_stmts = defaultdict(set)
 
-    for node_label, node in input_graph_json['theGraph'].items():
-        if node['type'] == 'Statement':
+    for node_label, node in json_graph.node_dict.items():
+        if node.type == 'Statement':
             stmt_keys = make_stmt_keys(
                 stmt_entry=node, member_to_prototypes=mappings['member_to_prototypes'])
             for stmt_key in stmt_keys:
@@ -102,14 +107,8 @@ def build_mappings(input_graph_json):
     return mappings
 
 
-def compress_eres(input_graph_json, mappings, output_graph_json):
-    if 'theGraph' not in output_graph_json:
-        output_graph_json['theGraph'] = {}
-
-    if 'ere' not in output_graph_json:
-        output_graph_json['ere'] = []
-    else:
-        assert len(output_graph_json['ere']) == 0
+def compress_eres(input_json_graph: JsonGraph, mappings: Dict, output_json_graph: JsonGraph):
+    assert len(output_json_graph.eres) == 0
 
     logging.info('Building ERE / SameAsCluster / ClusterMembership entries for the compressed '
                  'graph ...')
@@ -117,17 +116,15 @@ def compress_eres(input_graph_json, mappings, output_graph_json):
     num_new_eres = 0
 
     for prototype, members in mappings['prototype_to_members'].items():
-        old_entry = input_graph_json['theGraph'][prototype]
+        old_entry = input_json_graph.node_dict[prototype]
 
         # Use the same ERE index from the original graph
-        new_entry = {'index': old_entry['index']}
+        new_entry = {'index': old_entry.index}
 
-        member_entry_list = [input_graph_json['theGraph'][member] for member in
-                             members]
+        member_entry_list = [input_json_graph.node_dict[member] for member in members]
 
         # Resolve the type of the compressed ERE node
-        type_set = set(
-            member_entry['type'] for member_entry in member_entry_list)
+        type_set = set(member_entry.type for member_entry in member_entry_list)
         # if len(type_set) > 1:
         #     type_set.remove('Entity')
         if len(type_set) > 1:
@@ -138,7 +135,7 @@ def compress_eres(input_graph_json, mappings, output_graph_json):
         # Resolve the adjacent statements of the compressed ERE node
         adjacency_set = set()
         for member_entry in member_entry_list:
-            for old_stmt in member_entry['adjacent']:
+            for old_stmt in member_entry.adjacent:
                 adjacency_set.update(
                     mappings['old_stmt_to_new_stmts'][old_stmt])
         new_entry['adjacent'] = list(adjacency_set)
@@ -146,54 +143,40 @@ def compress_eres(input_graph_json, mappings, output_graph_json):
         # Resolve the names of the compressed ERE node
         name_set = set()
         for member_entry in member_entry_list:
-            if 'name' in member_entry:
-                name_set.update(member_entry['name'])
+            name_set.update(member_entry.name)
         for cluster in mappings['prototype_to_clusters'][prototype]:
-            cluster_handle = input_graph_json['theGraph'][cluster].get('handle',
-                                                                       None)
+            cluster_handle = input_json_graph.node_dict[cluster].handle
             if cluster_handle is not None and cluster_handle != '[unknown]':
                 name_set.add(cluster_handle)
-        if len(name_set) > 0:
-            new_entry['name'] = list(name_set)
+        new_entry['name'] = list(name_set)
 
         # Resolve the LDC time list of the compressed ERE node
         ldc_time_list = []
         for member_entry in member_entry_list:
-            if 'ldcTime' in member_entry:
-                ldc_time_list.extend(member_entry['ldcTime'])
-        if len(ldc_time_list) > 0:
-            new_entry['ldcTime'] = ldc_time_list
+            ldc_time_list.extend(member_entry.ldcTime)
+        new_entry['ldcTime'] = ldc_time_list
 
-        output_graph_json['theGraph'][prototype] = new_entry
-        output_graph_json['ere'].append(prototype)
+        output_json_graph.node_dict[prototype] = ERENode(**new_entry)
+        output_json_graph.eres.append(prototype)
 
         # Add SameAsCluster nodes and ClusterMembership nodes
         for cluster in mappings['prototype_to_clusters'][prototype]:
-            same_as_cluster_entry = input_graph_json['theGraph'][cluster]
-            output_graph_json['theGraph'][cluster] = same_as_cluster_entry
+            output_json_graph.node_dict[cluster] = deepcopy(input_json_graph.node_dict[cluster])
 
             for cluster_membership_key in \
                     mappings['cluster_membership_key_mapping'][(cluster, prototype)]:
-                cluster_membership_entry = input_graph_json['theGraph'][
-                    cluster_membership_key]
-                output_graph_json['theGraph'][
-                    cluster_membership_key] = cluster_membership_entry
+                output_json_graph.node_dict[cluster_membership_key] = deepcopy(
+                    input_json_graph.node_dict[cluster_membership_key])
 
         num_new_eres += 1
 
     return num_new_eres
 
 
-def compress_statements(input_graph_json, mappings, output_graph_json):
+def compress_statements(input_json_graph: JsonGraph, mappings: Dict, output_json_graph: JsonGraph):
     logging.info('Building statement entries for the compressed graph ...')
 
-    if 'theGraph' not in output_graph_json:
-        output_graph_json['theGraph'] = {}
-
-    if 'statements' not in output_graph_json:
-        output_graph_json['statements'] = []
-    else:
-        assert len(output_graph_json['statements']) == 0
+    assert len(output_json_graph.statements) == 0
 
     num_new_stmts = 0
 
@@ -208,24 +191,30 @@ def compress_statements(input_graph_json, mappings, output_graph_json):
             'object': obj
         }
 
-        old_stmt_entry_list = [
-            input_graph_json['theGraph'][old_stmt]
-            for old_stmt in mappings['new_stmt_to_old_stmts'][new_stmt]]
+        conf_levels = set()
+        for old_stmt in mappings['new_stmt_to_old_stmts'][new_stmt]:
+            old_stmt_entry = input_json_graph.node_dict[old_stmt]
+            if old_stmt_entry.conf is not None:
+                conf_levels.add(old_stmt_entry.conf)
 
-        # Resolve the extra information (source and hypotheses) of the new
-        # statement
-        for label in ['source', 'hypotheses_supported',
-                      'hypotheses_partially_supported',
-                      'hypotheses_contradicted']:
-            label_value_set = set()
-            for old_stmt_entry in old_stmt_entry_list:
-                if label in old_stmt_entry:
-                    label_value_set.update(old_stmt_entry[label])
-            if len(label_value_set) > 0:
-                new_entry[label] = list(label_value_set)
+        new_entry['conf'] = max(conf_levels) if conf_levels else None
 
-        output_graph_json['theGraph'][new_stmt] = new_entry
-        output_graph_json['statements'].append(new_stmt)
+        # old_stmt_entry_list = [input_json_graph.node_dict[old_stmt]
+        #                        for old_stmt in mappings['new_stmt_to_old_stmts'][new_stmt]]
+        #
+        # # Resolve the extra information (source and hypotheses) of the new
+        # # statement
+        # for label in ['source', 'hypotheses_supported', 'hypotheses_partially_supported',
+        #               'hypotheses_contradicted']:
+        #     label_value_set = set()
+        #     for old_stmt_entry in old_stmt_entry_list:
+        #         if label in old_stmt_entry:
+        #             label_value_set.update(old_stmt_entry[label])
+        #     if len(label_value_set) > 0:
+        #         new_entry[label] = list(label_value_set)
+
+        output_json_graph.node_dict[new_stmt] = StatementNode(**new_entry)
+        output_json_graph.statements.append(new_stmt)
         num_new_stmts += 1
 
     return num_new_stmts
@@ -236,39 +225,36 @@ def main():
     parser.add_argument('input_graph_path', help='path to the input graph json file')
     parser.add_argument('output_graph_path', help='path to write the coref-compressed graph')
     parser.add_argument('output_log_path', help='path to write the log file')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    input_graph_path = util.get_input_path(args.input_graph_path)
-    output_graph_path = util.get_output_path(args.output_graph_path)
-    output_log_path = util.get_output_path(args.output_log_path)
+    output_graph_path = util.get_output_path(args.output_graph_path,
+                                             overwrite_warning=not args.force)
+    output_log_path = util.get_output_path(args.output_log_path, overwrite_warning=not args.force)
 
-    logging.info('Reading json graph from {} ...'.format(input_graph_path))
-    with open(str(input_graph_path), 'r') as fin:
-        input_graph_json = json.load(fin)
+    input_json_graph = JsonGraph.from_dict(util.read_json_file(args.input_graph_path, 'JSON graph'))
 
-    aida_json = AidaJson(input_graph_json)
-
-    num_old_eres = len(list(aida_json.each_ere()))
-    assert num_old_eres == len(input_graph_json['ere'])
-    num_old_stmts = len(list(aida_json.each_statement()))
+    num_old_eres = len(list(input_json_graph.each_ere()))
+    assert num_old_eres == len(input_json_graph.eres)
+    num_old_stmts = len(list(input_json_graph.each_statement()))
     logging.info('Found {} EREs and {} statements in the original graph'.format(
         num_old_eres, num_old_stmts))
 
-    mappings = build_mappings(input_graph_json)
+    mappings = build_mappings(input_json_graph)
 
-    output_graph_json = {'theGraph': {}, 'ere': [], 'statements': []}
+    output_json_graph = JsonGraph()
 
-    num_new_eres = compress_eres(input_graph_json, mappings, output_graph_json)
-    num_new_stmts = compress_statements(input_graph_json, mappings,
-                                        output_graph_json)
+    num_new_eres = compress_eres(input_json_graph, mappings, output_json_graph)
+    num_new_stmts = compress_statements(input_json_graph, mappings, output_json_graph)
 
     logging.info('Finished coref-compressed graph with {} EREs and {} statements'.format(
         num_new_eres, num_new_stmts))
 
     logging.info('Writing compressed json graph to {}'.format(output_graph_path))
     with open(str(output_graph_path), 'w') as fout:
-        json.dump(output_graph_json, fout, indent=2)
+        json.dump(output_json_graph.as_dict(), fout, indent=1)
 
     log_json = {}
     for mapping_key, mapping in mappings.items():

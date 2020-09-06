@@ -2,3 +2,4 @@ graphviz
 rdflib
 tqdm
 dill
+pandas
