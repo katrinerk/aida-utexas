@@ -11,20 +11,23 @@ working_dir=$3
 num_hyps=$4
 num_hops=$5
 do_coref_compression=$6
+optional_args=$7
 
 echo
 python -m pipeline.preprocessing.process_input \
     "$input_kb_path" \
-    "$SIN" \
     "${working_dir}/${input_run_name}.json" \
-    "${working_dir}/query_jsons"
+    -s "$SIN" \
+    -q "${working_dir}/query_jsons" \
+    "$optional_args"
 
 echo
 if $do_coref_compression; then
     python -m pipeline.preprocessing.compress_coref \
         "${working_dir}/${input_run_name}.json" \
         "${working_dir}/${input_run_name}_compressed.json" \
-        "${working_dir}/${input_run_name}_log.json"
+        "${working_dir}/${input_run_name}_log.json" \
+        "$optional_args"
     graph_name="${input_run_name}_compressed.json"
 else
     graph_name="${input_run_name}.json"
@@ -36,7 +39,8 @@ python -m pipeline.preprocessing.make_cluster_seeds \
     "${working_dir}/query_jsons" \
     "${working_dir}/cluster_seeds" \
     --max_num_seeds "${num_hyps}" \
-    --early_cutoff 100
+    --early_cutoff 100 \
+    "$optional_args"
 
 for seed_file in "${working_dir}"/cluster_seeds/*.json; do
     echo
@@ -46,7 +50,8 @@ for seed_file in "${working_dir}"/cluster_seeds/*.json; do
         "${working_dir}/${graph_name}" \
         "${seed_file}" \
         "${working_dir}/subgraph/${seed_name}"/ \
-        -n "${num_hops}"
+        -n "${num_hops}" \
+        "$optional_args"
 done
 
 echo

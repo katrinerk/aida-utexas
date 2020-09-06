@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -u
+set -xu
 
 input_dir=$1
 output_dir=$2
@@ -10,6 +10,10 @@ mkdir -p "${output_dir}"
 
 for i in $(seq -f "%03g" 1 "${count}")
 do
-  mkdir -p "${output_dir}"/hypothesis-"${i}"
-  tdbloader2 --loc "${output_dir}"/hypothesis-"${i}" --jvm-args -Xmx10g "${input_dir}"/hypothesis-"${i}"-raw.ttl
+    hyp_output_dir="${output_dir}"/hypothesis-"${i}"
+    if [ -d "$hyp_output_dir" ]; then
+        rm -rf "$hyp_output_dir"
+    fi
+    mkdir -p "$hyp_output_dir"
+    tdbloader2 --loc "$hyp_output_dir" --jvm-args -Xmx10g "${input_dir}"/hypothesis-"${i}"-raw.ttl
 done

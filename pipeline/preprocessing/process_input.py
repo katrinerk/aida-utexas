@@ -30,24 +30,24 @@ def main():
                     'definition, convert the KB to JSON format, then convert each SoIN to a JSON '
                     'query by identifying and ranking entry points.')
     parser.add_argument('kb_path', help='Path to the input TA2 KB')
-    parser.add_argument('soin_path',
-                        help='Path to the input SoIN file, or a directory with multiple SoIN files')
     parser.add_argument('graph_output_path', help='Path to write the JSON graph')
-    parser.add_argument('query_output_dir', help='Directory to write the JSON queries')
+    parser.add_argument('-s', '--soin_path',
+                        help='Path to the input SoIN file, or a directory containing multiple SoIN '
+                             'files; if not provided, will only transform the graph')
+    parser.add_argument('-q', '--query_output_dir',
+                        help='Directory to write the JSON queries, used when soin_path is provided')
     parser.add_argument('-m', '--max_matches', type=int, default=50,
                         help='The maximum number of EPs *per entry point description*')
     parser.add_argument('-d', '--dup_kb', default=duplicate_kb_file,
                         help='Path to the json file with duplicate KB ID mappings')
-    parser.add_argument('-f', '--force_overwrite', action='store_true', default=False,
+    parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
     kb_path = util.get_input_path(args.kb_path)
-    soin_path = util.get_input_path(args.soin_path)
     graph_output_path = util.get_output_path(
-        args.graph_output_path, overwrite_warning=not args.force_overwrite)
-    query_output_dir = util.get_dir(args.query_output_dir, create=True)
+        args.graph_output_path, overwrite_warning=not args.force)
 
     aida_graph = AidaGraph()
     aida_graph.build_graph(str(kb_path), fmt='ttl')
@@ -60,49 +60,51 @@ def main():
         json.dump(json_graph.as_dict(), fout, indent=1)
     logging.info('Done.')
 
-    soin_file_paths = util.get_file_list(soin_path, suffix='.xml', sort=True)
+    if args.soin_path is not None:
+        assert args.query_output_dir is not None, 'Must provide query_output_dir'
+        soin_path = util.get_input_path(args.soin_path)
+        query_output_dir = util.get_output_dir(args.query_output_dir,
+                                               overwrite_warning=not args.force)
 
-    dup_kb_id_mapping = None
-    if args.dup_kb is not None:
-        logging.info('Loading duplicate KB ID mapping from {} ...'.format(args.dup_kb))
-        with open(args.dup_kb, 'r') as fin:
-            dup_kb_id_mapping = json.load(fin)
+        soin_file_paths = util.get_file_list(soin_path, suffix='.xml', sort=True)
 
-    logging.info('Getting Cluster Mappings ...')
-    cluster_to_prototype, entity_to_clusters = get_cluster_mappings(aida_graph)
+        dup_kb_id_mapping = None
+        if args.dup_kb is not None:
+            dup_kb_id_mapping = util.read_json_file(args.dup_kb, 'duplicate KB ID mapping')
 
-    for soin_file_path in soin_file_paths:
-        query_output_path = util.get_output_path(
-            query_output_dir / (soin_file_path.stem + '_query.json'),
-            overwrite_warning=not args.force_overwrite)
+        logging.info('Getting Cluster Mappings ...')
+        cluster_to_prototype, entity_to_clusters = get_cluster_mappings(aida_graph)
 
-        logging.info('Processing SOIN {} ...'.format(soin_file_path))
-        logging.info('Parsing SOIN XML ...')
-        soin = SOIN.parse(str(soin_file_path), dup_kbid_mapping=dup_kb_id_mapping)
+        for soin_file_path in soin_file_paths:
+            query_output_path = query_output_dir / (soin_file_path.stem + '_query.json')
 
-        logging.info('Resolving all entrypoints ...')
-        ep_matches_dict, ep_weights_dict = resolve_all_entrypoints(
-            graph=aida_graph,
-            soin=soin,
-            cluster_to_prototype=cluster_to_prototype,
-            entity_to_clusters=entity_to_clusters,
-            max_matches=args.max_matches)
+            logging.info('Processing SOIN {} ...'.format(soin_file_path))
+            logging.info('Parsing SOIN XML ...')
+            soin = SOIN.parse(str(soin_file_path), dup_kbid_mapping=dup_kb_id_mapping)
 
-        logging.info('Serializing data structures ...')
-        query_json = {
-            'graph': kb_path.stem,
-            'soin_id': soin.id,
-            'frame_id': [frame.id for frame in soin.frames],
-            'entrypoints': ep_matches_dict,
-            'entrypointWeights': ep_weights_dict,
-            'queries': [],
-            'facets': soin.frames_to_json(),
-        }
+            logging.info('Resolving all entrypoints ...')
+            ep_matches_dict, ep_weights_dict = resolve_all_entrypoints(
+                graph=aida_graph,
+                soin=soin,
+                cluster_to_prototype=cluster_to_prototype,
+                entity_to_clusters=entity_to_clusters,
+                max_matches=args.max_matches)
 
-        logging.info('Writing JSON query to {} ...'.format(query_output_path))
-        with open(str(query_output_path), 'w') as fout:
-            json.dump(query_json, fout, indent=1)
-        logging.info('Done.')
+            logging.info('Serializing data structures ...')
+            query_json = {
+                'graph': kb_path.stem,
+                'soin_id': soin.id,
+                'frame_id': [frame.id for frame in soin.frames],
+                'entrypoints': ep_matches_dict,
+                'entrypointWeights': ep_weights_dict,
+                'queries': [],
+                'facets': soin.frames_to_json(),
+            }
+
+            logging.info('Writing JSON query to {} ...'.format(query_output_path))
+            with open(str(query_output_path), 'w') as fout:
+                json.dump(query_json, fout, indent=1)
+            logging.info('Done.')
 
 
 if __name__ == '__main__':

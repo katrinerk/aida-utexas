@@ -1,4 +1,3 @@
-import json
 import math
 from argparse import ArgumentParser
 from operator import itemgetter
@@ -53,30 +52,26 @@ def compute_importance_mapping(json_graph, hypothesis, member_to_clusters):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('graph_json_path', help='path to the graph json file')
-    parser.add_argument('hypotheses_json_path', help='path to the hypotheses json file')
+    parser.add_argument('graph_path', help='path to the graph json file')
+    parser.add_argument('hypotheses_path', help='path to the hypotheses json file')
     parser.add_argument('output_dir', help='Directory to write queries')
     parser.add_argument('frame_id', help='Frame ID of the hypotheses')
     parser.add_argument('--top', default=14, type=int,
                         help='number of top hypothesis to output')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    graph_json_path = util.get_input_path(args.graph_json_path)
-    hypotheses_json_path = util.get_input_path(args.hypotheses_json_path)
-    output_dir = util.get_dir(args.output_dir, create=True)
-    frame_id = args.frame_id
-
-    json_graph = JsonGraph.load(graph_json_path)
-
+    json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
     member_to_clusters = json_graph.build_cluster_member_mappings()['member_to_clusters']
 
-    print('Reading the hypotheses from {}'.format(hypotheses_json_path))
-    with open(str(hypotheses_json_path), 'r') as fin:
-        hypotheses_json = json.load(fin)
-
+    hypotheses_json = util.read_json_file(args.hypotheses_path, 'hypotheses')
     print('Found {} hypotheses with probabilities of {}'.format(
         len(hypotheses_json['probs']), hypotheses_json['probs']))
+
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
+    frame_id = args.frame_id
 
     top_count = 0
 

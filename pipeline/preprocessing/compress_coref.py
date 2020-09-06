@@ -225,14 +225,16 @@ def main():
     parser.add_argument('input_graph_path', help='path to the input graph json file')
     parser.add_argument('output_graph_path', help='path to write the coref-compressed graph')
     parser.add_argument('output_log_path', help='path to write the log file')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    input_graph_path = util.get_input_path(args.input_graph_path)
-    output_graph_path = util.get_output_path(args.output_graph_path)
-    output_log_path = util.get_output_path(args.output_log_path)
+    output_graph_path = util.get_output_path(args.output_graph_path,
+                                             overwrite_warning=not args.force)
+    output_log_path = util.get_output_path(args.output_log_path, overwrite_warning=not args.force)
 
-    input_json_graph = JsonGraph.load(input_graph_path)
+    input_json_graph = JsonGraph.from_dict(util.read_json_file(args.input_graph_path, 'JSON graph'))
 
     num_old_eres = len(list(input_json_graph.each_ere()))
     assert num_old_eres == len(input_json_graph.eres)

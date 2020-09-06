@@ -108,6 +108,9 @@ def main():
     parser.add_argument("--conv_dropout", type=float, default=.5)
     parser.add_argument("--attention_dropout", type=float, default=.2)
 
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
+
     # parser.add_argument("--use_highest_ranked_gold", action='store_true')
     # parser.add_argument("--force", action='store_true')
     # parser.add_argument("--init_prob_force", type=float, default=.95)
@@ -166,8 +169,8 @@ def main():
     working_dir = util.get_input_path(args.working_dir)
     seed_dir = util.get_input_path(working_dir / args.seed_dir)
     indexed_data_dir = util.get_input_path(working_dir / args.indexed_data_dir)
-    output_dir = util.get_output_path(working_dir / args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = util.get_output_dir(working_dir / args.output_dir,
+                                     overwrite_warning=not args.force)
 
     print('\nExpanding cluster seeds ...')
 

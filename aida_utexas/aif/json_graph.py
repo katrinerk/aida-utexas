@@ -4,13 +4,11 @@ Author: Pengxiang Cheng, Aug 2020
 - Json representation for an AIDA graph, with methods to reason over it.
 """
 
-import json
 import logging
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from tqdm import tqdm
 
@@ -251,12 +249,6 @@ class JsonGraph:
         json_graph.string_constants = list(json_graph.each_string_constant_of_graph())
 
         return json_graph
-
-    @classmethod
-    def load(cls, file_path: Union[Path, str]):
-        logging.info('Loading JSON graph from {} ...'.format(file_path))
-        with open(str(file_path), 'r') as fin:
-            return cls.from_dict(json.load(fin))
 
     # does this node exist in the graph
     def has_node(self, node_label):

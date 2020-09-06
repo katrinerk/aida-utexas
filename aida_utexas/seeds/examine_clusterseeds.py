@@ -1,6 +1,7 @@
-import json
 import sys
 from pathlib import Path
+
+from aida_utexas import util
 
 seeds_dir = Path(sys.argv[1]).resolve()
 assert seeds_dir.exists() and seeds_dir.is_dir(), \
@@ -10,9 +11,7 @@ seeds_file_list = sorted(
     [f for f in seeds_dir.iterdir() if f.suffix == '.json'])
 
 for seeds_file in seeds_file_list:
-    print('\nIn {}:'.format(seeds_file))
-    with open(str(seeds_file), 'r') as fin:
-        seeds_json = json.load(fin)
+    seeds_json = util.read_json_file(seeds_file, 'seeds')
     num_failed_queries_list = []
     for cluster_idx, cluster in enumerate(seeds_json['support']):
         num_failed_queries = len(cluster['failedQueries'])

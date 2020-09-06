@@ -1,7 +1,7 @@
 """
 Author: Pengxiang Cheng August 2019
 
-Construct subgraphs for each cluster seed by starting at the entry points and
+Construct sub-graphs for each cluster seed by starting at the entry points and
 """
 
 import argparse
@@ -180,22 +180,15 @@ def main():
                         help='number of hops to extend from')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='print more details in each hop of extraction')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    graph_file = util.get_input_path(args.graph_file)
-    print('\nLoading json graph from {}'.format(graph_file))
-    with open(str(graph_file), 'r') as fin:
-        graph_json = json.load(fin)
-    print('\tDone.')
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
-    seed_file = util.get_input_path(args.seed_file)
-    print('\nLoading cluster seeds from {}'.format(seed_file))
-    with open(str(seed_file), 'r') as fin:
-        seed_json = json.load(fin)
-    print('\tDone.')
-
-    output_dir = util.get_dir(args.output_dir, create=True)
+    graph_json = util.read_json_file(args.graph_file, 'JSON graph')
+    seed_json = util.read_json_file(args.seed_file, 'cluster seeds')
 
     for hypothesis_idx, (prob, hypothesis) in enumerate(
             zip(seed_json['probs'], seed_json['support'])):
@@ -207,7 +200,7 @@ def main():
             num_hops=args.num_hops,
             verbose=args.verbose
         )
-        output_path = util.get_output_path(output_dir / f'subgraph_{hypothesis_idx}.json')
+        output_path = output_dir / f'subgraph_{hypothesis_idx}.json'
         print('Writing subgraph json to {}'.format(output_path))
         with open(str(output_path), 'w') as fout:
             json.dump(subgraph, fout, indent=2)

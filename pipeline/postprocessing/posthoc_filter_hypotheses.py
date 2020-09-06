@@ -22,26 +22,22 @@ def main():
     parser = ArgumentParser()
 
     parser.add_argument('graph_path', help='Path to the input graph JSON file')
-    parser.add_argument('hypothesis_path',
-                        help='Path to the raw hypothesis file, or a directory with multiple files')
+    parser.add_argument('hypotheses_path',
+                        help='Path to the raw hypotheses file, or a directory with multiple files')
     parser.add_argument('output_dir',
                         help='Directory to write the filtered hypothesis files(s)')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
-    graph_path = util.get_input_path(args.graph_path)
-    hypothesis_path = util.get_input_path(args.hypothesis_path)
-    output_dir = util.get_dir(args.output_dir, create=True)
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
-    json_graph = JsonGraph.load(graph_path)
+    json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
+    hypotheses_file_paths = util.get_file_list(args.hypotheses_path, suffix='.json', sort=True)
 
-    hypothesis_file_paths = util.get_file_list(hypothesis_path, suffix='.json', sort=True)
-
-    for hypothesis_file_path in hypothesis_file_paths:
-        logging.info('Processing hypotheses from {} ...'.format(hypothesis_file_path))
-
-        with open(str(hypothesis_file_path), 'r') as fin:
-            json_hypotheses = json.load(fin)
+    for hypotheses_file_path in hypotheses_file_paths:
+        json_hypotheses = util.read_json_file(hypotheses_file_path, 'hypotheses')
         hypothesis_collection = AidaHypothesisCollection.from_json(json_hypotheses, json_graph)
 
         # create the filter
@@ -57,7 +53,7 @@ def main():
             new_hypothesis = hypothesis_filter.filtered(hypothesis)
             new_hypothesis_collection.add(new_hypothesis)
 
-        output_path = util.get_output_path(output_dir / hypothesis_file_path.name)
+        output_path = output_dir / hypotheses_file_path.name
         logging.info('Writing filtered hypotheses to {} ...'.format(output_path))
 
         with open(str(output_path), 'w') as fout:

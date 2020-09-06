@@ -116,28 +116,24 @@ def main():
     parser.add_argument('-l', '--log', action='store_true', default=False,
                         help='write log files to output directory')
 
-    parser.add_argument('-f', '--force_overwrite', action='store_true', default=False,
+    parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
     graph_path = util.get_input_path(args.graph_path)
-    query_path = util.get_input_path(args.query_path)
-    output_dir = util.get_dir(args.output_dir, create=True)
 
     graph_name = graph_path.name
-    json_graph = JsonGraph.load(graph_path)
+    json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
 
-    query_file_paths = util.get_file_list(query_path, suffix='.json', sort=True)
+    query_file_paths = util.get_file_list(args.query_path, suffix='.json', sort=True)
+
+    output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
     for query_file_path in query_file_paths:
-        logging.info('Processing query: {} ...'.format(query_file_path))
-        with open(str(query_file_path), 'r') as fin:
-            query_json = json.load(fin)
-
+        query_json = util.read_json_file(query_file_path, 'query')
         query_name = query_file_path.name
-        output_path = util.get_output_path(output_dir / (query_name.split('_')[0] + '_seeds.json'),
-                                           overwrite_warning=not args.force_overwrite)
+        output_path = output_dir / (query_name.split('_')[0] + '_seeds.json')
 
         make_cluster_seeds(json_graph=json_graph,
                            query_json=query_json,

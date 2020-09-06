@@ -140,6 +140,8 @@ def main():
                         help='name of the subdirectory in working_dir to write indexed data')
     parser.add_argument("--indexer_path", default='resources/indexer.p',
                         help='path to the indexer file.')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
 
@@ -147,7 +149,8 @@ def main():
 
     subgraph_dir = util.get_input_path(working_dir / args.subgraph_dir)
     seed_dir = util.get_input_path(working_dir / args.seed_dir)
-    output_dir = util.get_output_path(working_dir / args.indexed_data_dir)
+    output_dir = util.get_output_dir(working_dir / args.indexed_data_dir,
+                                     overwrite_warning=not args.force)
 
     indexer_path = str(util.get_input_path(args.indexer_path))
 

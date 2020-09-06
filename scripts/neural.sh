@@ -5,6 +5,7 @@ echo
 
 working_dir=$1
 device=$2
+optional_args=$3
 
 download_from_gdrive() {
     file_id=$1
@@ -31,8 +32,10 @@ fi
 
 echo
 python -m aida_utexas.neural.index \
-    "$working_dir" --indexer_path "$indexer_path"
+    "$working_dir" --indexer_path "$indexer_path" \
+    "$optional_args"
 
 echo
 python -m aida_utexas.neural.gen_hypoth \
-    "$working_dir" --indexer_path "$indexer_path" --model_path "$model_path" --device="$device"
+    "$working_dir" --indexer_path "$indexer_path" --model_path "$model_path" --device="$device" \
+    "$optional_args"
