@@ -31,7 +31,7 @@ for seeds_file in seeds_file_list:
                 cluster_idx, num_query_stmts, num_stmts, num_stmts_zero_weight,
                 num_stmts_negative_weight))
 
-    print('Across all {} cluster seeds'.format(len(num_failed_queries_list)))
+    print('Across all {} hypothesis seeds'.format(len(num_failed_queries_list)))
     print('Number of failed queries: min = {}, max = {}, average = {:.2f}'.format(
         min(num_failed_queries_list),
         max(num_failed_queries_list),

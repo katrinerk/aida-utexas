@@ -402,7 +402,7 @@ class AidaHypothesis:
             return min(names, key=lambda n: len(n))
 
 
-# collection of hypotheses, after initial cluster seed generation has been done
+# collection of hypotheses, after initial hypothesis seed generation has been done
 class AidaHypothesisCollection:
     def __init__(self, hypotheses: List[AidaHypothesis]):
         self.hypotheses = hypotheses
