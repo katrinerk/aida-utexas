@@ -17,7 +17,7 @@ from typing import Dict
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
-from aida_utexas.seeds import ClusterExpansion, ClusterSeeds
+from aida_utexas.hypothesis import HypothesisSeedManager
 
 
 # helper function for logging
@@ -31,22 +31,22 @@ def shortest_name(ere_label: str, json_graph: JsonGraph):
 def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Path, graph_name: str,
                        max_num_seeds: int = None, discard_failed_queries: bool = False,
                        early_cutoff: bool = False, rank_cutoff: bool = None, log: bool = False):
-    # create cluster seeds
-    logging.info('Creating cluster seeds .')
-    cluster_seeds = ClusterSeeds(
+    # create hypothesis seeds
+    logging.info('Creating hypothesis seeds .')
+    seed_manager = HypothesisSeedManager(
         json_graph=json_graph,
         query_json=query_json,
         discard_failed_queries=discard_failed_queries,
         early_cutoff=early_cutoff,
         qs_cutoff=rank_cutoff)
 
-    # and expand on them
-    logging.info('Expanding cluster seeds ...')
-    cluster_expansion = ClusterExpansion(json_graph, cluster_seeds.finalize())
-    cluster_expansion.type_completion()
-    cluster_expansion.affiliation_completion()
+    hypothesis_collection = seed_manager.finalize()
 
-    seeds_json = cluster_expansion.to_json()
+    # and expand on them
+    logging.info('Expanding hypothesis seeds ...')
+    hypothesis_collection.expand()
+
+    seeds_json = hypothesis_collection.to_json()
 
     # possibly prune seeds
     if max_num_seeds is not None:
@@ -71,7 +71,7 @@ def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Pat
                   len([h for h in seeds_json['support'] if len(h['failedQueries']) == 0]),
                   file=fout)
 
-            for hyp in cluster_expansion.hypotheses()[:10]:
+            for hyp in hypothesis_collection.hypotheses[:10]:
                 print('hypothesis weight', hyp.weight, file=fout)
                 for qvar, filler in sorted(hyp.qvar_filler.items()):
                     name = shortest_name(filler, json_graph)
@@ -89,11 +89,11 @@ def main():
     parser.add_argument('query_path',
                         help='Path to the input query file, or a directory with multiple queries')
     parser.add_argument('output_dir',
-                        help='Directory to write the cluster seeds')
+                        help='Directory to write the hypothesis seeds')
     # maximum number of seeds to store. Do use this during evaluation if we get lots of cluster
     # seeds! We will only get evaluated on a limited number of top hypotheses anyway.
     parser.add_argument('-n', '--max_num_seeds', type=int, default=None,
-                        help='only list up to n cluster seeds')
+                        help='only list up to n hypothesis seeds')
     # discard hypotheses with failed queries? Try not to use this one during evaluation at first,
     # so that we don't discard hypotheses we might still need. If we have too many hypotheses and
     # the script runs too slowly, then use this.

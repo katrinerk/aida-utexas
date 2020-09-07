@@ -1,7 +1,7 @@
 """
 Author: Pengxiang Cheng August 2019
 
-Construct sub-graphs for each cluster seed by starting at the entry points and
+Construct sub-graphs for each hypothesis seed by starting at the entry points and go up to k hops
 """
 
 import argparse
@@ -174,7 +174,7 @@ def extract_subgraph(graph, statements, num_hops=2, verbose=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('graph_file', help='path to the graph json file')
-    parser.add_argument('seed_file', help='path to the cluster seed file')
+    parser.add_argument('seed_file', help='path to the hypothesis seed file')
     parser.add_argument('output_dir', help='path to the output directory')
     parser.add_argument('--num_hops', '-n', type=int, default=2,
                         help='number of hops to extend from')
@@ -188,7 +188,7 @@ def main():
     output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
     graph_json = util.read_json_file(args.graph_file, 'JSON graph')
-    seed_json = util.read_json_file(args.seed_file, 'cluster seeds')
+    seed_json = util.read_json_file(args.seed_file, 'hypothesis seeds')
 
     for hypothesis_idx, (prob, hypothesis) in enumerate(
             zip(seed_json['probs'], seed_json['support'])):
