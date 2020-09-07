@@ -580,8 +580,8 @@ def make_mixture_data(single_doc_graphs_folder, event_name_map, entity_name_map,
             event_src_to_name_map = test_event_src_to_name_map
             entity_src_to_name_map = test_entity_src_to_name_map
 
-        graph_info, used_graph_ids = create_mix(graph_list, event_name_map, entity_name_map, event_type_maps, entity_type_maps, one_step_connectedness_map, two_step_connectedness_map, max_connectedness_two_step, event_src_to_name_map, entity_src_to_name_map,
-                                           event_name_counts, entity_name_counts, num_sources, num_shared_eres, num_abridge_hops, used_pairs)
+        graph_info, used_graph_ids = create_mix(graph_list, event_name_map, entity_name_map, event_type_maps, entity_type_maps, one_step_connectedness_map, two_step_connectedness_map,
+                                                max_connectedness_two_step, event_src_to_name_map, entity_src_to_name_map, event_name_counts, entity_name_counts, num_sources, num_shared_eres, num_abridge_hops, used_pairs)
 
         # Used to ensure we don't create more than one salad with the same three source graphs
         used_pairs.update([(frozenset(used_graph_ids), item[3]) for item in graph_info])
@@ -631,6 +631,10 @@ if __name__ == "__main__":
                         help='File location (abs path) of pickled dict mapping event ERE IDs to ontology types')
     parser.add_argument("--entity_type_maps", type=str, default="/home/atomko/test_event_entity_map_out/entity_types.p",
                         help='File location (abs path) of pickled dict mapping entity ERE IDs to ontology types')
+    parser.add_argument("--match_event_names", action='store_true',
+                        help='Require that merged event nodes overlap in at least one name label')
+    parser.add_argument("--match_entity_names", action='store_true',
+                        help='Require that merged entity nodes overlap in at least one name label')
     parser.add_argument("--one_step_connectedness_map", type=str, default="/home/atomko/test_event_entity_map_out/connectedness_one_step.p",
                         help='File location (abs path) of pickled dict mapping ERE IDs to one-step connectedness values')
     parser.add_argument("--two_step_connectedness_map", type=str, default="/home/atomko/test_event_entity_map_out/connectedness_two_step.p",
@@ -665,11 +669,25 @@ if __name__ == "__main__":
 
     print("Generating mixtures ...\n")
 
+    event_types = dill.load(open(event_type_maps, 'rb'))
+    entity_types = dill.load(open(entity_type_maps, 'rb'))
+
     event_names = dill.load(open(event_name_maps, 'rb'))
     entity_names = dill.load(open(entity_name_maps, 'rb'))
 
-    event_types = dill.load(open(event_type_maps, 'rb'))
-    entity_types = dill.load(open(entity_type_maps, 'rb'))
+    if not match_event_names:
+        event_names = defaultdict(set)
+
+        for key, value in event_types.items():
+            for item in value:
+                event_names[item].add(key)
+
+    if not match_entity_names:
+        entity_names = defaultdict(set)
+
+        for key, value in entity_types.items():
+            for item in value:
+                entity_names[item].add(key)
 
     one_step_connectedness_map = dill.load(open(one_step_connectedness_map, 'rb'))
     two_step_connectedness_map = dill.load(open(two_step_connectedness_map, 'rb'))

@@ -26,7 +26,7 @@ The files required for graph salad data generation are as follows (in order):
     with common names.
     
 <Input/Output>
-----Input signature: --graph_dir  ## Description: directory containing all single-doc KGs (as pickled objects)
+----Input signature: --graph_dir   ## Description: directory containing all single-doc KGs (as pickled objects)
                      --output_dir  ## Description: directory where name-to-ERE dicts will be written
 ----Output: Two name-to-ERE dicts (one for events, one for entities)
             Two ERE-to-type dicts (one for events, one for entities)
@@ -52,9 +52,9 @@ See gen_salads.py for a detailed list of arguments and their descriptions
 ----This script preps graph salads for training by indexing labels and constructing adjacency matrices.
 -------------------------------------------------------------------------------------------------------------------------
 
-----Input signature: --data_dir ## Description: directory containing Train/Val/Test data subdirectories
-                     --indexer_dir ## Description: directory where indexing/adjacency matrix info will be written
-                     --emb_dim ## Description: dimension of pretrained Word2Vec embeds used
-                     --return_frequency_cut_set: number of tokens (most frequent) assigned a representation during training
+----Input signature: --data_dir                  ## Description: directory containing Train/Val/Test data subdirectories
+                     --indexer_dir               ## Description: directory where indexing/adjacency matrix info will be written
+                     --emb_dim                   ## Description: dimension of pretrained Word2Vec embeds used
+                     --return_frequency_cut_set: ## Description: number of tokens (most frequent) assigned a representation during training
 -------------------------------------------------------------------------------------------------------------------------
 
