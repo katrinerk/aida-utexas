@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
-from aida_utexas.seeds import AidaHypothesisCollection, AidaHypothesisFilter, ClusterExpansion
+from aida_utexas.hypothesis import AidaHypothesisCollection, AidaHypothesisFilter
 
 
 def main():
@@ -40,32 +40,27 @@ def main():
         json_hypotheses = util.read_json_file(hypotheses_file_path, 'hypotheses')
         hypothesis_collection = AidaHypothesisCollection.from_json(json_hypotheses, json_graph)
 
+        hypothesis_collection.expand()
+
         # create the filter
         hypothesis_filter = AidaHypothesisFilter(json_graph)
 
-        cluster_expansion = ClusterExpansion(json_graph, hypothesis_collection)
-        cluster_expansion.type_completion()
-        cluster_expansion.affiliation_completion()
+        filtered_hypothesis_collection = AidaHypothesisCollection(
+            [hypothesis_filter.filtered(hypothesis) for hypothesis in hypothesis_collection])
 
-        new_hypothesis_collection = AidaHypothesisCollection([])
+        filtered_json_hypotheses = filtered_hypothesis_collection.to_json()
 
-        for hypothesis in hypothesis_collection.hypotheses:
-            new_hypothesis = hypothesis_filter.filtered(hypothesis)
-            new_hypothesis_collection.add(new_hypothesis)
+        # add graph filename and queries, if they were there before
+        if 'graph' in json_hypotheses:
+            filtered_json_hypotheses['graph'] = json_hypotheses['graph']
+        if "queries" in json_hypotheses:
+            filtered_json_hypotheses['queries'] = json_hypotheses['queries']
 
         output_path = output_dir / hypotheses_file_path.name
         logging.info('Writing filtered hypotheses to {} ...'.format(output_path))
 
         with open(str(output_path), 'w') as fout:
-            new_json_hypotheses = new_hypothesis_collection.to_json()
-
-            # add graph filename and queries, if they were there before
-            if 'graph' in json_hypotheses:
-                new_json_hypotheses['graph'] = json_hypotheses['graph']
-            if "queries" in json_hypotheses:
-                new_json_hypotheses['queries'] = json_hypotheses['queries']
-
-            json.dump(new_json_hypotheses, fout, indent=1)
+            json.dump(filtered_json_hypotheses, fout, indent=1)
 
 
 if __name__ == '__main__':

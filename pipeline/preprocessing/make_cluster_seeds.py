@@ -17,7 +17,7 @@ from typing import Dict
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
-from aida_utexas.seeds import ClusterExpansion, ClusterSeeds
+from aida_utexas.hypothesis import ClusterSeeds
 
 
 # helper function for logging
@@ -40,13 +40,13 @@ def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Pat
         early_cutoff=early_cutoff,
         qs_cutoff=rank_cutoff)
 
+    hypothesis_collection = cluster_seeds.finalize()
+
     # and expand on them
     logging.info('Expanding cluster seeds ...')
-    cluster_expansion = ClusterExpansion(json_graph, cluster_seeds.finalize())
-    cluster_expansion.type_completion()
-    cluster_expansion.affiliation_completion()
+    hypothesis_collection.expand()
 
-    seeds_json = cluster_expansion.to_json()
+    seeds_json = hypothesis_collection.to_json()
 
     # possibly prune seeds
     if max_num_seeds is not None:
@@ -71,7 +71,7 @@ def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Pat
                   len([h for h in seeds_json['support'] if len(h['failedQueries']) == 0]),
                   file=fout)
 
-            for hyp in cluster_expansion.hypotheses()[:10]:
+            for hyp in hypothesis_collection.hypotheses[:10]:
                 print('hypothesis weight', hyp.weight, file=fout)
                 for qvar, filler in sorted(hyp.qvar_filler.items()):
                     name = shortest_name(filler, json_graph)

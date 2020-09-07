@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
-from aida_utexas.seeds.aidahypothesis import AidaHypothesisCollection
+from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesisCollection
 
 
 def main():

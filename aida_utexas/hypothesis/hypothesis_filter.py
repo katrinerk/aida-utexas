@@ -17,7 +17,7 @@ from collections import deque
 from typing import List
 
 from aida_utexas.aif import JsonGraph
-from aida_utexas.seeds.aidahypothesis import AidaHypothesis
+from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis
 
 
 class AidaHypothesisFilter:

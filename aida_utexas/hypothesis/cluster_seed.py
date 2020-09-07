@@ -21,9 +21,9 @@ from operator import itemgetter
 from typing import Dict, List, Set
 
 from aida_utexas.aif import JsonGraph
-from aida_utexas.seeds.aidahypothesis import AidaHypothesis, AidaHypothesisCollection
-from aida_utexas.seeds.datecheck import AidaIncompleteDate, temporal_constraint_match
-from aida_utexas.seeds.hypothesisfilter import AidaHypothesisFilter
+from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis, AidaHypothesisCollection
+from aida_utexas.hypothesis.date_check import AidaIncompleteDate, temporal_constraint_match
+from aida_utexas.hypothesis.hypothesis_filter import AidaHypothesisFilter
 
 
 # The class that holds a single cluster seed: just a data structure, doesn't do much.

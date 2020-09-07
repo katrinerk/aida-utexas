@@ -10,6 +10,9 @@ Author: Katrin Erk, Apr 2019
 Update: Pengxiang Cheng, Aug 2020
 - Use new JsonGraph API
 - Refactor and clean-up
+
+Update: Pengxiang Cheng, Sep 2019
+- Merge methods in ClusterExpansion
 """
 
 from collections import defaultdict
@@ -128,12 +131,72 @@ class AidaHypothesis:
                         # no reason not to give a low default weight to this edge
                         self.stmt_weights[type_stmt] = self.default_stmt_weight
 
-    def add_failed_queries(self, failed_queries):
-        self.failed_queries = failed_queries
+    # For each ERE, add *all* typing statements.
+    # This code is not used anymore because the eval document wants to see only those event types
+    # that match role labels
+    def type_completion_all(self):
+        for ere_label in self.eres():
+            for stmt_label in self.json_graph.each_ere_adjacent_stmt(
+                    ere_label, predicate='type', ere_role='subject'):
+                self.add_stmt(stmt_label)
+        # add weights for the types we have been adding
+        self.set_type_stmt_weights()
+
+    # For each ERE, add typing statements.
+    # For entities, add all typing statements.
+    # For events and relations, include only those types that match at least one role statement.
+    # This will still add multiple event/relation types in case there are roles matching different
+    # event/relation types.
+    # It's up to the final filter to remove those if desired.
+    def type_completion(self):
+        # map each ERE to adjacent type statements
+        ere_to_type_stmts = defaultdict(list)
+        for ere_label in self.eres():
+            for stmt_label in self.json_graph.each_ere_adjacent_stmt(
+                    ere_label, predicate='type', ere_role='subject'):
+                ere_to_type_stmts[ere_label].append(stmt_label)
+
+        # for each ERE in the hypothesis, add types matching a role statement
+        for ere, type_stmts in ere_to_type_stmts.items():
+            # entity: add all types.
+            if self.json_graph.is_entity(ere):
+                for stmt in type_stmts:
+                    self.add_stmt(stmt)
+            else:
+                # event or relation: only add types that match a role included in the hypothesis
+                role_labels = [self.json_graph.shorten_label(pred_label)
+                               for pred_label, _ in self.event_rel_each_arg(ere)]
+
+                for type_stmt in type_stmts:
+                    type_label = self.json_graph.stmt_object(type_stmt)
+                    if type_label is None:
+                        # weird type statement, skip
+                        continue
+
+                    type_label = self.json_graph.shorten_label(type_label)
+                    if any(role_label.startswith(type_label) for role_label in role_labels):
+                        # this is a type that is used in an outgoing edge of this ERE
+                        self.add_stmt(type_stmt)
+
+    # for each entity, add all affiliation statements.
+    def affiliation_completion(self):
+        for ere in self.eres():
+            # collect all affiliation labels for this ERE
+            possible_affiliations = set(self.json_graph.ere_affiliation_triples(ere))
+            # possibly multiple affiliation statements, but all point to the same affiliation.
+            # add one of them.
+            if len(possible_affiliations) == 1:
+                for stmt1, _, stmt2 in self.json_graph.ere_affiliation_triples(ere):
+                    self.add_stmt(stmt1)
+                    self.add_stmt(stmt2)
+                    break
 
     # update hypothesis weight
     def update_weight(self, added_weight):
         self.weight += added_weight
+
+    def add_failed_queries(self, failed_queries):
+        self.failed_queries = failed_queries
 
     def add_qvar_filler(self, qvar_filler):
         self.qvar_filler = qvar_filler
@@ -344,6 +407,10 @@ class AidaHypothesisCollection:
     def __init__(self, hypotheses: List[AidaHypothesis]):
         self.hypotheses = hypotheses
 
+    def __iter__(self):
+        for hypothesis in self.hypotheses:
+            yield hypothesis
+
     def add(self, hypothesis):
         self.hypotheses.append(hypothesis)
 
@@ -356,6 +423,11 @@ class AidaHypothesisCollection:
             'probs': [hyp.weight for hyp in self.hypotheses],
             'support': [hyp.to_json() for hyp in self.hypotheses]
         }
+
+    def expand(self):
+        for hypothesis in self.hypotheses:
+            hypothesis.type_completion()
+            hypothesis.affiliation_completion()
 
     @classmethod
     def from_json(cls, json_obj: Dict, json_graph: JsonGraph):
