@@ -307,13 +307,13 @@ class AidaHypothesis:
     # list of EREs adjacent to the statements in this hypothesis
     def eres(self):
         return list(set(node_label for stmt_label in self.stmts
-                        for node_label in self.json_graph.statement_args(stmt_label)
+                        for node_label in self.json_graph.stmt_args(stmt_label)
                         if self.json_graph.is_ere(node_label)))
 
     # list of EREs adjacent to core statements of this hypothesis
     def core_eres(self):
         return list(set(node_label for stmt_label in self.core_stmts
-                        for node_label in self.json_graph.statement_args(stmt_label)
+                        for node_label in self.json_graph.stmt_args(stmt_label)
                         if self.json_graph.is_ere(node_label)))
 
     # list of EREs adjacent to a statement
@@ -321,7 +321,7 @@ class AidaHypothesis:
         if stmt_label not in self.stmts:
             return []
         else:
-            return list(set(node_label for node_label in self.json_graph.statement_args(stmt_label)
+            return list(set(node_label for node_label in self.json_graph.stmt_args(stmt_label)
                             if self.json_graph.is_ere(node_label)))
 
     # iterate over arguments of an event or relation in this hypothesis

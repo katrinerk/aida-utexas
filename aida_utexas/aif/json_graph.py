@@ -286,8 +286,19 @@ class JsonGraph:
     def stmt_predicate(self, stmt_label):
         return self.node_dict[stmt_label].predicate if self.is_statement(stmt_label) else None
 
+    # subject or object of a statement node
+    def stmt_arg_by_role(self, stmt_label, role_label):
+        if self.is_statement(stmt_label):
+            if role_label == 'subject':
+                return self.stmt_subject(stmt_label)
+            elif role_label == 'object':
+                return self.stmt_object(stmt_label)
+            else:
+                logging.warning(f'Unknown role label: {role_label}')
+        return None
+
     # arguments of a statement
-    def statement_args(self, stmt_label):
+    def stmt_args(self, stmt_label):
         if self.is_statement(stmt_label):
             return [self.node_dict[stmt_label].subject, self.node_dict[stmt_label].object]
         else:
@@ -328,7 +339,7 @@ class JsonGraph:
                 continue
             if predicate is not None and self.stmt_predicate(stmt_label) != predicate:
                 continue
-            if ere_role is not None and getattr(self.node_dict[stmt_label], ere_role) != ere_label:
+            if ere_role is not None and self.stmt_arg_by_role(stmt_label, ere_role) != ere_label:
                 continue
             yield stmt_label
 
