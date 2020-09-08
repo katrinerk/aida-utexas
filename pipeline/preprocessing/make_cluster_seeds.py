@@ -38,7 +38,7 @@ def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Pat
         query_json=query_json,
         discard_failed_queries=discard_failed_queries,
         early_cutoff=early_cutoff,
-        qs_cutoff=rank_cutoff)
+        rank_cutoff=rank_cutoff)
 
     hypothesis_collection = seed_manager.finalize()
 
@@ -104,7 +104,6 @@ def main():
     # need. If we have too many hypotheses and the script runs too slowly, then use this.
     parser.add_argument('-c', '--early_cutoff', type=int, default=None,
                         help='discard hypotheses below the best n based only on entry point scores')
-
     # rank-based cutoff: discards hypotheses early if there are at least <arg> other hypotheses
     # that coincide with this one in 3 query variable fillers. We do need this in the evaluation!
     # Otherwise combinatorial explosion happens. I've standard-set this to 100.
@@ -115,7 +114,6 @@ def main():
     # use this during evaluation, as it slows down the script.
     parser.add_argument('-l', '--log', action='store_true', default=False,
                         help='write log files to output directory')
-
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
 

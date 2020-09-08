@@ -34,7 +34,7 @@ class HypothesisSeedManager:
     # initialize with a JsonGraph object and json representation of a query
     def __init__(self, json_graph: JsonGraph, query_json: dict,
                  discard_failed_queries: bool = False, early_cutoff: int = None,
-                 qs_cutoff: int = None):
+                 rank_cutoff: int = None):
         self.json_graph = json_graph
         self.query_json = query_json
 
@@ -43,11 +43,10 @@ class HypothesisSeedManager:
         # cut off after early_cutoff entry point combinations?
         self.early_cutoff = early_cutoff
         # cut off partially formed hypotheses during creation
-        # if there are at least qs_cutoff other hypothesis seeds
-        # with the same fillers for qs_cutoff_count query variables?
-        # TODO: rename it to rank_cutoff?
-        self.qs_cutoff = qs_cutoff
-        self.qs_cutoff_count = 3
+        # if there are at least rank_cutoff other hypothesis seeds with the same fillers
+        # for rank_cutoff_qvar_count query variables?
+        self.rank_cutoff = rank_cutoff
+        self.rank_cutoff_qvar_count = 3
 
         # parameters for ranking
         self.rank_first_k = 100
@@ -184,10 +183,10 @@ class HypothesisSeedManager:
 
             seed = seeds_todo.popleft()
 
-            if self.qs_cutoff is not None:
+            if self.rank_cutoff is not None:
                 qvar_signatures = self._make_qvar_signatures(seed)
                 if qvar_signatures is not None:
-                    if any(qs_counter[qs] >= self.qs_cutoff for qs in qvar_signatures):
+                    if any(qs_counter[qs] >= self.rank_cutoff for qs in qvar_signatures):
                         # do not process this hypothesis further
                         continue
                     else:
@@ -240,15 +239,15 @@ class HypothesisSeedManager:
             return "_".join(k + "|" + seed.qvar_filler[k][-5:] for k in sorted(keys))
 
         # if there are less than qs_cutoff_count non-entrypoint variables, return None
-        if len(seed.qvar_filler) - len(seed.entrypoints) < self.qs_cutoff_count:
+        if len(seed.qvar_filler) - len(seed.entrypoints) < self.rank_cutoff_qvar_count:
             return None
 
         # make string characterizing entry points
         qs_entry = make_one_signature(seed.entrypoints)
         # and concatenate with string characterizing other fillers
         non_ep_vars = [k for k in seed.qvar_filler.keys() if k not in seed.entrypoints]
-        return [qs_entry + "_" + make_one_signature(keys)
-                for keys in itertools.combinations(sorted(non_ep_vars), self.qs_cutoff_count)]
+        return [qs_entry + "_" + make_one_signature(keys) for keys
+                in itertools.combinations(sorted(non_ep_vars), self.rank_cutoff_qvar_count)]
 
     # ENTRY POINT HANDLING: find any combination of entry point fillers for all the entry points.
     # Yields (qvar_filler, ep_comb_weight) where qvar_filler is a mapping from each entry point
