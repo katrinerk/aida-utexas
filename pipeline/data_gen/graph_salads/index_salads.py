@@ -251,7 +251,7 @@ def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="/home/atomko/out_salads", help='Directory containing folders of different mixture types')
-    parser.add_argument("--pre_word2vec_bin", type=str, default='/home/atomko/GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
+    parser.add_argument("--pre_word2vec_bin", type=str, default='GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
     parser.add_argument("--emb_dim", type=int, default=300, help='Index the x most frequent ERE label tokens')
     parser.add_argument("--return_freq_cut_set", type=int, default=50000, help='Index the x most frequent ERE label tokens')
 

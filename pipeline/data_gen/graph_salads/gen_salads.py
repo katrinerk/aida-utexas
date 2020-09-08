@@ -622,7 +622,7 @@ if __name__ == "__main__":
     parser.add_argument("--out_data_dir", type=str, default="/home/atomko/out_salads",
                         help='Folder (abs path) where the mixtures will be written (will be created by the script, if it does not already exist)')
     parser.add_argument("--single_doc_graphs_folder", type=str, default="/home/atomko/test_file_gen",
-                        help='Input folder (abs path) containing Wiki json graphs')
+                        help='Input folder (abs path) containing single-doc Wiki graphs (as pickled Python objects)')
     parser.add_argument("--event_name_maps", type=str, default="/home/atomko/test_event_entity_map_out/event_names.p",
                         help='File location (abs path) of pickled dict mapping names to event ERE IDs')
     parser.add_argument("--entity_name_maps", type=str, default="/home/atomko/test_event_entity_map_out/entity_names.p",
