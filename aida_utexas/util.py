@@ -22,6 +22,8 @@ def get_output_path(path: Union[str, Path], overwrite_warning: bool = True) -> P
         if not query_yes_no(f'{path} already exists, overwrite?', default='yes'):
             sys.exit(0)
 
+    path.parent.mkdir(parents=True, exist_ok=True)
+
     return path
 
 

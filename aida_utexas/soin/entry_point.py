@@ -4,15 +4,21 @@ Author: Pengxiang Cheng, Aug 2020
 - Entry point specifications in statement of information needs.
 - Each entry point has a list of TypedDescriptors, where each TypedDescriptor consists of an EntType
 specification and a (String|KB|Text|Image|Video)Descriptor.
+
+Update: Pengxiang Cheng, Sep 2020
+- Merge the find_entrypoint method from process_soin
 """
 
 import itertools
 import logging
 from dataclasses import dataclass, field
+from operator import itemgetter
 from typing import Dict, List, Tuple
 from xml.etree.ElementTree import Element
 
 from aida_utexas.aif import AidaGraph
+
+match_score_weight = {'type': 1, 'descriptor': 10}
 
 
 @dataclass
@@ -311,6 +317,9 @@ class TypedDescriptor:
 
         return cls(**typed_descriptor_dict)
 
+    def descriptor_type(self):
+        return self.descriptor.descriptor_type
+
 
 @dataclass
 class EntryPoint:
@@ -330,3 +339,65 @@ class EntryPoint:
                         TypedDescriptor.from_xml(typed_descriptor_elem, dup_kbid_mapping))
 
         return cls(**entrypoint_dict)
+
+    def resolve(self, aida_graph: AidaGraph, ere_to_prototypes: Dict, max_matches: int) -> List:
+        """
+        A function to resolve an entrypoint to the set of entity nodes that satisfy it.
+        This function iterates through every node in the graph. If that node is a typing statement,
+        it computes a type score (how many matches between the entity type/subtype/subsubtype) and
+        a descriptor score (how many complete TypedDescriptor matches) across all TypedDescriptors.
+
+        The function returns the set of nodes mapped to the highest scores.
+        :param aida_graph: AidaGraph
+        :param ere_to_prototypes: dict
+        :param max_matches: int
+        """
+        results = {}
+
+        for node in aida_graph.nodes():
+            if node.is_type_statement():
+                subj_label = next(iter(node.get('subject', shorten=False)))
+                obj_label = next(iter(node.get('object', shorten=True)))
+
+                all_scores = []
+
+                for typed_descriptor in self.typed_descriptors:
+                    type_score = 0
+                    descriptor_score = 0
+
+                    has_type = 0
+                    has_descriptor = 0
+
+                    if typed_descriptor.enttype:
+                        has_type = 1
+                        type_score = typed_descriptor.enttype.match_score(obj_label)
+
+                    if typed_descriptor.descriptor:
+                        has_descriptor = 1
+                        descriptor_score = typed_descriptor.descriptor.match_score(
+                            subj_label, aida_graph)
+
+                        if typed_descriptor.descriptor_type() in ['Text', 'Image', 'Video']:
+                            descriptor_score = max(
+                                descriptor_score,
+                                typed_descriptor.descriptor.match_score(node.name, aida_graph))
+
+                    total_score = denominator = 0
+                    if has_type:
+                        total_score += type_score * match_score_weight['type']
+                        denominator += match_score_weight['type']
+                    if has_descriptor:
+                        total_score += descriptor_score * match_score_weight['descriptor']
+                        denominator += match_score_weight['descriptor']
+
+                    all_scores.append(total_score / denominator)
+
+                avg_score = sum(all_scores) / len(all_scores)
+
+                for prototype in ere_to_prototypes[subj_label]:
+                    if prototype in results:
+                        results[prototype] = max(results[prototype], avg_score)
+                    else:
+                        results[prototype] = avg_score
+
+        return sorted(results.items(), key=itemgetter(1), reverse=True)[:max_matches]

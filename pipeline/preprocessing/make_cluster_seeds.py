@@ -28,15 +28,15 @@ def shortest_name(ere_label: str, json_graph: JsonGraph):
     return None
 
 
-def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Path, graph_name: str,
-                       max_num_seeds: int = None, discard_failed_queries: bool = False,
+def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Path,
+                       max_num_seeds: int = None, discard_failed_core_constraints: bool = False,
                        early_cutoff: bool = False, rank_cutoff: bool = None, log: bool = False):
     # create hypothesis seeds
     logging.info('Creating hypothesis seeds .')
     seed_manager = HypothesisSeedManager(
         json_graph=json_graph,
         query_json=query_json,
-        discard_failed_queries=discard_failed_queries,
+        discard_failed_core_constraints=discard_failed_core_constraints,
         early_cutoff=early_cutoff,
         rank_cutoff=rank_cutoff)
 
@@ -54,8 +54,7 @@ def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Pat
         seeds_json['support'] = seeds_json['support'][:max_num_seeds]
 
     # add graph filename and queries
-    seeds_json['graph'] = graph_name
-    seeds_json['queries'] = query_json['queries']
+    seeds_json['graph'] = query_json['graph']
 
     # write hypotheses out in json format.
     logging.info('Writing seeds to {} ...'.format(output_path))
@@ -94,11 +93,11 @@ def main():
     # seeds! We will only get evaluated on a limited number of top hypotheses anyway.
     parser.add_argument('-n', '--max_num_seeds', type=int, default=None,
                         help='only list up to n hypothesis seeds')
-    # discard hypotheses with failed queries? Try not to use this one during evaluation at first,
-    # so that we don't discard hypotheses we might still need. If we have too many hypotheses and
-    # the script runs too slowly, then use this.
-    parser.add_argument('-d', '--discard_failed_queries', action='store_true', default=False,
-                        help='discard hypotheses that have failed queries')
+    # discard hypotheses with failed core constraints? Try not to use this one during evaluation at
+    # first, so that we don't discard hypotheses we might still need. If we have too many hypotheses
+    # and the script runs too slowly, then use this.
+    parser.add_argument('-d', '--discard_failed_core_constraints', action='store_true',
+                        default=False, help='discard hypotheses that have failed queries')
     # early cutoff: discard queries below the best k based only on entry point scores. Try not to
     # use this one during evaluation at first, so that we don't discard hypotheses we might still
     # need. If we have too many hypotheses and the script runs too slowly, then use this.
@@ -119,10 +118,7 @@ def main():
 
     args = parser.parse_args()
 
-    graph_path = util.get_input_path(args.graph_path)
-
-    graph_name = graph_path.name
-    json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
+    json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
 
     query_file_paths = util.get_file_list(args.query_path, suffix='.json', sort=True)
 
@@ -130,15 +126,14 @@ def main():
 
     for query_file_path in query_file_paths:
         query_json = util.read_json_file(query_file_path, 'query')
-        query_name = query_file_path.name
-        output_path = output_dir / (query_name.split('_')[0] + '_seeds.json')
+
+        output_path = output_dir / (query_file_path.name.split('_')[0] + '_seeds.json')
 
         make_cluster_seeds(json_graph=json_graph,
                            query_json=query_json,
                            output_path=output_path,
-                           graph_name=graph_name,
                            max_num_seeds=args.max_num_seeds,
-                           discard_failed_queries=args.discard_failed_queries,
+                           discard_failed_core_constraints=args.discard_failed_core_constraints,
                            early_cutoff=args.early_cutoff,
                            rank_cutoff=args.rank_cutoff,
                            log=args.log)

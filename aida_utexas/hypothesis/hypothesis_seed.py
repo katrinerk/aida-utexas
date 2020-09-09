@@ -7,7 +7,7 @@ possible hypothesis seeds that can be made using different statements that all f
 Update: Pengxiang Cheng, Aug 2020
 - Clean-up and refactoring
 - Naming conventions:
-    - qvar (query variables): variables in query constraints (or, variables in edges of a facet)
+    - qvar (query variables): variables in core constraints (edges of a facet)
     - qvar_filler: a dictionary from each qvar to a filler ERE label
     - ep (entry points): variables grounded by entry point descriptors
     - ep_fillers: a list of possible ERE labels to fill an ep variable, from SoIN matching
@@ -48,7 +48,7 @@ class NextFillableConstraint:
 # The class that holds a single hypothesis seed: just a data structure, doesn't do much.
 class HypothesisSeed:
     # some penalty constants for things that might go wrong during seed creation and extension
-    FAILED_QUERY = -0.1
+    FAILED_CORE = -0.1
     FAILED_TEMPORAL = -0.1
     FAILED_ONTOLOGY = -0.1
     DUPLICATE_FILLER = -0.01
@@ -117,8 +117,8 @@ class HypothesisSeed:
             # this particular constraint was not fillable, and will never be fillable.
             self.unfilled.remove(nfc.constraint_index)
             self.unfillable.add(nfc.constraint_index)
-            # adding failed query penalty
-            self.penalty_score += self.FAILED_QUERY
+            # adding failed core constraint penalty
+            self.penalty_score += self.FAILED_CORE
             return [self]
 
         else:
@@ -131,8 +131,8 @@ class HypothesisSeed:
                 # something has gone wrong
                 self.unfilled.remove(nfc.constraint_index)
                 self.unfillable.add(nfc.constraint_index)
-                # adding failed query penalty
-                self.penalty_score += self.FAILED_QUERY
+                # adding failed core constraint penalty
+                self.penalty_score += self.FAILED_CORE
                 return [self]
 
             new_seeds = []
@@ -171,8 +171,8 @@ class HypothesisSeed:
                 # all the fillers were filtered away
                 self.unfilled.remove(nfc.constraint_index)
                 self.unfillable.add(nfc.constraint_index)
-                # all candidate statements filtered away, adding failed query penalty
-                self.penalty_score += self.FAILED_QUERY
+                # all candidate statements filtered away, adding failed core constraint penalty
+                self.penalty_score += self.FAILED_CORE
                 return [self]
             else:
                 return new_seeds
@@ -191,9 +191,9 @@ class HypothesisSeed:
 
     # next fillable constraint from the core constraints list, or None if none fillable
     def _next_fillable_constraint(self) -> Optional[NextFillableConstraint]:
-        # iterate over unfilled query constraints to see if we can find one that can be filled
+        # iterate over unfilled core constraints to see if we can find one that can be filled
         for constraint_index in self.unfilled:
-            subj, pred, obj = self.core_constraints[constraint_index]
+            subj, pred, obj, obj_type = self.core_constraints[constraint_index]
 
             # if either subj or obj is known (is an ERE or has an entry in qvar_filler,
             # then we should be able to fill this constraint now, or it is unfillable
@@ -455,7 +455,7 @@ class HypothesisSeed:
                 # this was the constraint we were just going to fill, don't re-check it
                 continue
 
-            subj, pred, obj = self.core_constraints[constraint_index]
+            subj, pred, obj, obj_type = self.core_constraints[constraint_index]
 
             if subj == variable and obj in self.qvar_filler:
                 candidates, _ = self._statement_candidates(filler, pred, 'subject')
