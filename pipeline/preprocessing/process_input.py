@@ -103,20 +103,17 @@ def main():
             query_output_path = query_output_dir / (soin_file_path.stem + '_query.json')
 
             logging.info('Processing SOIN {} ...'.format(soin_file_path))
-            logging.info('Parsing SOIN XML ...')
             soin = SOIN.parse(str(soin_file_path), dup_kbid_mapping=dup_kb_id_mapping)
 
             logging.info('Resolving all entrypoints ...')
             soin.resolve(aida_graph, ere_to_prototypes, max_matches=args.max_matches)
 
-            logging.info('Serializing data structures ...')
             query_json = {'graph': kb_path.stem}
             query_json.update(soin.to_json())
 
             logging.info('Writing JSON query to {} ...'.format(query_output_path))
             with open(str(query_output_path), 'w') as fout:
                 json.dump(query_json, fout, indent=1)
-            logging.info('Done.')
 
 
 if __name__ == '__main__':
