@@ -12,7 +12,11 @@ mkdir -p "${output_dir}"
 
 for i in $(seq -f "%03g" 1 "${count}")
 do
-  output_path=${output_dir}/${run_id}.${soin_id}.${soin_id}_F1.H${i}.ttl
-  echo "Dumping hypothesis-${i} to ${output_path}"
-  tdbdump --formatted trig --loc "${tdb_dir}"/hypothesis-"${i}" > "${output_path}"
+    tdb_path="${tdb_dir}"/hypothesis-"${i}"
+    if [ ! -d "$tdb_path" ]; then
+        continue
+    fi
+    output_path=${output_dir}/${run_id}.${soin_id}.${soin_id}_F1.H${i}.ttl
+    echo "Dumping hypothesis-${i} to ${output_path}"
+    tdbdump --formatted trig --loc "${tdb_path}" > "${output_path}"
 done
