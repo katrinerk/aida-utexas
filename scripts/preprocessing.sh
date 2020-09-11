@@ -34,7 +34,7 @@ else
 fi
 
 echo
-python -m pipeline.preprocessing.make_cluster_seeds \
+python -m pipeline.preprocessing.make_hypothesis_seeds \
     "${working_dir}/${graph_name}" \
     "${working_dir}/query_jsons" \
     "${working_dir}/cluster_seeds_raw" \
