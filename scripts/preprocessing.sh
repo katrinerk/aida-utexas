@@ -37,9 +37,16 @@ echo
 python -m pipeline.preprocessing.make_cluster_seeds \
     "${working_dir}/${graph_name}" \
     "${working_dir}/query_jsons" \
+    "${working_dir}/cluster_seeds_raw" \
+    --max_num_seeds "$num_hyps" \
+    "$optional_args"
+
+echo
+python -m pipeline.preprocessing.rerank_hypothesis_seeds \
+    "${working_dir}/${graph_name}" \
+    "${working_dir}/cluster_seeds_raw" \
     "${working_dir}/cluster_seeds" \
-    --max_num_seeds "${num_hyps}" \
-    --early_cutoff 100 \
+    --max_num_seeds "$num_hyps" \
     "$optional_args"
 
 for seed_file in "${working_dir}"/cluster_seeds/*.json; do

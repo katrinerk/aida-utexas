@@ -14,17 +14,20 @@ Update: Pengxiang Cheng, Aug 2020
 
 Update: Pengxiang Cheng, Sep 2020
 - Split cluster_seeds.py into two separate files, and rename the classes
+- Change to making seeds per facet (an event or relation variable name in a frame)
+- Remove early-cutoff and complex entry point combination logic related to it
+- Now outputs a dictionary of sorted seeds per facet, which will be reranked based on
+    plausibility (optional) and novelty in another script.
 """
 
 import itertools
 import logging
-import math
 from collections import Counter, deque, defaultdict
 from operator import itemgetter
 from typing import Dict, List, Tuple
 
 from aida_utexas.aif import JsonGraph
-from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis, AidaHypothesisCollection
+from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis
 from aida_utexas.hypothesis.date_check import AidaIncompleteDate
 from aida_utexas.hypothesis.hypothesis_seed import HypothesisSeed
 
@@ -33,8 +36,7 @@ from aida_utexas.hypothesis.hypothesis_seed import HypothesisSeed
 class HypothesisSeedManager:
     # initialize with a JsonGraph object and json representation of a query
     def __init__(self, json_graph: JsonGraph, query_json: dict,
-                 discard_failed_core_constraints: bool = False, early_cutoff: int = None,
-                 rank_cutoff: int = None):
+                 discard_failed_core_constraints: bool = False, rank_cutoff: int = None):
         self.json_graph = json_graph
         self.query_json = query_json
 
@@ -43,127 +45,137 @@ class HypothesisSeedManager:
 
         # discard hypothesis seeds with any failed core constraints?
         self.discard_failed_core_constraints = discard_failed_core_constraints
-        # cut off after early_cutoff entry point combinations?
-        self.early_cutoff = early_cutoff
+
         # cut off partially formed hypotheses during creation
         # if there are at least rank_cutoff other hypothesis seeds with the same fillers
         # for rank_cutoff_qvar_count query variables?
         self.rank_cutoff = rank_cutoff
         self.rank_cutoff_qvar_count = 3
 
-        # parameters for ranking
-        self.rank_first_k = 100
-        self.bonus_for_novelty = 5
-        self.consider_next_k_in_reranking = 10000
+    # split the core constraints of the query into a list of facets.
+    # note that some of the facets might contain no entry point variables, in such case, we merge
+    # them into the closes facets with entry point variables.
+    def split_facets(self):
+        # all entry point variables in the SoIN
+        all_ep_vars = set(self.query_json['ep_matches_dict'].keys())
 
-        # make seed clusters
-        self.seeds = self._make_seeds()
+        # a mapping from each facet label to a list of constraints with the facet as subject
+        facet_to_constraints = defaultdict(list)
+        # a mapping from each facet label to a set of variables occurred in the facet
+        facet_to_variables = defaultdict(set)
 
-    # export hypotheses to AidaHypothesisCollection
-    def finalize(self):
-        # rank the done hypothesis seeds
-        logging.info('Ranking hypothesis seeds')
-        ranked_seeds = self._rank_seeds()
+        for frame in self.query_json['frames']:
+            for constraint in frame['edges']:
+                facet_label = constraint[0]
+                facet_to_constraints[facet_label].append(constraint)
+                facet_to_variables[facet_label].add(facet_label)
+                facet_to_variables[facet_label].add(constraint[2])
 
-        hypotheses_to_export = []
+        # determine the facets that do / do not contain entry point variables
+        facets_with_ep, facets_without_ep = [], []
+        for facet_label, variables in facet_to_variables.items():
+            if any(var in all_ep_vars for var in variables):
+                facets_with_ep.append(facet_label)
+            else:
+                facets_without_ep.append(facet_label)
 
-        # turn ranks into the log weights of seed hypotheses
-        # meaningless numbers. just assign 1/2, 1/3, 1/4, ...
-        for rank, seed in enumerate(ranked_seeds):
-            seed.hypothesis.update_weight(math.log(1.0 / (rank + 1)))
-            hypotheses_to_export.append(seed.finalize())
+        # merge each facet without EP variables to the first facet with EP variables that
+        # shares at least one common variable
+        for f1 in facets_without_ep:
+            for f2 in facets_with_ep:
+                if len(facet_to_variables[f2].intersection(facet_to_variables[f1])) > 0:
+                    facet_to_constraints[f2] += facet_to_constraints[f1]
+                    del facet_to_constraints[f1]
+                    break
 
-        return AidaHypothesisCollection(hypotheses_to_export)
+        return facet_to_constraints
 
-    # HYPOTHESIS SEED CREATION: create initial hypothesis seeds. This is called from __init__
-    def _make_seeds(self) -> List[HypothesisSeed]:
+    # create initial hypothesis seeds
+    def make_seeds(self):
+        facet_to_constraints = self.split_facets()
+
+        seeds_by_facet = {}
+
+        for facet_label, core_constraints in facet_to_constraints.items():
+            logging.info(f'Creating hypothesis seeds for facet {facet_label} ...')
+            seeds = self._create_seeds(core_constraints)
+
+            seeds_by_facet[facet_label] = sorted(
+                seeds, key=lambda s: s.get_scores(), reverse=True)
+
+        return seeds_by_facet
+
+    # create initial hypothesis seeds
+    def _create_seeds(self, core_constraints: List[Tuple]) -> List[HypothesisSeed]:
         # the queue of seeds-in-making
         seeds_todo = deque()
         # the list of finished seeds
         seeds_done = []
 
+        ep_matches_dict = self.query_json['ep_matches_dict']
+
+        # entry point variables occurring in the core constraints: each core constraint has the form
+        # [subj, pred, obj, obj_type], where only obj can be potentially entry point variables
+        ep_var_list = sorted([obj for _, _, obj, _ in core_constraints if obj in ep_matches_dict])
+
+        # entry point fillers and weights filtered and reranked by both ep match scores and
+        # role match scores
+        reranked_ep_matches_dict = {}
+
         # have we found any hypothesis without failed core constraints yet?
         # if so, we can eliminate all hypotheses with failed core constraints
         found_hypothesis_wo_failed = False
 
-        ep_matches_dict = self.query_json['ep_matches_dict']
+        for ep_var in ep_var_list:
+            ep_matches = ep_matches_dict[ep_var]
 
-        logging.info('Initializing hypothesis seeds (if stalled, set early_cutoff)')
+            ep_scores = {}
 
-        for frame in self.query_json['frames']:
-            # list of core constraints in this frame
-            core_constraints = frame['edges']
+            fillers_filtered_both = []
+            fillers_filtered_role_score = []
 
-            # variables occurring in this frame: core constraints have the form
-            # [subj, pred, obj, obj_type], where subj, obj are variables, and obj_type can be None.
-            frame_variables = set(c[0] for c in core_constraints).union(
-                c[2] for c in core_constraints)
+            for ep_filler, ep_weight in ep_matches:
+                ep_role_score = self._entrypoint_filler_role_score(
+                    ep_var, ep_filler, core_constraints)
+                ep_scores[ep_filler] = (ep_weight, ep_role_score)
+                # an ep_role_score > 0 means there is at least one role match for the filler
+                if ep_role_score > 0:
+                    fillers_filtered_role_score.append(ep_filler)
+                    # an ep_weight > 50 is considered as a "good" match (max score = 100)
+                    if ep_weight > 50.0:
+                        fillers_filtered_both.append(ep_filler)
 
-            # variables to fill: all entry points that appear in the core constraints of this frame
-            frame_ep_variables = sorted(e for e in ep_matches_dict.keys() if e in frame_variables)
-
-            # entry point fillers and weights filtered and reranked by both ep match scores and
-            # role match scores
-            reranked_ep_matches_dict = {}
-
-            for ep_var in frame_ep_variables:
-                logging.info('Entry point: {}'.format(ep_var))
-
-                ep_matches = ep_matches_dict[ep_var]
-
-                ep_scores = {}
-
-                fillers_filtered_both = []
-                fillers_filtered_role_score = []
-
-                for ep_filler, ep_weight in ep_matches:
-                    ep_role_score = self._entrypoint_filler_role_score(
-                        ep_var, ep_filler, core_constraints)
-                    ep_scores[ep_filler] = (ep_weight, ep_role_score)
-                    # an ep_role_score > 0 means there is at least one role match for the filler
-                    if ep_role_score > 0:
-                        fillers_filtered_role_score.append(ep_filler)
-                        # an ep_weight > 50 is considered as a "good" match (max score = 100)
-                        if ep_weight > 50.0:
-                            fillers_filtered_both.append(ep_filler)
-
-                if len(fillers_filtered_both) > 0:
-                    logging.info(f'Kept {len(fillers_filtered_both)} fillers with both '
-                                 f'SoIN weight > 50 and role score > 0')
-                    fillers_to_keep = [(f, ep_scores[f][0] * ep_scores[f][1])
-                                       for f in fillers_filtered_both]
-                elif len(fillers_filtered_role_score) > 0:
-                    logging.info(f'Kept {len(fillers_filtered_role_score)} fillers with '
-                                 f'role score > 0')
-                    fillers_to_keep = [(f, ep_scores[f][0] * ep_scores[f][1])
-                                       for f in fillers_filtered_role_score]
-                else:
-                    logging.info(f'Kept all {len(ep_matches)} fillers (there is no filler with '
-                                 f'role score > 0)')
-                    fillers_to_keep = ep_matches
-
-                reranked_ep_matches_dict[ep_var] = \
-                    sorted(fillers_to_keep, key=itemgetter(1), reverse=True)
-
-            if self.early_cutoff is None:
-                ep_combinations = self._each_entry_point_combination(reranked_ep_matches_dict)
+            if len(fillers_filtered_both) > 0:
+                logging.info(f'Entry point {ep_var}: kept {len(fillers_filtered_both)} fillers '
+                             f'with both SoIN weight > 50 and role score > 0')
+                fillers_to_keep = [(f, ep_scores[f][0] * ep_scores[f][1])
+                                   for f in fillers_filtered_both]
+            elif len(fillers_filtered_role_score) > 0:
+                logging.info(f'Entry point {ep_var}: kept {len(fillers_filtered_role_score)} '
+                             f'fillers with role score > 0')
+                fillers_to_keep = [(f, ep_scores[f][0] * ep_scores[f][1])
+                                   for f in fillers_filtered_role_score]
             else:
-                ep_combinations = self._each_entry_point_combination_w_early_cutoff(
-                    reranked_ep_matches_dict, self.early_cutoff)
+                logging.info(f'Entry point {ep_var}: kept all {len(ep_matches)} fillers '
+                             f'(no filler with role score > 0)')
+                fillers_to_keep = ep_matches
 
-            for qvar_filler, ep_comb_weight in ep_combinations:
-                # start a new hypothesis
-                seed = HypothesisSeed(
-                    json_graph=self.json_graph,
-                    core_constraints=core_constraints,
-                    temporal_constraints=self.temporal_constraints,
-                    hypothesis=AidaHypothesis(self.json_graph),
-                    qvar_filler=qvar_filler,
-                    entrypoints=list(qvar_filler.keys()),
-                    entrypoint_weight=ep_comb_weight)
-                seeds_todo.append(seed)
+            reranked_ep_matches_dict[ep_var] = \
+                sorted(fillers_to_keep, key=itemgetter(1), reverse=True)
 
-        logging.info('Extending hypothesis seeds (if too many, reduce rank_cutoff)')
+        for qvar_filler, ep_comb_weight in self._ep_match_combination(reranked_ep_matches_dict):
+            # start a new hypothesis
+            seed = HypothesisSeed(
+                json_graph=self.json_graph,
+                core_constraints=core_constraints,
+                temporal_constraints=self.temporal_constraints,
+                hypothesis=AidaHypothesis(self.json_graph),
+                qvar_filler=qvar_filler,
+                entrypoints=ep_var_list,
+                entrypoint_score=ep_comb_weight)
+            seeds_todo.append(seed)
+
+        logging.info(f'Extending {len(seeds_todo)} hypothesis seeds')
 
         # counter of signatures of query variables, for rank_cutoff
         qs_counter = Counter()
@@ -174,7 +186,7 @@ class HypothesisSeedManager:
         while seeds_todo:
             seed_count += 1
             if seed_count % 1000 == 0:
-                logging.info(f'Done processing {seed_count} seeds')
+                print(f'Done processing {seed_count} seeds')
 
             seed = seeds_todo.popleft()
 
@@ -209,6 +221,9 @@ class HypothesisSeedManager:
 
                 if seed.no_failed_core_constraints():
                     found_hypothesis_wo_failed = True
+
+                # add typing statements and affiliation statements to the hypothesis seed
+                seed.hypothesis_completion()
 
                 # mark this hypothesis as done
                 seeds_done.append(seed)
@@ -248,7 +263,7 @@ class HypothesisSeedManager:
     # Yields (qvar_filler, ep_comb_weight) where qvar_filler is a mapping from each entry point
     # variable to a filler, and ep_comb_weight is the confidence of the combination of fillers
     @staticmethod
-    def _each_entry_point_combination(ep_matches_dict: Dict):
+    def _ep_match_combination(ep_matches_dict: Dict):
         # list of (qvar_filler, ep_comb_weight) tuples
         results = []
 
@@ -262,224 +277,13 @@ class HypothesisSeedManager:
             # iterate through each ep variable and the filler and the weight in this combination
             for ep_var, (ep_filler, ep_weight) in zip(ep_matches_dict.keys(), ep_combination):
                 qvar_filler[ep_var] = ep_filler
-                ep_comb_weight *= ep_weight
+                ep_comb_weight *= ep_weight / 100
 
             # reject if any two variables are mapped to the same ERE
             if len(set(qvar_filler.values())) != len(qvar_filler.values()):
                 continue
 
             results.append((qvar_filler, ep_comb_weight))
-
-        # sort the results by ep_comb_weight
-        for qvar_filler, ep_comb_weight in sorted(results, key=itemgetter(1), reverse=True):
-            yield qvar_filler, ep_comb_weight
-
-    # ENTRY POINT HANDLING: in the context of early_cutoff.
-    # Note that we use a ad-hoc complex logic here, which is probably not needed in M36 evaluation.
-    @staticmethod
-    def _each_entry_point_combination_w_early_cutoff(ep_matches_dict: Dict, early_cutoff: int):
-        # list of (qvar_filler, ep_comb_weight) tuples
-        results = []
-
-        # for each ep variable, build a mapping from each weight to all fillers with the weight
-        ep_weight_filler_mapping = {}
-
-        for ep_var, ep_matches in ep_matches_dict.items():
-            # mapping from each weight value to corresponding fillers
-            weight_to_fillers = defaultdict(list)
-
-            # Make sure all weights are positive (in case of using role weighting in SoIN matching,
-            # there might be negative weights for entry points, which might mess up rankings)
-            # NOT NEEDED ANYMORE: we are not using role weights in SoIN matching
-            # if min(ep_weights) < 0.1:
-            #     ep_weights = [w - min(ep_weights) + 0.1 for w in ep_weights]
-            for ep_filler, ep_weight in ep_matches:
-                weight_to_fillers[ep_weight].append(ep_filler)
-
-            # sort by weight from high to low
-            # I guess we don't need the sort here, as ep_matches should already be sorted
-            ep_weight_filler_mapping[ep_var] = dict(
-                sorted(weight_to_fillers.items(), key=itemgetter(0), reverse=True))
-
-        # helper function: with a mapping from each ep variable to a weight value, find a list of
-        # qvar_filler mappings corresponding to the weights
-        def _ep_weights_to_qvar_fillers(_ep_weight_dict: Dict):
-            _fillers_list = []
-            for _ep_var, _ep_weight in _ep_weight_dict.items():
-                _fillers_list.append(ep_weight_filler_mapping[_ep_var][_ep_weight])
-
-            _qvar_filler_list = []
-            for _fillers in itertools.product(*_fillers_list):
-                # Filter cases where there are duplicate node ids for different entry points
-                if len(set(_fillers)) == len(_fillers):
-                    _qvar_filler_list.append(dict(zip(_ep_weight_dict.keys(), _fillers)))
-            return _qvar_filler_list
-
-        # helper function: with a list of ep_weights mappings and a list of combination weights,
-        # add corresponding qvar_fillers
-        def _process(_group_ep_weights: List[Tuple[Dict, float]], group_idx: int):
-            for _ep_weight_dict, _ep_comb_weight in sorted(
-                    _group_ep_weights, key=itemgetter(1), reverse=True):
-                _qvar_filler_list = _ep_weights_to_qvar_fillers(_ep_weight_dict)
-
-                print('Found {} filler combinations with weight {} (group #{})'.format(
-                    len(_qvar_filler_list), _ep_comb_weight, group_idx))
-
-                results.extend(
-                    [(_qvar_filler, _ep_comb_weight) for _qvar_filler in _qvar_filler_list])
-
-                # TODO: do we need this condition here?
-                if len(results) >= early_cutoff:
-                    break
-
-        # Group 1 (all highest)
-        ep_weight_dict, ep_comb_weight = {}, 1.0
-        for ep_var, weight_filler_mapping in ep_weight_filler_mapping.items():
-            var_weight = list(weight_filler_mapping.keys())[0]
-            ep_weight_dict[ep_var] = var_weight
-            ep_comb_weight *= var_weight
-
-        _process([(ep_weight_dict, ep_comb_weight)], group_idx=1)
-
-        # Group 2 (all-but-one highest & one second-highest)
-        if len(results) < early_cutoff:
-            g2_ep_weights = []
-
-            # For each entry point, select its second-highest weighted fillers
-            for idx in range(len(ep_weight_filler_mapping)):
-                ep_weight_dict, ep_comb_weight = {}, 1.0
-
-                for ep_var_idx, (ep_var, weight_filler_mapping) in enumerate(
-                        ep_weight_filler_mapping.items()):
-                    if ep_var_idx == idx:
-                        if len(weight_filler_mapping) < 2:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[1]
-                    else:
-                        var_weight = list(weight_filler_mapping.keys())[0]
-
-                    ep_weight_dict[ep_var] = var_weight
-                    ep_comb_weight *= var_weight
-
-                if len(ep_weight_dict) == len(ep_weight_filler_mapping):
-                    g2_ep_weights.append((ep_weight_dict, ep_comb_weight))
-
-            _process(g2_ep_weights, group_idx=2)
-
-        # Group 3 (all-but-one highest & one third-highest,
-        # or all-but-two highest & two second-highest)
-        if len(results) < early_cutoff:
-            g3_ep_weights = []
-
-            # For each entry point, select its third-highest weighted fillers
-            for idx in range(len(ep_weight_filler_mapping)):
-                ep_weight_dict, ep_comb_weight = {}, 1.0
-
-                for ep_var_idx, (ep_var, weight_filler_mapping) in enumerate(
-                        ep_weight_filler_mapping.items()):
-                    if ep_var_idx == idx:
-                        if len(weight_filler_mapping) < 3:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[2]
-                    else:
-                        var_weight = list(weight_filler_mapping.keys())[0]
-
-                    ep_weight_dict[ep_var] = var_weight
-                    ep_comb_weight *= var_weight
-
-                if len(ep_weight_dict) == len(ep_weight_filler_mapping):
-                    g3_ep_weights.append((ep_weight_dict, ep_comb_weight))
-
-            # For each combination of 2 entry points, select their second-highest weighted fillers
-            for i1, i2 in itertools.combinations(range(len(ep_weight_filler_mapping)), 2):
-                ep_weight_dict, ep_comb_weight = {}, 1.0
-
-                for ep_var_idx, (ep_var, weight_filler_mapping) in enumerate(
-                        ep_weight_filler_mapping.items()):
-                    if ep_var_idx == i1 or ep_var_idx == i2:
-                        if len(weight_filler_mapping) < 2:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[1]
-                    else:
-                        var_weight = list(weight_filler_mapping.keys())[0]
-
-                    ep_weight_dict[ep_var] = var_weight
-                    ep_comb_weight *= var_weight
-
-                if len(ep_weight_dict) == len(ep_weight_filler_mapping):
-                    g3_ep_weights.append((ep_weight_dict, ep_comb_weight))
-
-            _process(g3_ep_weights, group_idx=3)
-
-        # Group 4 (all-but-one highest & one forth-highest,
-        # or all-but-two highest & one second-highest & one third-highest,
-        # or all-but-three highest & three second-highest)
-        if len(results) < early_cutoff:
-            g4_ep_weights = []
-
-            # For each entry point, select its forth-highest weighted fillers
-            for idx in range(len(ep_weight_filler_mapping)):
-                ep_weight_dict, ep_comb_weight = {}, 1.0
-
-                for ep_var_idx, (ep_var, weight_filler_mapping) in enumerate(
-                        ep_weight_filler_mapping.items()):
-                    if ep_var_idx == idx:
-                        if len(weight_filler_mapping) < 4:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[3]
-                    else:
-                        var_weight = list(weight_filler_mapping.keys())[0]
-
-                    ep_weight_dict[ep_var] = var_weight
-                    ep_comb_weight *= var_weight
-
-                if len(ep_weight_dict) == len(ep_weight_filler_mapping):
-                    g4_ep_weights.append((ep_weight_dict, ep_comb_weight))
-
-            # For each permutation of 2 entry points, select the third-highest weighted fillers for
-            # one of them, and the second-highest weighted fillers for the other
-            for i1, i2 in itertools.permutations(range(len(ep_weight_filler_mapping)), 2):
-                ep_weight_dict, ep_comb_weight = {}, 1.0
-
-                for ep_var_idx, (ep_var, weight_filler_mapping) in enumerate(
-                        ep_weight_filler_mapping.items()):
-                    if ep_var_idx == i1:
-                        if len(weight_filler_mapping) < 3:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[2]
-                    elif ep_var_idx == i2:
-                        if len(weight_filler_mapping) < 2:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[1]
-                    else:
-                        var_weight = list(weight_filler_mapping.keys())[0]
-
-                    ep_weight_dict[ep_var] = var_weight
-                    ep_comb_weight *= var_weight
-
-                if len(ep_weight_dict) == len(ep_weight_filler_mapping):
-                    g4_ep_weights.append((ep_weight_dict, ep_comb_weight))
-
-            # For each combination of 3 entry points, select their second-highest weighted fillers
-            for i1, i2, i3 in itertools.combinations(range(len(ep_weight_filler_mapping)), 3):
-                ep_weight_dict, ep_comb_weight = {}, 1.0
-
-                for ep_var_idx, (ep_var, weight_filler_mapping) in enumerate(
-                        ep_weight_filler_mapping.items()):
-                    if ep_var_idx == i1 or ep_var_idx == i2 or ep_var_idx == i3:
-                        if len(weight_filler_mapping) < 2:
-                            continue
-                        var_weight = list(weight_filler_mapping.keys())[1]
-                    else:
-                        var_weight = list(weight_filler_mapping.keys())[0]
-
-                    ep_weight_dict[ep_var] = var_weight
-                    ep_comb_weight *= var_weight
-
-                if len(ep_weight_dict) == len(ep_weight_filler_mapping):
-                    g4_ep_weights.append((ep_weight_dict, ep_comb_weight))
-
-            _process(g4_ep_weights, group_idx=4)
 
         # sort the results by ep_comb_weight
         for qvar_filler, ep_comb_weight in sorted(results, key=itemgetter(1), reverse=True):
@@ -519,114 +323,3 @@ class HypothesisSeedManager:
                         entry.get('year', None), entry.get('month', None), entry.get('day', None))
 
         return aida_time_dict
-
-    # RANKING: rank all hypothesis seeds in self.seeds
-    # first we group all seeds by entry point weight and penalty score, then sort seeds in each
-    # group by connectedness and novelty
-    def _rank_seeds(self):
-        seeds_by_weight = defaultdict(list)
-        for s in self.seeds:
-            seeds_by_weight[(s.entrypoint_weight, s.penalty_score)].append(s)
-
-        ranked_seeds = []
-        for _, seeds in sorted(seeds_by_weight.items(), key=itemgetter(0), reverse=True):
-            ranked_seeds += self._rank_seeds_by_novelty(self._rank_seeds_by_connectedness(seeds))
-
-        return ranked_seeds
-
-    def _rank_seeds_by_connectedness(self, seeds: List[HypothesisSeed]):
-        if len(seeds) == 0:
-            return seeds
-
-        scores = []
-
-        for seed in seeds:
-            out_deg = 0
-
-            # for each ERE of this hypothesis
-            for ere_label in seed.hypothesis.eres():
-                # count the number of statements adjacent to the ERE
-                out_deg += len(list(self.json_graph.each_ere_adjacent_stmt(ere_label)))
-
-            scores.append(out_deg)
-
-        return [seed for seed, w in sorted(zip(seeds, scores), key=itemgetter(1), reverse=True)]
-
-    def _rank_seeds_by_novelty(self, seeds: List[HypothesisSeed]):
-        if len(seeds) == 0:
-            return seeds
-
-        # the characterization of query variable fillers for already ranked seeds.
-        # format: a mapping from each qvar to a counter of fillers
-        # we penalize a seed that has the same qvar filler that we have seen before, with a value
-        # equivalent to the number of previous seeds that had the same filler.
-        qvar_characterization = defaultdict(Counter)
-
-        # update qvar_characterization by counting the qvar fillers of a new hypothesis seed
-        def _update_qvar_characterization(_seed: HypothesisSeed):
-            for _qvar, _filler in _seed.qvar_filler.items():
-                # do not include entry points: novelty in entry points is not rewarded
-                if _qvar not in _seed.entrypoints:
-                    qvar_characterization[_qvar][_filler] += 1
-
-        # seeds already ranked, initializing with the first seed
-        seeds_done = [seeds[0]]
-        # seeds to rank
-        seeds_todo = seeds[1:]
-
-        _update_qvar_characterization(seeds[0])
-
-        while len(seeds_todo) > max(0, len(seeds) - self.rank_first_k):
-            # choose the next most novel seed from seeds_todo
-            next_seed_idx = self._choose_next_novel_seed(seeds_todo, qvar_characterization)
-            if next_seed_idx is None:
-                # we didn't find any more items to rank
-                break
-
-            # append the next best item to the seeds_done
-            next_seed = seeds_todo.pop(next_seed_idx)
-            seeds_done.append(next_seed)
-
-            _update_qvar_characterization(next_seed)
-
-        # at this point we have ranked the self.rank_first_k items
-        # just attach the rest of the items at the end
-        return seeds_done + seeds_todo
-
-    def _choose_next_novel_seed(self, seeds: List[HypothesisSeed], qvar_characterization: Dict):
-        best_index, best_score = None, float('-inf')
-
-        # for each seed, determine its novelty score by comparing to qvar_characterization
-        for index, seed in enumerate(seeds):
-            if index >= self.consider_next_k_in_reranking:
-                # we have run out of the next k to consider, don't go further down the list
-                break
-
-            score = 0
-
-            for qvar, filler in seed.qvar_filler.items():
-                # do not count entry point variables when checking for novelty
-                if qvar in seed.entrypoints:
-                    continue
-
-                filler_count = qvar_characterization[qvar][filler]
-
-                # if some higher-ranked seeds have the same filler for this qvar, take a penalty
-                if filler_count > 0:
-                    score -= filler_count
-                # otherwise, take a bonus for the novel qvar filler
-                else:
-                    score += self.bonus_for_novelty
-
-            # at this point we have the score for the current seed.
-            # if it is the maximally achievable score, stop here and go with this seed
-            if score >= self.bonus_for_novelty * len(qvar_characterization):
-                best_index = index
-                break
-
-            # if the score is better than the previous best, record this index as the best one
-            if score > best_score:
-                best_index = index
-                best_score = score
-
-        return best_index

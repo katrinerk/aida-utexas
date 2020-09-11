@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Set
 
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis
-from aida_utexas.hypothesis.date_check import temporal_constraint_match
+from aida_utexas.hypothesis.date_check import temporal_constraint_match, AidaIncompleteDate
 from aida_utexas.hypothesis.hypothesis_filter import AidaHypothesisFilter
 
 
@@ -55,12 +55,13 @@ class HypothesisSeed:
 
     def __init__(self, json_graph: JsonGraph, core_constraints: List, temporal_constraints: Dict,
                  hypothesis: AidaHypothesis, qvar_filler: Dict, unfilled: Set = None,
-                 unfillable: Set = None, entrypoints: List = None, entrypoint_weight: float = 0.0,
-                 penalty_score: float = 0.0):
+                 unfillable: Set = None, entrypoints: List = None, entrypoint_score: float = 0.0,
+                 penalty_score: float = 0.0, connectedness_score: float = None,
+                 plausibility_score: float = None):
         # the following data will not not updated, and is kept just for info.
         # the AIDA graph in json format
         self.json_graph = json_graph
-        # a list of edge constraints, each being a tuple of (subj, pred, obj)
+        # a list of edge constraints, each being a tuple of (subj, pred, obj, obj_type)
         self.core_constraints = core_constraints
         # temporal constraints: mapping from query variables to {start_time: ..., end_time:...}
         self.temporal_constraints = temporal_constraints
@@ -86,18 +87,86 @@ class HypothesisSeed:
         self.entrypoints = entrypoints
 
         # weight from matching the entry points and their corresponding roles in core constraints
-        self.entrypoint_weight = entrypoint_weight
+        self.entrypoint_score = entrypoint_score
 
         # penalty score for violations in seed creation and extension
         self.penalty_score = penalty_score
 
+        # connectedness score of the hypothesis seed (average number of adjacent statements of EREs)
+        self.connectedness_score = connectedness_score
+
+        # plausibility score of the hypothesis seed
+        self.plausibility_score = plausibility_score
+
+    def to_json(self):
+        temporal_constraints_json = {}
+        for qvar, temporal_constraint in self.temporal_constraints.items():
+            temporal_constraints_json[qvar] = {
+                key: val.to_json() for key, val in temporal_constraint.items()}
+
+        return {
+            'hypothesis': self.hypothesis.to_json(),
+            'core_constraints': self.core_constraints,
+            'temporal_constraints': temporal_constraints_json,
+            'unfilled': list(self.unfilled),
+            'unfillable': list(self.unfillable),
+            'qvar_filler': self.qvar_filler,
+            'entrypoints': self.entrypoints,
+            'entrypoint_score': self.entrypoint_score,
+            'penalty_score': self.penalty_score,
+            'connectedness_score': self.connectedness_score,
+            'plausibility_score': self.plausibility_score
+        }
+
+    @classmethod
+    def from_json(cls, seed_json: Dict, json_graph: JsonGraph):
+        temporal_constraints_json = seed_json.get('temporal_constraints', None)
+        temporal_constraints = {}
+        if temporal_constraints_json is not None:
+            for qvar, constraint_json in temporal_constraints_json.items():
+                temporal_constraints[qvar] = {
+                    key: AidaIncompleteDate.from_json(val) for key, val in constraint_json.items()}
+
+        hypothesis = AidaHypothesis.from_json(
+            json_obj=seed_json.get('hypothesis', {}), json_graph=json_graph, weight=0.0)
+
+        return cls(
+            json_graph=json_graph,
+            core_constraints=seed_json.get('core_constraints', []),
+            temporal_constraints=temporal_constraints,
+            hypothesis=hypothesis,
+            unfilled=set(seed_json.get('unfilled', [])),
+            unfillable=set(seed_json.get('unfillable', [])),
+            qvar_filler=seed_json.get('qvar_filler', {}),
+            entrypoints=seed_json.get('entrypoints', []),
+            entrypoint_score=seed_json.get('entrypoint_score', 0.0),
+            penalty_score=seed_json.get('penalty_score', 0.0),
+            connectedness_score=seed_json.get('connectedness_score', None),
+            plausibility_score=seed_json.get('plausibility_score', None)
+        )
+
     # report failed queries of the underlying AidaHypothesis object
     def finalize(self):
         self.hypothesis.add_failed_queries([self.core_constraints[idx] for idx in self.unfillable])
-        # self.hypothesis.update_hyp_weight(self.penalty_score)
         self.hypothesis.add_qvar_filler(self.qvar_filler)
 
         return self.hypothesis
+
+    # add typing statements and affiliation statements
+    def hypothesis_completion(self):
+        self.hypothesis.type_completion()
+        self.hypothesis.affiliation_completion()
+
+    # get a tuple of scores for the hypothesis seed, used in rank_seeds in HypothesisSeedManager
+    def get_scores(self):
+        if self.connectedness_score is None:
+            self.connectedness_score = self.hypothesis.get_connectedness_score()
+
+        scores = (self.entrypoint_score, self.penalty_score,
+                  self.hypothesis.get_connectedness_score())
+        if self.plausibility_score is not None:
+            scores += self.plausibility_score
+        return scores
 
     # extend hypothesis by one statement filling the next fillable core constraint.
     # returns a list of HypothesisSeed objects
@@ -164,7 +233,7 @@ class HypothesisSeed:
                         unfilled=new_unfilled,
                         unfillable=new_unfillable,
                         entrypoints=self.entrypoints,
-                        entrypoint_weight=self.entrypoint_weight,
+                        entrypoint_score=self.entrypoint_score,
                         penalty_score=self.penalty_score + add_weight))
 
             if len(new_seeds) == 0:

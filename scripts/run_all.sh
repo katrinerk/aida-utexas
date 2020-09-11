@@ -26,7 +26,7 @@ parse_args() {
     shift
     shift
 
-    num_hyps=14
+    num_hyps=50
     num_hops=2
     do_coref_compression=false
     device=-1
@@ -95,16 +95,16 @@ print_args() {
     printf "\tUsing TA2 KB from: %s\n" "$input_kb_path"
 
     printf "\n\$SIN set to: %s\n" "$SIN"
-    printf "\tFound SIN files:\n"
+    printf "\tFind SIN files:\n"
     for f in "$SIN"/*.xml; do
         printf "\t\t%s\n" "$f"
     done
 
     printf "\n\$OUTPUT set to: %s\n" "$OUTPUT"
     printf "RUN_NAME: %s\n" "$run_name"
-    printf "\tMaking output directory: %s\n" "$output_dir"
+    printf "\tCreating output directory: %s\n" "$output_dir"
     mkdir -p "$output_dir"
-    printf "\tMaking working directory: %s\n" "$working_dir"
+    printf "\tCreating working directory: %s\n" "$working_dir"
     mkdir -p "$working_dir"
 
     printf "\nOptional parameters:\n"

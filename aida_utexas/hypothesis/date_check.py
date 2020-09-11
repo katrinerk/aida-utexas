@@ -22,12 +22,19 @@ class AidaIncompleteDate:
         self.month: Optional[int] = self._check_date_str(month, 'month')
         self.day: Optional[int] = self._check_date_str(day, 'day')
 
+    def to_json(self):
+        return {
+            'year': self.year,
+            'month': self.month,
+            'day': self.day
+        }
+
     @classmethod
-    def from_ldc_time(cls, ldc_time: Dict):
+    def from_json(cls, date_json: Dict):
         return cls(
-            year=ldc_time.get('year', None),
-            month=ldc_time.get('month', None),
-            day=ldc_time.get('day', None)
+            year=date_json.get('year', None),
+            month=date_json.get('month', None),
+            day=date_json.get('day', None)
         )
 
     @staticmethod
@@ -201,8 +208,8 @@ def temporal_constraint_match_pair(start_time: Dict, end_time: Dict,
     end_time = possibly_flatten_ldc_time(end_time)
 
     # construct AidaIncompleteDate from start_time and end_time
-    start_date = AidaIncompleteDate.from_ldc_time(start_time) if start_time is not None else None
-    end_date = AidaIncompleteDate.from_ldc_time(end_time) if end_time is not None else None
+    start_date = AidaIncompleteDate.from_json(start_time) if start_time is not None else None
+    end_date = AidaIncompleteDate.from_json(end_time) if end_time is not None else None
 
     # start_time and end_time have a timeType of ON/BEFORE/AFTER.
     start_time_type, end_time_type = start_time['timeType'], end_time['timeType']

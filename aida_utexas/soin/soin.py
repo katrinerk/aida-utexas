@@ -59,7 +59,7 @@ class Frame:
 
     def to_json(self):
         return {
-            'id': self.id,
+            'frame_id': self.id,
             'edges': [edge.to_json() for edge in self.edges],
         }
 

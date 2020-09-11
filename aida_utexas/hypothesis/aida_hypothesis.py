@@ -87,6 +87,19 @@ class AidaHypothesis:
         new_hypothesis.add_failed_queries(self.failed_queries)
         return new_hypothesis
 
+    # connectedness score of the hypothesis: average number of adjacent statements of all EREs
+    def get_connectedness_score(self):
+        total_score = 0
+        num_eres = 0
+
+        for ere_label in self.eres():
+            # count the number of statements adjacent to the ERE
+            total_score += len(list(self.json_graph.each_ere_adjacent_stmt(ere_label)))
+            # update the ERE count
+            num_eres += 1
+
+        return total_score / num_eres
+
     # set weights of type statements in this hypothesis:
     # for single type, or type of an event/relation used in an event/relation argument: set it to
     # the weight of maximum neighbor.
@@ -214,7 +227,7 @@ class AidaHypothesis:
         }
 
     @classmethod
-    def from_json(cls, json_obj: Dict, json_graph: JsonGraph, weight: float):
+    def from_json(cls, json_obj: Dict, json_graph: JsonGraph, weight: float = 0.0):
         hypothesis = cls(
             json_graph=json_graph,
             stmts=json_obj['statements'],

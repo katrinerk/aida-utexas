@@ -6,13 +6,15 @@ Update: Pengxiang Cheng, May 2020
 - Refactoring and cleanup for dockerization.
 
 Update: Pengxiang Cheng, Aug 2020
-- Use new JsonGraph API
+- Use new JsonGraph API.
+
+Update: Pengxiang Cheng, Sep 2020
+- Adapt to the new behaviors of HypothesisSeedManager, and only save raw seeds per facet to JSON.
 """
 
 import json
 import logging
 from argparse import ArgumentParser
-from pathlib import Path
 from typing import Dict
 
 from aida_utexas import util
@@ -28,58 +30,31 @@ def shortest_name(ere_label: str, json_graph: JsonGraph):
     return None
 
 
-def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, output_path: Path,
-                       max_num_seeds: int = None, discard_failed_core_constraints: bool = False,
-                       early_cutoff: bool = False, rank_cutoff: bool = None, log: bool = False):
+def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, max_num_seeds_per_facet: int = None,
+                       discard_failed_core_constraints: bool = False, rank_cutoff: bool = None):
     # create hypothesis seeds
-    logging.info('Creating hypothesis seeds .')
+    logging.info('Making hypothesis seeds for SoIN {} ...'.format(query_json['soin_id']))
+    # logging.info('Creating hypothesis seeds .')
     seed_manager = HypothesisSeedManager(
         json_graph=json_graph,
         query_json=query_json,
         discard_failed_core_constraints=discard_failed_core_constraints,
-        early_cutoff=early_cutoff,
         rank_cutoff=rank_cutoff)
 
-    hypothesis_collection = seed_manager.finalize()
+    seeds_by_facet = seed_manager.make_seeds()
 
-    # and expand on them
-    logging.info('Expanding hypothesis seeds ...')
-    hypothesis_collection.expand()
+    raw_seeds_json = {}
 
-    seeds_json = hypothesis_collection.to_json()
-
-    # possibly prune seeds
-    if max_num_seeds is not None:
-        seeds_json['probs'] = seeds_json['probs'][:max_num_seeds]
-        seeds_json['support'] = seeds_json['support'][:max_num_seeds]
+    for facet_label, seeds in seeds_by_facet.items():
+        seeds_json = [seed.to_json() for seed in seeds]
+        if max_num_seeds_per_facet is not None:
+            seeds_json = seeds_json[:max_num_seeds_per_facet]
+        raw_seeds_json[facet_label] = seeds_json
 
     # add graph filename and queries
-    seeds_json['graph'] = query_json['graph']
+    raw_seeds_json['graph'] = query_json['graph']
 
-    # write hypotheses out in json format.
-    logging.info('Writing seeds to {} ...'.format(output_path))
-    with open(str(output_path), 'w') as fout:
-        json.dump(seeds_json, fout, indent=1)
-
-    if log:
-        log_path = output_path.with_suffix('.log')
-
-        with open(str(log_path), 'w') as fout:
-            print('Number of hypotheses:', len(seeds_json['support']), file=fout)
-            print('Number of hypotheses without failed queries:',
-                  len([h for h in seeds_json['support'] if len(h['failedQueries']) == 0]),
-                  file=fout)
-
-            for hyp in hypothesis_collection.hypotheses[:10]:
-                print('hypothesis weight', hyp.weight, file=fout)
-                for qvar, filler in sorted(hyp.qvar_filler.items()):
-                    name = shortest_name(filler, json_graph)
-                    if name is not None:
-                        print(qvar, ':', filler, name, file=fout)
-                    else:
-                        print(qvar, ':', filler, file=fout)
-
-                print('\n', file=fout)
+    return raw_seeds_json
 
 
 def main():
@@ -87,33 +62,21 @@ def main():
     parser.add_argument('graph_path', help='Path to the input graph JSON file')
     parser.add_argument('query_path',
                         help='Path to the input query file, or a directory with multiple queries')
-    parser.add_argument('output_dir',
-                        help='Directory to write the hypothesis seeds')
-    # maximum number of seeds to store. Do use this during evaluation if we get lots of cluster
-    # seeds! We will only get evaluated on a limited number of top hypotheses anyway.
-    parser.add_argument('-n', '--max_num_seeds', type=int, default=None,
-                        help='only list up to n hypothesis seeds')
-    # discard hypotheses with failed core constraints? Try not to use this one during evaluation at
-    # first, so that we don't discard hypotheses we might still need. If we have too many hypotheses
-    # and the script runs too slowly, then use this.
+    parser.add_argument('output_dir', help='Directory to write the raw hypothesis seeds')
+    parser.add_argument('-n', '--max_num_seeds_per_facet', type=int, default=None,
+                        help='If provided, only save up to <arg> seeds per facet')
     parser.add_argument('-d', '--discard_failed_core_constraints', action='store_true',
-                        default=False, help='discard hypotheses that have failed queries')
-    # early cutoff: discard queries below the best k based only on entry point scores. Try not to
-    # use this one during evaluation at first, so that we don't discard hypotheses we might still
-    # need. If we have too many hypotheses and the script runs too slowly, then use this.
-    parser.add_argument('-c', '--early_cutoff', type=int, default=None,
-                        help='discard hypotheses below the best n based only on entry point scores')
-    # rank-based cutoff: discards hypotheses early if there are at least <arg> other hypotheses
-    # that coincide with this one in 3 query variable fillers. We do need this in the evaluation!
-    # Otherwise combinatorial explosion happens. I've standard-set this to 100.
+                        help='If specified, discard hypotheses with failed core constraints. '
+                             'Try not to use this one during evaluation at first, so that we '
+                             'do not discard hypotheses we might still need. If we have too many '
+                             'hypotheses and the script runs too slowly, then use this.')
     parser.add_argument('-r', '--rank_cutoff', type=int, default=100,
-                        help='discard hypotheses early if there are n others that have the same '
-                             'fillers for 3 of their query variables')
-    # write logs? Do this for qualitative analysis of the diversity of query responses, but do not
-    # use this during evaluation, as it slows down the script.
-    parser.add_argument('-l', '--log', action='store_true', default=False,
-                        help='write log files to output directory')
-    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, discard hypotheses early if there are at least <arg> '
+                             'other hypotheses that have the same fillers for a certain number '
+                             '(default = 3) of their non-entrypoint query variables. We might '
+                             'need this in the evaluation if some facets have many variables '
+                             'that lead to combinatorial explosion.')
+    parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
@@ -127,16 +90,18 @@ def main():
     for query_file_path in query_file_paths:
         query_json = util.read_json_file(query_file_path, 'query')
 
-        output_path = output_dir / (query_file_path.name.split('_')[0] + '_seeds.json')
+        raw_seeds_json = make_cluster_seeds(
+            json_graph=json_graph,
+            query_json=query_json,
+            max_num_seeds_per_facet=args.max_num_seeds_per_facet,
+            discard_failed_core_constraints=args.discard_failed_core_constraints,
+            rank_cutoff=args.rank_cutoff)
 
-        make_cluster_seeds(json_graph=json_graph,
-                           query_json=query_json,
-                           output_path=output_path,
-                           max_num_seeds=args.max_num_seeds,
-                           discard_failed_core_constraints=args.discard_failed_core_constraints,
-                           early_cutoff=args.early_cutoff,
-                           rank_cutoff=args.rank_cutoff,
-                           log=args.log)
+        # write hypotheses out in json format.
+        output_path = output_dir / (query_file_path.name.split('_')[0] + '_seeds.json')
+        logging.info('Writing raw hypothesis seeds of each facet to {} ...'.format(output_path))
+        with open(str(output_path), 'w') as fout:
+            json.dump(raw_seeds_json, fout, indent=1)
 
 
 if __name__ == '__main__':
