@@ -238,7 +238,7 @@ class AidaHypothesisFilter:
             # any set-aside candidates that turn out to be connected to the hypothesis after all?
             resurrected_stmts = []
             for stmt in candidates_set_aside:
-                if any(ere in new_hypothesis_eres for ere in self.json_graph.statement_args(stmt)):
+                if any(ere in new_hypothesis_eres for ere in self.json_graph.stmt_args(stmt)):
                     # yes, now check whether this candidate should be inserted
                     resurrected_stmts.append(stmt)
                     new_hypothesis, new_eres = self._test_and_insert_candidate(
@@ -251,7 +251,7 @@ class AidaHypothesisFilter:
             # now test the next non-set-aside candidate
             stmt = candidates.popleft()
             # does it need to be set aside?
-            if not any(ere in new_hypothesis_eres for ere in self.json_graph.statement_args(stmt)):
+            if not any(ere in new_hypothesis_eres for ere in self.json_graph.stmt_args(stmt)):
                 candidates_set_aside.append(stmt)
             else:
                 # no, we can test this one now.
@@ -262,7 +262,7 @@ class AidaHypothesisFilter:
         # now no candidates left in the candidate set, but maybe something from the set-aside
         # candidate list has become connected to the core by the last candidate to be added
         for stmt in candidates_set_aside:
-            if any(ere in new_hypothesis_eres for ere in self.json_graph.statement_args(stmt)):
+            if any(ere in new_hypothesis_eres for ere in self.json_graph.stmt_args(stmt)):
                 # yes, check now whether this candidate should be inserted
                 new_hypothesis, new_eres = self._test_and_insert_candidate(
                     stmt, prev_hypothesis=new_hypothesis, full_hypothesis=hypothesis)
@@ -275,7 +275,7 @@ class AidaHypothesisFilter:
 
         if self.validate(test_hypothesis, stmt, full_hypothesis):
             # yes, statement is fine. add the statement's EREs to the new set of EREs
-            new_eres = [ere_label for ere_label in self.json_graph.statement_args(stmt)
+            new_eres = [ere_label for ere_label in self.json_graph.stmt_args(stmt)
                         if self.json_graph.is_ere(ere_label)]
             return test_hypothesis, new_eres
         else:

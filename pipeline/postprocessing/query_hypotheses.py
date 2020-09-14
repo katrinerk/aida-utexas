@@ -275,7 +275,8 @@ def main():
     parser.add_argument('hypotheses_path', help='path to the hypotheses json file')
     parser.add_argument('db_dir', help='directory with copies of tdb databases')
     parser.add_argument('output_dir', help='path to output directory')
-    parser.add_argument('--top', default=14, type=int,
+    parser.add_argument('--top', default=50, type=int,
+
                         help='number of top hypothesis to output')
     parser.add_argument('--dry_run', action='store_true',
                         help='if specified, only write the SPARQL queries to '
@@ -295,8 +296,6 @@ def main():
     prototype_set = set(mappings['prototype_to_clusters'].keys())
 
     hypotheses_json = util.read_json_file(args.hypotheses_path, 'hypotheses')
-    print('Found {} hypotheses with probabilities of {}'.format(
-        len(hypotheses_json['probs']), hypotheses_json['probs']))
 
     output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
@@ -323,8 +322,7 @@ def main():
 
         top_count += 1
 
-        print('Writing queries for top #{} hypothesis with prob {}'.format(
-            top_count, prob))
+        print(f'Writing queries for hypothesis #{top_count} with prob {prob}')
 
         sparql_helper.execute_sparql_queries(
             node_query_list, stmt_query_list, just_query_list, conf_query_list,

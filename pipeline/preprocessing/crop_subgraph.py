@@ -6,6 +6,7 @@ Construct sub-graphs for each hypothesis seed by starting at the entry points an
 
 import argparse
 import json
+import logging
 from copy import deepcopy
 
 from aida_utexas import util
@@ -112,7 +113,7 @@ def nodes_to_subgraph(graph, nodes_dict):
     return subgraph
 
 
-def extract_subgraph(graph, statements, num_hops=2, verbose=False):
+def extract_subgraph(index, graph, statements, num_hops=2, verbose=False):
     nodes_so_far = {
         'stmts': set(),
         'general_stmts': set(),
@@ -164,8 +165,10 @@ def extract_subgraph(graph, statements, num_hops=2, verbose=False):
         print('\tFound {} extra typing statements (cumulative = {})'.format(
             len(extra_typing_stmts), len(nodes_so_far['typing_stmts'])))
 
-    print('\tFound {} EREs and {} statements after {} hops'.format(
-        len(nodes_so_far['eres']), len(nodes_so_far['stmts']), num_hops))
+    logging.info(
+        'Extracting subgraph for hypothesis # {}: found {} EREs and {} statements '
+        'after {} hops'.format(
+            index + 1, len(nodes_so_far['eres']), len(nodes_so_far['stmts']), num_hops))
 
     subgraph = nodes_to_subgraph(graph, nodes_so_far)
     return subgraph
@@ -192,16 +195,14 @@ def main():
 
     for hypothesis_idx, (prob, hypothesis) in enumerate(
             zip(seed_json['probs'], seed_json['support'])):
-        print('\nExtracting subgraph for hypothesis # {} with prob = {}'.format(
-            hypothesis_idx, prob))
         subgraph = extract_subgraph(
+            index=hypothesis_idx,
             graph=graph_json,
             statements=hypothesis['statements'],
             num_hops=args.num_hops,
             verbose=args.verbose
         )
         output_path = output_dir / f'subgraph_{hypothesis_idx}.json'
-        print('Writing subgraph json to {}'.format(output_path))
         with open(str(output_path), 'w') as fout:
             json.dump(subgraph, fout, indent=2)
 

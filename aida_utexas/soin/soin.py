@@ -4,6 +4,9 @@ Author: Pengxiang Cheng, Aug 2020
 - Statement of information needs.
 - Each statement of information need contains a list of frames, where each frame contains a list of
 edges, a list of temporal information, and a list of entry point specifications.
+
+Update: Pengxiang Cheng, Sep 2020
+- Merge the resolve_all_entrypoints method from process_soin
 """
 
 import logging
@@ -11,6 +14,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Dict, List
 from xml.etree import ElementTree
 
+from aida_utexas.aif import AidaGraph
 from aida_utexas.soin.entry_point import EntryPoint
 
 
@@ -34,8 +38,8 @@ class Edge:
 
         return cls(**edge_dict)
 
-    def to_list(self):
-        return [self.subject, self.predicate, self.object]
+    def to_json(self):
+        return [self.subject, self.predicate, self.object, self.objectType]
 
 
 @dataclass
@@ -53,10 +57,10 @@ class Frame:
 
         return cls(**frame_dict)
 
-    def to_dict(self, temporal_info_dict):
+    def to_json(self):
         return {
-            'temporal': temporal_info_dict,
-            'queryConstraints': [edge.to_list() for edge in self.edges],
+            'frame_id': self.id,
+            'edges': [edge.to_json() for edge in self.edges],
         }
 
 
@@ -101,23 +105,41 @@ class TemporalInfo:
 
         return cls(**temporal_info_dict)
 
+    def to_json(self):
+        return {
+            self.subject: {
+                'start_time': asdict(self.start_time),
+                'end_time': asdict(self.end_time)
+            }
+        }
+
 
 @dataclass
 class SOIN:
+    # the path of the SoIN xml file
     file_path: str
+    # the SoIN id
     id: str
+    # a list of frames, each with a frame id and a list of edges
     frames: List[Frame] = field(default_factory=list)
+    # a list of temporal constraints
     temporal_info_list: List[TemporalInfo] = field(default_factory=list)
+    # a list of entry point variables, each characterized by one or more typed descriptors
     entrypoints: List[EntryPoint] = field(default_factory=list)
+    # a dictionary of ERE matches and weights for each entry point variable
+    ep_matches_dict: Dict = None
 
-    def frames_to_json(self):
-        temporal_info_dict = {}
+    def to_json(self):
+        temporal_dict = {}
         for temporal_info in self.temporal_info_list:
-            temporal_info_dict[temporal_info.subject] = {
-                'start_time': asdict(temporal_info.start_time),
-                'end_time': asdict(temporal_info.end_time)
-            }
-        return [frame.to_dict(temporal_info_dict) for frame in self.frames]
+            temporal_dict.update(temporal_info.to_json())
+
+        return {
+            'soin_id': self.id,
+            'ep_matches_dict': self.ep_matches_dict,
+            'frames': [frame.to_json() for frame in self.frames],
+            'temporal': temporal_dict
+        }
 
     @classmethod
     def parse(cls, file_path: str, dup_kbid_mapping: Dict = None):
@@ -161,3 +183,10 @@ class SOIN:
                 logging.warning(f'Unexpected tag {div.tag} in SOIN')
 
         return SOIN(**soin_dict)
+
+    def resolve(self, aida_graph: AidaGraph, ere_to_prototypes: Dict, max_matches: int):
+        self.ep_matches_dict = {}
+
+        for entrypoint in self.entrypoints:
+            self.ep_matches_dict[entrypoint.node] = entrypoint.resolve(
+                aida_graph, ere_to_prototypes, max_matches)

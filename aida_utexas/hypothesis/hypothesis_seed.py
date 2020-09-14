@@ -7,34 +7,61 @@ possible hypothesis seeds that can be made using different statements that all f
 Update: Pengxiang Cheng, Aug 2020
 - Clean-up and refactoring
 - Naming conventions:
-    - qvar (query variables): variables in query constraints (or, variables in edges of a facet)
+    - qvar (query variables): variables in core constraints (edges of a facet)
     - qvar_filler: a dictionary from each qvar to a filler ERE label
     - ep (entry points): variables grounded by entry point descriptors
     - ep_fillers: a list of possible ERE labels to fill an ep variable, from SoIN matching
 
 Update: Pengxiang Cheng, Sep 2020
 - Split cluster_seeds.py into two separate files, and rename the classes
+- Use a dataclass for NextFillableConstraint to make it more readable
 """
 
 import logging
-from typing import Dict, List, Set
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Set
 
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis
-from aida_utexas.hypothesis.date_check import temporal_constraint_match
+from aida_utexas.hypothesis.date_check import temporal_constraint_match, AidaIncompleteDate
 from aida_utexas.hypothesis.hypothesis_filter import AidaHypothesisFilter
+
+
+@dataclass
+class NextFillableConstraint:
+    # the index of the constraint
+    constraint_index: int
+    # whether this constraint is fillable or not
+    failed: bool
+    # a list of candidate statements that can potentially fill the constraint
+    candidate_stmts: List[str] = field(default_factory=list)
+    # whether we use a relaxed ontology to match the edge label
+    relaxed_ontology: bool = False
+    # whether there is an open variable to fill
+    has_variable: bool = False
+    # the name of the open variable
+    open_variable: str = None
+    # the role of the open variable, can only be subject or object
+    open_role: str = None
 
 
 # The class that holds a single hypothesis seed: just a data structure, doesn't do much.
 class HypothesisSeed:
+    # some penalty constants for things that might go wrong during seed creation and extension
+    FAILED_CORE = -0.1
+    FAILED_TEMPORAL = -0.1
+    FAILED_ONTOLOGY = -0.1
+    DUPLICATE_FILLER = -0.01
+
     def __init__(self, json_graph: JsonGraph, core_constraints: List, temporal_constraints: Dict,
                  hypothesis: AidaHypothesis, qvar_filler: Dict, unfilled: Set = None,
-                 unfillable: Set = None, entrypoints: List = None, entrypoint_weight: float = 0.0,
-                 penalty_score: float = 0.0):
+                 unfillable: Set = None, entrypoints: List = None, entrypoint_score: float = 0.0,
+                 penalty_score: float = 0.0, connectedness_score: float = None,
+                 plausibility_score: float = None):
         # the following data will not not updated, and is kept just for info.
         # the AIDA graph in json format
         self.json_graph = json_graph
-        # a list of edge constraints, each being a tuple of (subj, pred, obj)
+        # a list of edge constraints, each being a tuple of (subj, pred, obj, obj_type)
         self.core_constraints = core_constraints
         # temporal constraints: mapping from query variables to {start_time: ..., end_time:...}
         self.temporal_constraints = temporal_constraints
@@ -60,24 +87,86 @@ class HypothesisSeed:
         self.entrypoints = entrypoints
 
         # weight from matching the entry points and their corresponding roles in core constraints
-        self.entrypoint_weight = entrypoint_weight
+        self.entrypoint_score = entrypoint_score
 
         # penalty score for violations in seed creation and extension
         self.penalty_score = penalty_score
 
-        # some penalty constants for things that might go wrong during seed creation and extension
-        self.FAILED_QUERY = -0.1
-        self.FAILED_TEMPORAL = -0.1
-        self.FAILED_ONTOLOGY = -0.1
-        self.DUPLICATE_FILLER = -0.01
+        # connectedness score of the hypothesis seed (average number of adjacent statements of EREs)
+        self.connectedness_score = connectedness_score
+
+        # plausibility score of the hypothesis seed
+        self.plausibility_score = plausibility_score
+
+    def to_json(self):
+        temporal_constraints_json = {}
+        for qvar, temporal_constraint in self.temporal_constraints.items():
+            temporal_constraints_json[qvar] = {
+                key: val.to_json() for key, val in temporal_constraint.items()}
+
+        return {
+            'hypothesis': self.hypothesis.to_json(),
+            'core_constraints': self.core_constraints,
+            'temporal_constraints': temporal_constraints_json,
+            'unfilled': list(self.unfilled),
+            'unfillable': list(self.unfillable),
+            'qvar_filler': self.qvar_filler,
+            'entrypoints': self.entrypoints,
+            'entrypoint_score': self.entrypoint_score,
+            'penalty_score': self.penalty_score,
+            'connectedness_score': self.connectedness_score,
+            'plausibility_score': self.plausibility_score
+        }
+
+    @classmethod
+    def from_json(cls, seed_json: Dict, json_graph: JsonGraph):
+        temporal_constraints_json = seed_json.get('temporal_constraints', None)
+        temporal_constraints = {}
+        if temporal_constraints_json is not None:
+            for qvar, constraint_json in temporal_constraints_json.items():
+                temporal_constraints[qvar] = {
+                    key: AidaIncompleteDate.from_json(val) for key, val in constraint_json.items()}
+
+        hypothesis = AidaHypothesis.from_json(
+            json_obj=seed_json.get('hypothesis', {}), json_graph=json_graph, weight=0.0)
+
+        return cls(
+            json_graph=json_graph,
+            core_constraints=seed_json.get('core_constraints', []),
+            temporal_constraints=temporal_constraints,
+            hypothesis=hypothesis,
+            unfilled=set(seed_json.get('unfilled', [])),
+            unfillable=set(seed_json.get('unfillable', [])),
+            qvar_filler=seed_json.get('qvar_filler', {}),
+            entrypoints=seed_json.get('entrypoints', []),
+            entrypoint_score=seed_json.get('entrypoint_score', 0.0),
+            penalty_score=seed_json.get('penalty_score', 0.0),
+            connectedness_score=seed_json.get('connectedness_score', None),
+            plausibility_score=seed_json.get('plausibility_score', None)
+        )
 
     # report failed queries of the underlying AidaHypothesis object
     def finalize(self):
         self.hypothesis.add_failed_queries([self.core_constraints[idx] for idx in self.unfillable])
-        # self.hypothesis.update_hyp_weight(self.penalty_score)
         self.hypothesis.add_qvar_filler(self.qvar_filler)
 
         return self.hypothesis
+
+    # add typing statements and affiliation statements
+    def hypothesis_completion(self):
+        self.hypothesis.type_completion()
+        self.hypothesis.affiliation_completion()
+
+    # get a tuple of scores for the hypothesis seed, used in rank_seeds in HypothesisSeedManager
+    def get_scores(self):
+        if self.connectedness_score is None:
+            self.connectedness_score = self.hypothesis.get_connectedness_score()
+
+        scores = (self.entrypoint_score, self.penalty_score,
+                  self.hypothesis.get_connectedness_score())
+        if self.plausibility_score is not None:
+            scores += self.plausibility_score
+        return scores
 
     # extend hypothesis by one statement filling the next fillable core constraint.
     # returns a list of HypothesisSeed objects
@@ -93,16 +182,15 @@ class HypothesisSeed:
             self.unfilled = set()
             return [self]
 
-        elif nfc['failed']:
+        elif nfc.failed:
             # this particular constraint was not fillable, and will never be fillable.
-            self.unfilled.remove(nfc['index'])
-            self.unfillable.add(nfc['index'])
-            # adding failed query penalty
-            self.penalty_score += self.FAILED_QUERY
+            self.unfilled.remove(nfc.constraint_index)
+            self.unfillable.add(nfc.constraint_index)
+            # adding failed core constraint penalty
+            self.penalty_score += self.FAILED_CORE
             return [self]
 
         else:
-            # nfc is a structure with entries 'index', 'stmt', 'variable', 'role', etc.
             # find statements that match this constraint, and return a list of extension candidates
             # to match this. these candidates have not been run through the filter yet.
             # format: list of tuples (new_hypothesis, stmt_label, variable, filler)
@@ -110,10 +198,10 @@ class HypothesisSeed:
 
             if len(ext_candidates) == 0:
                 # something has gone wrong
-                self.unfilled.remove(nfc['index'])
-                self.unfillable.add(nfc['index'])
-                # adding failed query penalty
-                self.penalty_score += self.FAILED_QUERY
+                self.unfilled.remove(nfc.constraint_index)
+                self.unfillable.add(nfc.constraint_index)
+                # adding failed core constraint penalty
+                self.penalty_score += self.FAILED_CORE
                 return [self]
 
             new_seeds = []
@@ -122,7 +210,6 @@ class HypothesisSeed:
 
                 if self.filter.validate(new_hypothesis, stmt_label):
                     # yes: make a new HypothesisSeed object with this extended hypothesis
-                    # TODO: would shallow copy here cause issues?
                     new_qvar_filler = self.qvar_filler.copy()
                     if variable and filler and self.json_graph.is_ere(filler):
                         new_qvar_filler[variable] = filler
@@ -132,10 +219,10 @@ class HypothesisSeed:
                             add_weight += self.DUPLICATE_FILLER
 
                     # changes to unfilled, not to unfillable
-                    new_unfilled = self.unfilled.difference([nfc['index']])
+                    new_unfilled = self.unfilled.difference([nfc.constraint_index])
                     new_unfillable = self.unfillable.copy()
 
-                    if nfc['relaxed']:
+                    if nfc.relaxed_ontology:
                         # adding failed ontology penalty
                         add_weight += self.FAILED_ONTOLOGY
 
@@ -146,15 +233,15 @@ class HypothesisSeed:
                         unfilled=new_unfilled,
                         unfillable=new_unfillable,
                         entrypoints=self.entrypoints,
-                        entrypoint_weight=self.entrypoint_weight,
+                        entrypoint_score=self.entrypoint_score,
                         penalty_score=self.penalty_score + add_weight))
 
             if len(new_seeds) == 0:
                 # all the fillers were filtered away
-                self.unfilled.remove(nfc['index'])
-                self.unfillable.add(nfc['index'])
-                # all candidate statements filtered away, adding failed query penalty
-                self.penalty_score += self.FAILED_QUERY
+                self.unfilled.remove(nfc.constraint_index)
+                self.unfillable.add(nfc.constraint_index)
+                # all candidate statements filtered away, adding failed core constraint penalty
+                self.penalty_score += self.FAILED_CORE
                 return [self]
             else:
                 return new_seeds
@@ -171,12 +258,11 @@ class HypothesisSeed:
     def has_statements(self):
         return len(self.hypothesis.stmts) > 0
 
-    # TODO: might define a class for NFC?
     # next fillable constraint from the core constraints list, or None if none fillable
-    def _next_fillable_constraint(self):
-        # iterate over unfilled query constraints to see if we can find one that can be filled
+    def _next_fillable_constraint(self) -> Optional[NextFillableConstraint]:
+        # iterate over unfilled core constraints to see if we can find one that can be filled
         for constraint_index in self.unfilled:
-            subj, pred, obj = self.core_constraints[constraint_index]
+            subj, pred, obj, obj_type = self.core_constraints[constraint_index]
 
             # if either subj or obj is known (is an ERE or has an entry in qvar_filler,
             # then we should be able to fill this constraint now, or it is unfillable
@@ -186,19 +272,34 @@ class HypothesisSeed:
             if subj_filler is not None and obj_filler is not None:
                 # new edge between two known variables
                 return self._fill_constraint_two_known_eres(
-                    constraint_index, subj_filler, pred, obj_filler)
+                    constraint_index=constraint_index,
+                    subj_ere=subj_filler,
+                    pred=pred,
+                    obj_ere=obj_filler)
 
             elif subj_filler is not None:
+                # the subject filler is known while the object filler is not
                 return self._fill_constraint_one_known_ere(
-                    constraint_index, subj_filler, 'subject', pred, obj, 'object')
+                    constraint_index=constraint_index,
+                    known_ere=subj_filler,
+                    known_role='subject',
+                    pred=pred,
+                    unknown_variable=obj,
+                    unknown_role='object')
 
             elif obj_filler is not None:
+                # the object filler is known while the subject filler is not
                 return self._fill_constraint_one_known_ere(
-                    constraint_index, obj_filler, 'object', pred, subj, 'subject')
+                    constraint_index=constraint_index,
+                    known_ere=obj_filler,
+                    known_role='object',
+                    pred=pred,
+                    unknown_variable=subj,
+                    unknown_role='subject')
 
             else:
-                # this constraint cannot be filled at this point,
-                # wait and see if it can be filled some other time
+                # both subject filler and object filler are unknown at this point,
+                # skip it and see if it can be filled some other time
                 continue
 
         # reaching this point, and not having returned anything:
@@ -266,80 +367,81 @@ class HypothesisSeed:
     # try to fill this constraint from the graph, either strictly or leniently.
     # one side of this constraint is a known ERE, the other side can be anything
     def _fill_constraint_one_known_ere(self, constraint_index, known_ere, known_role, pred,
-                                       unknown, unknown_role):
+                                       unknown_variable, unknown_role) -> NextFillableConstraint:
         # find statements that could potentially fill the role
         candidates, relaxed = self._statement_candidates(known_ere, pred, known_role)
 
         if candidates is None:
             # no candidates found at all, constraint is unfillable
-            return {'index': constraint_index, 'failed': True}
+            return NextFillableConstraint(constraint_index=constraint_index, failed=True)
 
         # check if unknown is a constant in the graph, in which case it is not really unknown
-        if self._is_string_constant(unknown):
+        if self._is_string_constant(unknown_variable):
             # which of the statement candidates have the right filler?
             candidates = [s for s in candidates
-                          if self.json_graph.node_dict[s][unknown_role] == unknown]
+                          if self.json_graph.node_dict[s][unknown_role] == unknown_variable]
             if len(candidates) == 0:
-                return {'index': constraint_index, 'failed': True}
+                return NextFillableConstraint(constraint_index=constraint_index, failed=True)
             else:
-                return {
-                    'index': constraint_index,
-                    'stmt': candidates,
-                    'role': known_role,
-                    'has_variable': False,
-                    'relaxed': relaxed,
-                    'failed': False
-                }
+                return NextFillableConstraint(
+                    constraint_index=constraint_index,
+                    failed=False,
+                    candidate_stmts=candidates,
+                    relaxed_ontology=relaxed,
+                    has_variable=False
+                )
 
         else:
             # nope, we have a variable we can fill, any fillers?
-            return {
-                'index': constraint_index,
-                'stmt': candidates,
-                'variable': unknown,
-                'role': known_role,
-                'has_variable': True,
-                'relaxed': relaxed,
-                'failed': False
-            }
+            return NextFillableConstraint(
+                constraint_index=constraint_index,
+                failed=False,
+                candidate_stmts=candidates,
+                relaxed_ontology=relaxed,
+                has_variable=True,
+                open_variable=unknown_variable,
+                open_role=unknown_role
+            )
 
     # try to fill this constraint from the graph, either strictly or leniently.
     # both sides of this constraint are known EREs
-    def _fill_constraint_two_known_eres(self, constraint_index, subj_ere, pred, obj_ere):
+    def _fill_constraint_two_known_eres(self, constraint_index, subj_ere, pred, obj_ere) -> \
+            NextFillableConstraint:
         # find statements that could fill the subject role
         possible_candidates, relaxed = self._statement_candidates(subj_ere, pred, 'subject')
 
         if possible_candidates is None:
             # no candidates found at all, constraint is unfillable
-            return {'index': constraint_index, 'failed': True}
+            return NextFillableConstraint(constraint_index=constraint_index, failed=True)
 
         # we did find candidates. check whether any of the candidates has obj_ere as its object
         candidates = [c for c in possible_candidates if self.json_graph.stmt_object(c) == obj_ere]
         if len(candidates) == 0:
             # constraint is unfillable
-            return {'index': constraint_index, 'failed': True}
+            return NextFillableConstraint(constraint_index=constraint_index, failed=True)
 
         else:
-            return {'index': constraint_index,
-                    'failed': False,
-                    'stmt': candidates,
-                    'has_variable': False,
-                    'relaxed': relaxed}
+            return NextFillableConstraint(
+                constraint_index=constraint_index,
+                failed=False,
+                candidate_stmts=candidates,
+                relaxed_ontology=relaxed,
+                has_variable=False
+            )
 
-    # nfc is a structure with entries 'index', 'stmt', 'variable', 'role', etc.
     # find statements that match this constraint, and return a list of tuples:
     # (new_hypothesis, stmt_label, variable, filler)
-    def _extend(self, nfc):
+    def _extend(self, nfc: NextFillableConstraint):
 
         # did not find any matches to this constraint
-        if len(nfc['stmt']) == 0:
+        if len(nfc.candidate_stmts) == 0:
             return []
 
         # this next fillable constraint states a constant string value about a known ERE,
         # or it states a new connection between known EREs. If we do have more than one
         # matching statements. add just the first one, they are identical
-        if not nfc['has_variable']:
-            stmt_label = nfc['stmt'][0]
+        if not nfc.has_variable:
+            stmt_label = nfc.candidate_stmts[0]
             if not self.json_graph.has_node(stmt_label):
                 logging.warning(f'Statement {stmt_label} returned by _next_fillable_constraint '
                                 f'not found in the graph.')
@@ -368,49 +470,49 @@ class HypothesisSeed:
 
         return ext_candidates
 
-    # nfc is a structure with entries 'index', 'stmt', 'variable', 'role', etc.
     # find statements that match this constraint, and return a pair (hyp, has_temporal_constraint)
     # where hyp is a list of tuples; (new_hypothesis, stmt_label, variable, filler)
     # and has_temporal_constraint is true if there was at least one temporal constraint violated
-    def _extend_with_variable(self, nfc, leeway=0):
+    def _extend_with_variable(self, nfc: NextFillableConstraint, leeway=0):
 
         ext_candidates = []
         has_temporal_constraint = False
 
-        other_role = self._nfc_other_role(nfc)
-        if other_role is None:
-            # if nfc does not have 'role', we should be in this method, there must be some error
+        # if nfc.open_role is not one of subject / object, we should not be in this method,
+        # there must be some error
+        if nfc.open_role not in ['subject', 'object']:
+            print(f'HypothesisSeed error: unknown open role {nfc.open_role}')
             return ext_candidates, has_temporal_constraint
 
-        for stmt_label in nfc['stmt']:
+        for stmt_label in nfc.candidate_stmts:
             if not self.json_graph.has_node(stmt_label):
                 logging.warning(f'Statement {stmt_label} returned by _next_fillable_constraint '
                                 f'not found in the graph.')
                 continue
 
             # determine the ERE or value that fills the role that has the variable
-            filler = getattr(self.json_graph.node_dict[stmt_label], other_role)
+            open_filler = self.json_graph.stmt_arg_by_role(stmt_label, nfc.open_role)
 
             # is this an ERE? if so, we need to check for temporal constraints.
-            if self.json_graph.is_ere(filler):
-                # TODO: maybe check second_constraint_violated before temporal_constraint?
-                # is there a problem with a temporal constraint?
-                if not temporal_constraint_match(
-                        self.json_graph.node_dict[filler],
-                        self.temporal_constraints.get(nfc['variable'], None), leeway):
-                    # if this filler runs afoul of some temporal constraint, do not use it
-                    has_temporal_constraint = True
-                    continue
-
+            if self.json_graph.is_ere(open_filler):
                 # we also check whether including this statement will violate another constraint.
                 # if so, we do not include it
-                if self._second_constraint_violated(nfc['variable'], filler, nfc['index']):
+                if self._second_constraint_violated(nfc.open_variable, open_filler,
+                                                    nfc.constraint_index):
+                    continue
+
+                # is there a problem with a temporal constraint?
+                if not temporal_constraint_match(
+                        self.json_graph.node_dict[open_filler],
+                        self.temporal_constraints.get(nfc.open_variable, None), leeway):
+                    # if this filler runs afoul of some temporal constraint, do not use it
+                    has_temporal_constraint = True
                     continue
 
             # can this statement be added to the hypothesis without contradiction?
             # extended hypothesis
             new_hypothesis = self.hypothesis.extend(stmt_label, core=True)
-            ext_candidates.append((new_hypothesis, stmt_label, nfc['variable'], filler))
+            ext_candidates.append((new_hypothesis, stmt_label, nfc.open_variable, open_filler))
 
         return ext_candidates, has_temporal_constraint
 
@@ -422,7 +524,7 @@ class HypothesisSeed:
                 # this was the constraint we were just going to fill, don't re-check it
                 continue
 
-            subj, pred, obj = self.core_constraints[constraint_index]
+            subj, pred, obj, obj_type = self.core_constraints[constraint_index]
 
             if subj == variable and obj in self.qvar_filler:
                 candidates, _ = self._statement_candidates(filler, pred, 'subject')
@@ -453,18 +555,6 @@ class HypothesisSeed:
                         return True
 
         return False
-
-    # given a next_fillable_constraint dictionary,
-    # if it has a role of 'subject' return 'object' and vice versa
-    @staticmethod
-    def _nfc_other_role(nfc):
-        if nfc['role'] == 'subject':
-            return 'object'
-        elif nfc['role'] == 'object':
-            return 'subject'
-        else:
-            print('HypothesisSeed error: unknown role', nfc['role'])
-            return None
 
     # is the given string a variable, or should it be viewed as a string constant?
     # use the list of all string constants in the given graph

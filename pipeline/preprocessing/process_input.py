@@ -11,17 +11,41 @@ Update: Pengxiang Cheng, May 2020
 
 Update: Pengxiang Cheng, Aug 2020
 - Change to use new APIs from aida_utexas.aif and aida_utexas.soin
+
+Update: Pengxiang Cheng, Sep 2020
+- Merge the get_cluster_mappings method from process_soin
 """
 
 import json
 import logging
 from argparse import ArgumentParser
+from collections import defaultdict
+from typing import Dict
 
 from aida_utexas import util
 from aida_utexas.aif import AidaGraph, JsonGraph
-from aida_utexas.soin import SOIN, get_cluster_mappings, resolve_all_entrypoints
+from aida_utexas.soin import SOIN
 
 duplicate_kb_file = 'resources/duplicate_kb_id_mapping.json'
+
+
+def get_cluster_mappings(aida_graph: AidaGraph) -> Dict:
+    cluster_to_prototype = {}
+    for node in aida_graph.nodes('SameAsCluster'):
+        prototype = next(iter(node.get('prototype')), None)
+        if prototype:
+            cluster_to_prototype[node.name] = prototype
+
+    ere_to_prototypes = defaultdict(set)
+    for node in aida_graph.nodes('ClusterMembership'):
+        cluster_member = next(iter(node.get('clusterMember')), None)
+        cluster = next(iter(node.get('cluster')), None)
+        if cluster and cluster_member:
+            prototype = cluster_to_prototype.get(cluster, None)
+            if prototype:
+                ere_to_prototypes[cluster_member].add(prototype)
+
+    return ere_to_prototypes
 
 
 def main():
@@ -73,38 +97,23 @@ def main():
             dup_kb_id_mapping = util.read_json_file(args.dup_kb, 'duplicate KB ID mapping')
 
         logging.info('Getting Cluster Mappings ...')
-        cluster_to_prototype, entity_to_clusters = get_cluster_mappings(aida_graph)
+        ere_to_prototypes = get_cluster_mappings(aida_graph)
 
         for soin_file_path in soin_file_paths:
             query_output_path = query_output_dir / (soin_file_path.stem + '_query.json')
 
             logging.info('Processing SOIN {} ...'.format(soin_file_path))
-            logging.info('Parsing SOIN XML ...')
             soin = SOIN.parse(str(soin_file_path), dup_kbid_mapping=dup_kb_id_mapping)
 
             logging.info('Resolving all entrypoints ...')
-            ep_matches_dict, ep_weights_dict = resolve_all_entrypoints(
-                graph=aida_graph,
-                soin=soin,
-                cluster_to_prototype=cluster_to_prototype,
-                entity_to_clusters=entity_to_clusters,
-                max_matches=args.max_matches)
+            soin.resolve(aida_graph, ere_to_prototypes, max_matches=args.max_matches)
 
-            logging.info('Serializing data structures ...')
-            query_json = {
-                'graph': kb_path.stem,
-                'soin_id': soin.id,
-                'frame_id': [frame.id for frame in soin.frames],
-                'entrypoints': ep_matches_dict,
-                'entrypointWeights': ep_weights_dict,
-                'queries': [],
-                'facets': soin.frames_to_json(),
-            }
+            query_json = {'graph': kb_path.stem}
+            query_json.update(soin.to_json())
 
             logging.info('Writing JSON query to {} ...'.format(query_output_path))
             with open(str(query_output_path), 'w') as fout:
                 json.dump(query_json, fout, indent=1)
-            logging.info('Done.')
 
 
 if __name__ == '__main__':

@@ -41,7 +41,7 @@ def main():
     parser.add_argument('graph_path', help='path to the graph json file')
     parser.add_argument('hypotheses_path', help='path to the hypotheses json file')
     parser.add_argument('output_dir', help='Directory to write queries')
-    parser.add_argument('--top', default=14, type=int,
+    parser.add_argument('--top', default=50, type=int,
                         help='number of top hypothesis to output')
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
@@ -52,8 +52,6 @@ def main():
     member_to_clusters = json_graph.build_cluster_member_mappings()['member_to_clusters']
 
     hypotheses_json = util.read_json_file(args.hypotheses_path, 'hypotheses')
-    print('Found {} hypotheses with probabilities of {}'.format(
-        len(hypotheses_json['probs']), hypotheses_json['probs']))
 
     output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 

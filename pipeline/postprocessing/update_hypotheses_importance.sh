@@ -8,11 +8,15 @@ count=$3
 
 for i in $(seq -f "%03g" 1 "${count}")
 do
-  echo "Adding importance values to hypothesis-${i}"
-  for f in "${query_dir}"/hypothesis-"${i}"*
-  do
-    tdbupdate --loc "${tdb_dir}"/hypothesis-"${i}" --update "${f}"
-  done &
+    tdb_path="${tdb_dir}"/hypothesis-"${i}"
+    if [ ! -d "$tdb_path" ]; then
+        continue
+    fi
+    echo "Adding importance values to hypothesis-${i}"
+    for f in "${query_dir}"/hypothesis-"${i}"*
+    do
+        tdbupdate --loc "${tdb_path}" --update "${f}"
+    done &
 done
 
 wait
