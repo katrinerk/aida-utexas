@@ -400,7 +400,7 @@ def create_mix(graph_list, event_names, entity_names, event_type_maps, entity_ty
 
     return graph_info, sample_graphs
 
-# This function pre-loads all json graphs in the given folder
+# This function pre-loads all pickled graphs in the given folder
 def load_all_graphs_in_folder(graph_folder):
     print('Loading all graphs in {}...'.format(graph_folder))
 

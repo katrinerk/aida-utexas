@@ -6,15 +6,12 @@
 # updating graph salad inference states, and determining loss during training.
 ######
 
-from collections import defaultdict
 from copy import deepcopy
 import dill
 import numpy as np
 import random
 import os
 import torch
-import collections
-import re
 
 # Get the set of candidate stmts available for evaluation at the current time step;
 # the set of candidate stmts consist of all stmts which are attached to an ERE
@@ -26,7 +23,7 @@ def get_candidates(graph_dict):
     ere_mat_ind = graph_dict['ere_mat_ind']
     graph_mix = graph_dict['graph_mix']
     candidate_ids = []
-    label_inputs = []
+    stmt_class_labels = []
 
     target_graph_id = graph_dict['target_graph_id']
 
@@ -37,9 +34,9 @@ def get_candidates(graph_dict):
     candidate_ids = list(set(candidate_ids))
 
     # Determine the appropriate class label for each candidate statement
-    [label_inputs.append(1 if graph_mix.stmts[stmt_mat_ind.get_word(candidate_id)].graph_id == target_graph_id else 0) for candidate_id in candidate_ids]
+    [stmt_class_labels.append(1 if graph_mix.stmts[stmt_mat_ind.get_word(candidate_id)].graph_id == target_graph_id else 0) for candidate_id in candidate_ids]
 
-    return candidate_ids, label_inputs
+    return candidate_ids, stmt_class_labels
 
 
 class DataIterator:
@@ -76,12 +73,12 @@ class DataIterator:
         graph_dict = dill.load(open(self.file_paths[self.cursor], "rb"))
 
         # Determine the initial list of candidate statements (and their class labels)
-        candidate_ids_list, label_inputs_list = get_candidates(graph_dict)
+        candidate_ids_list, stmt_class_labels_list = get_candidates(graph_dict)
 
         self.cursor += 1
 
         graph_dict['candidates'] = candidate_ids_list
-        graph_dict['label_inputs'] = label_inputs_list
+        graph_dict['stmt_class_labels'] = stmt_class_labels_list
 
         return graph_dict
 
@@ -89,7 +86,7 @@ class DataIterator:
 # if "use_highest_ranked_gold," select the target-graph stmt which the
 # model ranks most highly; otherwise, select a random target-graph stmt
 def get_random_gold_label(graph_dict, prediction, use_high_ranked_gold):
-    correct_indices = [index for index, label in enumerate(graph_dict['label_inputs']) if label == 1]
+    correct_indices = [index for index, label in enumerate(graph_dict['stmt_class_labels']) if label == 1]
 
     if use_high_ranked_gold:
         correct_indices = [correct_indices[int(torch.argmax(prediction[correct_indices]))]]
@@ -99,7 +96,7 @@ def get_random_gold_label(graph_dict, prediction, use_high_ranked_gold):
 
 # Convert the list of candidate class labels into a tensor
 def get_tensor_labels(graph_dict, device=torch.device("cpu")):
-    return torch.FloatTensor(np.array(deepcopy(graph_dict['label_inputs']))).to(device)
+    return torch.FloatTensor(np.array(deepcopy(graph_dict['stmt_class_labels']))).to(device)
 
 # Multi-correct NLL loss function after Durrett and Klein, 2013
 def multi_correct_nll_loss(predictions, trues, device=torch.device("cpu")):
@@ -137,8 +134,8 @@ def next_state(graph_dict, selected_index):
     # Delete the selected candidate list element and its corresponding entry in the list of label inputs
     del graph_dict['candidates'][selected_index]
 
-    if len(graph_dict['label_inputs']) != 0:##TO-DO
-        del graph_dict['label_inputs'][selected_index]
+    if len(graph_dict['stmt_class_labels']) != 0:##TO-DO
+        del graph_dict['stmt_class_labels'][selected_index]
 
     # Determine the set of EREs (if any) introduced by the candidate statement to the query set
     set_diff = set([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in temp]) - set(graph_dict['query_eres'])
@@ -152,7 +149,7 @@ def next_state(graph_dict, selected_index):
             stmt_neighs = [stmt_neigh for stmt_neigh in stmt_neighs[stmt_neighs != sel_val].tolist() if stmt_neigh not in graph_dict['candidates']]
             graph_dict['candidates'] += stmt_neighs
 
-            graph_dict['label_inputs'] = graph_dict['label_inputs'] + [1 if graph_dict['graph_mix'].stmts[graph_dict['stmt_mat_ind'].get_word(stmt_iter)].graph_id == graph_dict['target_graph_id']
+            graph_dict['stmt_class_labels'] = graph_dict['stmt_class_labels'] + [1 if graph_dict['graph_mix'].stmts[graph_dict['stmt_mat_ind'].get_word(stmt_iter)].graph_id == graph_dict['target_graph_id']
                                                                          else 0 for stmt_iter in stmt_neighs]
 
     graph_dict['query_eres'] = set.union(graph_dict['query_eres'], set_diff)

@@ -67,7 +67,7 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         prediction = F.log_softmax(coherence_out, dim=0)
         predicted_index = prediction.argmax().item()
 
-        num_correct += 1 if graph_dict['label_inputs'][predicted_index] == 1 else 0
+        num_correct += 1 if graph_dict['stmt_class_labels'][predicted_index] == 1 else 0
 
         predictions.append(prediction.reshape(-1))
         trues.append(get_tensor_labels(graph_dict, device).reshape(-1))

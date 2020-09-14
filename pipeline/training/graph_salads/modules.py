@@ -5,7 +5,6 @@
 # This file contains the torch modules for GCN coherence network.
 ######
 
-import math
 import numpy as np
 import torch
 import torch.nn as nn

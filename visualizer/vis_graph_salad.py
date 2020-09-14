@@ -6,14 +6,11 @@
 # is expected as an argument.
 ######
 
-import os
 import dill
-import json
 import dash
 from dash.dependencies import Input, Output
 import dash_cytoscape as cyto
 import dash_html_components as html
-import dash_core_components as dcc
 import sys
 
 if len(sys.argv) == 1:
