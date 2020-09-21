@@ -78,7 +78,15 @@ class Time:
 
         for elem in xml_elem:
             if elem.tag in ['year', 'month', 'day', 'hour', 'minute']:
-                time_dict[elem.tag] = elem.text.strip() if elem.text else None
+                if elem.text is None:
+                    time_dict[elem.tag] = None
+                # TODO: new SIN specs say that the field can be a variable name starting with ?,
+                #  that indicates the analyst is requesting temporal information for the event or
+                #  relation. We are not handling it here, as there is no example given.
+                elif elem.text.strip().startswith('?'):
+                    time_dict[elem.tag] = None
+                else:
+                    time_dict[elem.tag] = int(elem.text.strip())
             else:
                 logging.warning(f'Unexpected tag {elem.tag} in SOIN')
 

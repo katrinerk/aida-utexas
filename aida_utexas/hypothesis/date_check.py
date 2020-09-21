@@ -7,6 +7,7 @@ Update: Pengxiang Cheng, Aug 2020
 - Needs further rewriting to accommodate to new M36 temporal specifications
 """
 
+import calendar
 import datetime
 import logging
 from typing import Dict, Optional
@@ -17,10 +18,11 @@ from aida_utexas.aif.json_graph import ERENode
 # AIDA temporal info handling,
 # with missing entries for days/months/years
 class AidaIncompleteDate:
-    def __init__(self, year, month, day):
-        self.year: Optional[int] = self._check_date_str(year, 'year')
-        self.month: Optional[int] = self._check_date_str(month, 'month')
-        self.day: Optional[int] = self._check_date_str(day, 'day')
+    def __init__(self, year: Optional[int] = None, month: Optional[int] = None,
+                 day: Optional[int] = None):
+        self.year = year
+        self.month = month
+        self.day = day
 
     def to_json(self):
         return {
@@ -48,213 +50,142 @@ class AidaIncompleteDate:
                 date = None
         return date
 
-    # convert to python datetime.date object
-    def to_python_date(self):
-        year = self.year if self.year is not None else 1
-        month = self.month if self.month is not None else 1
-        day = self.day if self.day is not None else 1
+    # interpret the AidaIncompleteDate to a python datetime.date object, with optional relaxation
+    # if time_type is 'AFTER', convert an underspecified date to its earliest possible date
+    # if time_type is 'BEFORE', convert an underspecified date to its latest possible date
+    # in all other cases, if any of the year, month, or day is unspecified, return None
+    def interpret(self, time_type: str = None):
+        year, month, day = self.year, self.month, self.day
 
-        return datetime.date(year, month, day)
+        # if year is not specified, this is an unspecified date
+        if year is None:
+            return None
+        # if month is not specified
+        if month is None:
+            # if day is specified (should not happen), this is an unspecified date
+            if day is not None:
+                return None
+            # otherwise, if time_type is AFTER, set the month to the first month of the year
+            if time_type == 'AFTER':
+                month = 1
+            # if time_type is BEFORE, set the month to the last month of the year
+            elif time_type == 'BEFORE':
+                month = 12
+        # if day is not specified
+        if day is None:
+            # if time_type is AFTER, set the day to the first day of the month
+            if time_type == 'AFTER':
+                day = 1
+            # if time_type is BEFORE, set the day to the last day of the month
+            elif time_type == 'BEFORE':
+                day = calendar.monthrange(year, month)[1]
 
-    # whether the date is the last day of a month
-    def is_last_day_of_month(self):
-        if self.day is None:
-            return False
-
-        curr_date = self.to_python_date()
-        next_date = curr_date + datetime.timedelta(1)
-        return curr_date.month != next_date.month
+        if month is None or day is None:
+            return None
+        else:
+            return datetime.date(year, month, day)
 
     # add a day to the date
     def add_day(self):
-        # if day is not set, return the same date
-        if self.day is None:
+        # convert to python date, without specifying time_type (no relaxation)
+        curr_date = self.interpret()
+        # if it is an incomplete date, return the same date
+        if curr_date is None:
             return AidaIncompleteDate(self.year, self.month, self.day)
 
-        next_date = self.to_python_date() + datetime.timedelta(1)
-
-        new_year = next_date.year if self.year is not None else None
-        new_month = next_date.month if self.month is not None else None
-
-        return AidaIncompleteDate(new_year, new_month, next_date.day)
+        # otherwise, add a day to the current date
+        next_date = curr_date + datetime.timedelta(1)
+        return AidaIncompleteDate(next_date.year, next_date.month, next_date.day)
 
     # can t1 be before t2?
     def is_before(self, date2, add_a_day: bool = False):
+        # use AFTER as the time_type, as we assume the earliest possible date for incomplete date1
+        p_date1 = self.interpret(time_type='AFTER')
+        # use BEFORE as the time_type, as we assume the latest possible date for incomplete date2
+        p_date2 = date2.interpret(time_type='BEFORE')
+
+        # if either date1 or date2 is still underspecified with relaxation, return True
+        if p_date1 is None or p_date2 is None:
+            return True
+
+        # if add_a_day is True, add a day to p_date2
         if add_a_day:
-            date2 = date2.add_day()
+            p_date2 = p_date2 + datetime.timedelta(1)
 
-        if self.year is None or date2.year is None:
-            # we don't know which year one of the dates given is, so t1 can always be before t2
-            return True
-
-        elif self.year > date2.year:
-            # t1 is in a later year, so not before t2
-            return False
-
-        elif self.year < date2.year:
-            # t1 is in an earlier year than t2, so definitely before t2
-            return True
-
-        # same year, move on to month
-        if self.month is None and date2.month is None:
-            # we don't know the month in either, so t1 can always be before t2
-            return True
-
-        elif self.month is None and date2.month > 1:
-            # we dont know t1's month, and t2 is in Feb at the earliest
-            return True
-
-        elif date2.month is None and self.month < 12:
-            # we don't know t2's month, and t1 is November at the latest
-            return True
-
-        elif self.month is not None and date2.month is not None and self.month < date2.month:
-            # t1 earlier month than t2, so definitely before
-            return True
-
-        elif self.month is not None and date2.month is not None and self.month > date2.month:
-            # t1 later month than t2, so definitely not before
-            return False
-
-        # we need to compare days
-        if self.day is None and date2.day is None:
-            # we don't know the day in either, so t1 can always be before t2
-            return True
-
-        if self.day is not None and date2.day is not None and self.day < date2.day:
-            # t1 earlier day than t2, so definitely before
-            return True
-
-        elif date2.day is not None and self.day is None and date2.day > 2:
-            # t1, t2 can be same year and month. if t2.day is at least 2, t1 can always be before t2
-            return True
-
-        elif self.day is not None and date2.day is None:
-            # if t1 is the last day of a month, then t1 cannot be before t2
-            if self.is_last_day_of_month():
-                return False
-            else:
-                return True
-
-        # comparison of days showed that t1 cannot be before t2
-        return False
-
-    # can t1 be the same as t2?
-    def is_eq(self, date2, add_a_day: bool = False):
-        if add_a_day:
-            # try adding a day either way
-            next_date2 = date2.add_day()
-            if self.is_eq(next_date2):
-                return True
-            next_date = self.add_day()
-            if next_date.is_eq(date2):
-                return True
-
-        # try exact match of the year
-        if self.year is not None and date2.year is not None and self.year != date2.year:
-            return False
-
-        # at this point we know the year can be compatible, try exact match of the month
-        if self.month is not None and date2.month is not None and self.month != date2.month:
-            return False
-
-        # at this point we know the month can be compatible, try exact match of the day
-        if self.day is not None and date2.day is not None and self.day != date2.day:
-            return False
-
-        # at this point, the whole dates can be compatible
-        return True
+        # otherwise, check if p_date1 is before or same as p_date2
+        return p_date1 <= p_date2
 
 
-# returns true if the ERE has no temporal constraint or matches the temporal constraint
+# returns true if any one of the ldcTimes of the ERE node matches the temporal constraint,
+# or if there is no temporal constraint
 # leeway levels: 0 = no leeway, 1 = one day leeway, 2 = don't test
 def temporal_constraint_match(ere_node: ERENode, constraint_entry: Dict[str, AidaIncompleteDate],
                               leeway: int = 0):
+    # no testing, assume it fits.
     if leeway > 1:
-        # no testing, assume it fits.
         return True
 
+    # no temporal constraint, no problem
     if constraint_entry is None:
-        # no temporal constraint, no problem
         return True
 
-    # does it have a temporal entry?
+    # we were looking for ldcTime attributes of the ERE node, but did not find one: violation.
     if not ere_node.ldcTime:
-        # we were looking for a temporal entry but did not find one.
-        # this is a constraint violation.
         return False
 
-    # we have a match if at least one of the temporal statements of the entry for qvar_filler match
-    for ldc_time in ere_node.ldcTime:
-        # if there is no start time, we add a None place holder
-        for start_time in ldc_time.get('start', [None]):
-            # if there is no end time, we also add a None place holder
-            for end_time in ldc_time.get('end', [None]):
-                # we can only match the temporal constraint with at least one of start / end time.
-                if start_time is None and end_time is None:
-                    continue
-                # this time matched the temporal constraint
-                if temporal_constraint_match_pair(start_time, end_time, constraint_entry, leeway):
-                    return True
+    # get the start time and the end time from the temporal constraint
+    constraint_start = constraint_entry.get('start_time', None)
+    constraint_end = constraint_entry.get('end_time', None)
 
-    # we found no time for our event that matched the temporal constraint
+    # we have a match if at least one ldcTime of the ERE node matches the temporal constraint
+    for ldc_time in ere_node.ldcTime:
+        # extract the [T1, T2, T3, T4] tuple from ldcTime
+        start_after, start_before, end_after, end_before = None, None, None, None
+        for start_time in ldc_time.get('start', [None]):
+            if start_time is not None:
+                if start_time['timeType'] == 'AFTER':
+                    start_after = AidaIncompleteDate.from_json(start_time)
+                if start_time['timeType'] == 'BEFORE':
+                    start_before = AidaIncompleteDate.from_json(start_time)
+        for end_time in ldc_time.get('end', [None]):
+            if end_time is not None:
+                if end_time['timeType'] == 'AFTER':
+                    end_after = AidaIncompleteDate.from_json(end_time)
+                if end_time['timeType'] == 'BEFORE':
+                    end_before = AidaIncompleteDate.from_json(end_time)
+
+        # check if the constraint start time is between T1 and T2, and if the constraint end time
+        # is between T3 and T4, allowing a possible leeway (add a day)
+        if time_range_match(start_after, start_before, constraint_start, leeway) \
+                and time_range_match(end_after, end_before, constraint_end, leeway):
+            return True
+
+    # we found no ldcTime of the ERE node that matches the temporal constraint
     return False
 
 
-def temporal_constraint_match_pair(start_time: Dict, end_time: Dict,
-                                   constraint_entry: Dict[str, AidaIncompleteDate],
-                                   leeway: int = 0):
-    start_time = possibly_flatten_ldc_time(start_time)
-    end_time = possibly_flatten_ldc_time(end_time)
-
-    # construct AidaIncompleteDate from start_time and end_time
-    start_date = AidaIncompleteDate.from_json(start_time) if start_time is not None else None
-    end_date = AidaIncompleteDate.from_json(end_time) if end_time is not None else None
-
-    # start_time and end_time have a timeType of ON/BEFORE/AFTER.
-    start_time_type, end_time_type = start_time['timeType'], end_time['timeType']
+# check if the constraint_time is in between of ldc_time_after and ldc_time_before,
+# allowing a possible leeway
+def time_range_match(ldc_time_after: AidaIncompleteDate, ldc_time_before: AidaIncompleteDate,
+                     constraint_time: AidaIncompleteDate, leeway: int = 0):
+    if constraint_time is None:
+        return True
 
     # whether to allow add_a_day leeway
     add_a_day = leeway > 0
 
-    # constraint_entry has 'start_time' and 'end_time', no time type.
-    if 'start_time' in constraint_entry and start_date is not None:
-        # we can compare start times. otherwise, assume compatibility.
+    # if constraint_time is None, there is nothing to check
+    if constraint_time is not None:
+        # if ldc_time_after is not None
+        if ldc_time_after is not None:
+            # make sure that ldc_time_after is before constraint_time
+            if not ldc_time_after.is_before(constraint_time, add_a_day=add_a_day):
+                return False
 
-        if start_time_type == 'BEFORE' and not constraint_entry['start_time'].is_before(
-                start_date, add_a_day):
-            # event start before t and qt.start_time not before t: constraint violation
-            return False
-
-        if start_time_type == 'AFTER' and not start_date.is_before(
-                constraint_entry['start_time'], add_a_day):
-            # event start after t and qt.start_time before t: constraint violation
-            return False
-
-        if start_time_type == 'ON' and not start_date.is_eq(
-                constraint_entry['start_time'], add_a_day):
-            # event start and qt.start_time not equal
-            return False
-
-    if 'end_time' in constraint_entry and end_date is not None:
-        # we can compare end times. otherwise, assume compatibility
-
-        if end_time_type == 'BEFORE' and not constraint_entry['end_time'].is_before(
-                end_date, add_a_day):
-            # event end before t and t before qt.end_time: constraint violation
-            return False
-        if end_time_type == 'AFTER' and not end_date.is_before(
-                constraint_entry['end_time'], add_a_day):
-            # event end after t and qt.end_time before t: constraint violation
-            return False
-        if end_time_type == 'ON' and not end_date.is_eq(constraint_entry['end_time'], add_a_day):
-            # event end and qt.end_time not  equal
-            return False
+        # if ldc_time_before is not None
+        if ldc_time_before is not None:
+            # make sure that constraint_time is before ldc_time_before
+            if not constraint_time.is_before(ldc_time_before, add_a_day=add_a_day):
+                return False
 
     return True
-
-
-def possibly_flatten_ldc_time(ldc_time: Dict):
-    if ldc_time is None:
-        return None
-    return {key: val[0] if isinstance(val, list) else val for key, val in ldc_time.items()}

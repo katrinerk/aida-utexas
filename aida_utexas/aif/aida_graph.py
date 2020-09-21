@@ -398,18 +398,27 @@ class AidaGraph(RDFGraph):
             start_times = [
                 self._time_struct(start) for start in self.get_node_objs(time_label, 'start')]
             end_times = [self._time_struct(end) for end in self.get_node_objs(time_label, 'end')]
-            yield {'start': start_times, 'end': end_times}
+            yield {
+                'start': [t for t in start_times if t is not None],
+                'end': [t for t in end_times if t is not None]
+            }
 
     # given an LDCTimeComponent, parse out its pieces
     def _time_struct(self, node_label):
         # each field should have at most one value, otherwise it's violating the restricted AIF
-        time_struct = {
-            'timeType': next(iter(self.get_node_objs(node_label, 'timeType', shorten=True)), None)}
+        time_type = next(iter(self.get_node_objs(node_label, 'timeType', shorten=True)), None)
+        # if time_type is not AFTER or BEFORE, this is a invalid ldcTime struct, return None
+        if time_type not in ['AFTER', 'BEFORE']:
+            return None
+
+        time_struct = {'timeType': time_type}
+
         for key in ['year', 'month', 'day', 'hour', 'minute']:
             values = [self._parse_xsd_date(key, val) for val in self.get_node_objs(node_label, key)]
             values = list(set(s for s in values if s is not None))
             if len(values) > 0:
                 time_struct[key] = values[0]
+
         return time_struct
 
     # parsing out pieces of dates by hand, as I cannot find any tool that will do this
