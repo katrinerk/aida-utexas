@@ -19,7 +19,7 @@ Update: Pengxiang Cheng, Sep 2020
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis
@@ -45,6 +45,20 @@ class NextFillableConstraint:
     open_role: str = None
 
 
+@dataclass
+class ExtensionCandidate:
+    # the new hypothesis
+    new_hypothesis: AidaHypothesis
+    # the label of the new statement
+    stmt_label: str
+    # the new query variable to fill, optional
+    variable: str = None
+    # the filler to the new query variable, optional
+    filler: str = None
+    # the penalty score from objType violation, optional (default 0)
+    obj_type_penalty: float = 0.0
+
+
 # The class that holds a single hypothesis seed: just a data structure, doesn't do much.
 class HypothesisSeed:
     # some penalty constants for things that might go wrong during seed creation and extension
@@ -52,6 +66,7 @@ class HypothesisSeed:
     FAILED_TEMPORAL = -0.1
     FAILED_ONTOLOGY = -0.1
     DUPLICATE_FILLER = -0.01
+    FAILED_OBJ_TYPE = -0.1
 
     def __init__(self, json_graph: JsonGraph, core_constraints: List, temporal_constraints: Dict,
                  hypothesis: AidaHypothesis, qvar_filler: Dict, unfilled: Set = None,
@@ -205,15 +220,16 @@ class HypothesisSeed:
                 return [self]
 
             new_seeds = []
-            for new_hypothesis, stmt_label, variable, filler in ext_candidates:
-                add_weight = 0
+            for ext_candidate in ext_candidates:
+                add_weight = ext_candidate.obj_type_penalty
 
-                if self.filter.validate(new_hypothesis, stmt_label):
+                if self.filter.validate(ext_candidate.new_hypothesis, ext_candidate.stmt_label):
                     # yes: make a new HypothesisSeed object with this extended hypothesis
                     new_qvar_filler = self.qvar_filler.copy()
-                    if variable and filler and self.json_graph.is_ere(filler):
-                        new_qvar_filler[variable] = filler
-                        if filler in self.qvar_filler.values():
+                    if ext_candidate.variable and ext_candidate.filler and \
+                            self.json_graph.is_ere(ext_candidate.filler):
+                        new_qvar_filler[ext_candidate.variable] = ext_candidate.filler
+                        if ext_candidate.filler in self.qvar_filler.values():
                             # some other variable has been mapped to the same ERE,
                             # adding duplicate filler penalty
                             add_weight += self.DUPLICATE_FILLER
@@ -228,7 +244,7 @@ class HypothesisSeed:
 
                     new_seeds.append(HypothesisSeed(
                         self.json_graph, self.core_constraints, self.temporal_constraints,
-                        hypothesis=new_hypothesis,
+                        hypothesis=ext_candidate.new_hypothesis,
                         qvar_filler=new_qvar_filler,
                         unfilled=new_unfilled,
                         unfillable=new_unfillable,
@@ -262,7 +278,7 @@ class HypothesisSeed:
     def _next_fillable_constraint(self) -> Optional[NextFillableConstraint]:
         # iterate over unfilled core constraints to see if we can find one that can be filled
         for constraint_index in self.unfilled:
-            subj, pred, obj, obj_type = self.core_constraints[constraint_index]
+            subj, pred, obj, _ = self.core_constraints[constraint_index]
 
             # if either subj or obj is known (is an ERE or has an entry in qvar_filler,
             # then we should be able to fill this constraint now, or it is unfillable
@@ -285,7 +301,8 @@ class HypothesisSeed:
                     known_role='subject',
                     pred=pred,
                     unknown_variable=obj,
-                    unknown_role='object')
+                    unknown_role='object'
+                )
 
             elif obj_filler is not None:
                 # the object filler is known while the subject filler is not
@@ -295,7 +312,8 @@ class HypothesisSeed:
                     known_role='object',
                     pred=pred,
                     unknown_variable=subj,
-                    unknown_role='subject')
+                    unknown_role='subject'
+                )
 
             else:
                 # both subject filler and object filler are unknown at this point,
@@ -429,9 +447,8 @@ class HypothesisSeed:
                 has_variable=False
             )
 
-    # find statements that match this constraint, and return a list of tuples:
-    # (new_hypothesis, stmt_label, variable, filler)
-    def _extend(self, nfc: NextFillableConstraint):
+    # find statements that match this constraint, and return a list of ExtensionCandidates:
+    def _extend(self, nfc: NextFillableConstraint) -> List[ExtensionCandidate]:
 
         # did not find any matches to this constraint
         if len(nfc.candidate_stmts) == 0:
@@ -450,7 +467,9 @@ class HypothesisSeed:
             else:
                 # can this statement be added to the hypothesis without contradiction?
                 # extended hypothesis
-                return [(self.hypothesis.extend(stmt_label, core=True), stmt_label, None, None)]
+                return [ExtensionCandidate(
+                    new_hypothesis=self.hypothesis.extend(stmt_label, core=True),
+                    stmt_label=stmt_label)]
 
         # we have a new variable (nfc['variable']), and its role (nfc['role'])
         # find all statements that can fill the current constraint of the variable and the role
@@ -470,19 +489,18 @@ class HypothesisSeed:
 
         return ext_candidates
 
-    # find statements that match this constraint, and return a pair (hyp, has_temporal_constraint)
-    # where hyp is a list of tuples; (new_hypothesis, stmt_label, variable, filler)
-    # and has_temporal_constraint is true if there was at least one temporal constraint violated
-    def _extend_with_variable(self, nfc: NextFillableConstraint, leeway=0):
-
-        ext_candidates = []
-        has_temporal_constraint = False
-
+    # find statements that match this constraint, and return a list of ExtensionCandidates, and
+    # has_temporal_constraint, which is true if there was at least one temporal constraint violated
+    def _extend_with_variable(self, nfc: NextFillableConstraint, leeway=0) -> \
+            Tuple[List[ExtensionCandidate], bool]:
         # if nfc.open_role is not one of subject / object, we should not be in this method,
         # there must be some error
         if nfc.open_role not in ['subject', 'object']:
             print(f'HypothesisSeed error: unknown open role {nfc.open_role}')
-            return ext_candidates, has_temporal_constraint
+            return [], False
+
+        ext_candidates = []
+        has_temporal_constraint = False
 
         for stmt_label in nfc.candidate_stmts:
             if not self.json_graph.has_node(stmt_label):
@@ -509,10 +527,23 @@ class HypothesisSeed:
                     has_temporal_constraint = True
                     continue
 
-            # can this statement be added to the hypothesis without contradiction?
             # extended hypothesis
             new_hypothesis = self.hypothesis.extend(stmt_label, core=True)
-            ext_candidates.append((new_hypothesis, stmt_label, nfc.open_variable, open_filler))
+
+            # compute possible violations of objType
+            obj_type_penalty = 0.0
+            if nfc.open_role == 'object':
+                obj_type = self.core_constraints[nfc.constraint_index][-1]
+                if obj_type is not None:
+                    if obj_type not in self.json_graph.ere_types(open_filler):
+                        obj_type_penalty += self.FAILED_OBJ_TYPE
+
+            ext_candidates.append(ExtensionCandidate(
+                new_hypothesis=new_hypothesis,
+                stmt_label=stmt_label,
+                variable=nfc.open_variable,
+                filler=open_filler,
+                obj_type_penalty=obj_type_penalty))
 
         return ext_candidates, has_temporal_constraint
 
@@ -524,7 +555,7 @@ class HypothesisSeed:
                 # this was the constraint we were just going to fill, don't re-check it
                 continue
 
-            subj, pred, obj, obj_type = self.core_constraints[constraint_index]
+            subj, pred, obj, _ = self.core_constraints[constraint_index]
 
             if subj == variable and obj in self.qvar_filler:
                 candidates, _ = self._statement_candidates(filler, pred, 'subject')

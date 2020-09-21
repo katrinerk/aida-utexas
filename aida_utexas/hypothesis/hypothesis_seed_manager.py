@@ -294,7 +294,7 @@ class HypothesisSeedManager:
     def _entrypoint_filler_role_score(self, ep_var: str, ep_filler: str, core_constraints: List):
         score = 0
 
-        for subj, pred, obj, obj_type in core_constraints:
+        for subj, pred, obj, _ in core_constraints:
             if subj == ep_var:
                 # statements adjacent to ep_filler with predicate pred and ep_filler as the subject
                 if list(self.json_graph.each_ere_adjacent_stmt(ep_filler, pred, 'subject')):
