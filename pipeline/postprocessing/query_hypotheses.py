@@ -3,21 +3,21 @@ from operator import itemgetter
 
 from aida_utexas import sparql_helper
 from aida_utexas import util
-from aida_utexas.aif import JsonGraph
+from aida_utexas.aif import JsonGraph, AIDA, LDC, LDC_ONT
 
 AIF_HEADER_PREFIXES = \
-    '@prefix ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#> .\n' \
-    '@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n' \
-    '@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .\n' \
-    '@prefix aida:  <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#> .\n' \
-    '@prefix ldc:   <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LdcAnnotations#> .\n'
+    f'@prefix ldcOnt: {LDC_ONT} .\n' \
+    f'@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n' \
+    f'@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n' \
+    f'@prefix aida: {AIDA} .\n' \
+    f'@prefix ldc: {LDC} .\n'
 
 QUERY_PREFIXES = \
-    'PREFIX ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#>\n' \
-    'PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n' \
-    'PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>\n' \
-    'PREFIX aida:  <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>\n' \
-    'PREFIX ldc:   <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LdcAnnotations#>\n'
+    f'PREFIX ldcOnt: {LDC_ONT}\n' \
+    f'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n' \
+    f'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n' \
+    f'PREFIX aida: {AIDA}\n' \
+    f'PREFIX ldc: {LDC}\n'
 
 
 def queries_for_aida_result(

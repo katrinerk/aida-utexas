@@ -450,6 +450,9 @@ class JsonGraph:
                 cluster_to_prototype[node_label] = node.prototype
                 prototype_to_clusters[node.prototype].add(node_label)
 
+                cluster_to_members[node_label].add(node.prototype)
+                member_to_clusters[node.prototype].add(node_label)
+
         num_clusters = len(cluster_to_members)
         num_members = len(member_to_clusters)
         num_prototypes = len(prototype_to_clusters)

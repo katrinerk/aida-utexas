@@ -2,18 +2,18 @@ from argparse import ArgumentParser
 from operator import itemgetter
 
 from aida_utexas import util
-from aida_utexas.aif import JsonGraph
+from aida_utexas.aif import JsonGraph, AIDA, LDC, LDC_ONT, UTEXAS
 
 update_prefix = \
-    'PREFIX ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#>\n' \
-    'PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n' \
-    'PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>\n' \
-    'PREFIX aida:  <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>\n' \
-    'PREFIX ldc:   <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LdcAnnotations#>\n' \
-    'PREFIX utexas: <http://www.utexas.edu/aida/>\n\n'
+    f'PREFIX ldcOnt: {LDC_ONT}\n' \
+    f'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n' \
+    f'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n' \
+    f'PREFIX aida: {AIDA}\n' \
+    f'PREFIX ldc: {LDC}\n' \
+    f'PREFIX utexas: {UTEXAS}\n\n'
 
 
-def compute_handle_mapping(json_graph, hypothesis, member_to_clusters):
+def compute_handle_mapping(json_graph, hypothesis, member_to_clusters, cluster_to_prototype):
     cluster_set = set()
 
     for stmt_label in hypothesis['statements']:
@@ -29,11 +29,13 @@ def compute_handle_mapping(json_graph, hypothesis, member_to_clusters):
             for cluster in member_to_clusters[stmt_obj]:
                 cluster_set.add(cluster)
 
-    cluster_handles = {}
+    prototype_handles = {}
     for cluster in cluster_set:
-        cluster_handles[cluster] = json_graph.node_dict[cluster].handle
+        prototype = cluster_to_prototype.get(cluster, None)
+        if prototype is not None:
+            prototype_handles[prototype] = json_graph.node_dict[cluster].handle
 
-    return cluster_handles
+    return prototype_handles
 
 
 def main():
@@ -49,7 +51,7 @@ def main():
     args = parser.parse_args()
 
     json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
-    member_to_clusters = json_graph.build_cluster_member_mappings()['member_to_clusters']
+    mappings = json_graph.build_cluster_member_mappings()
 
     hypotheses_json = util.read_json_file(args.hypotheses_path, 'hypotheses')
 
@@ -65,12 +67,14 @@ def main():
 
         update_str = update_prefix + 'INSERT DATA\n{\n'
 
-        cluster_handles = compute_handle_mapping(json_graph, hypothesis, member_to_clusters)
+        prototype_handles = compute_handle_mapping(
+            json_graph, hypothesis, member_to_clusters=mappings['member_to_clusters'],
+            cluster_to_prototype=mappings['cluster_to_prototype'])
 
-        for cluster, handle in cluster_handles.items():
+        for prototype, handle in prototype_handles.items():
             handle = handle.lstrip('"')
             handle = handle.rstrip('"')
-            update_str += '  <{}> aida:handle "{}" .\n'.format(cluster, handle)
+            update_str += '  <{}> aida:handle "{}" .\n'.format(prototype, handle)
 
         update_str += '}'
 

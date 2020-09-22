@@ -264,9 +264,11 @@ def execute_sparql_queries(
     #     'rm {0}/{1}-node-query-*; rm {0}/{1}-stmt-query-*'.format(
     #         output_dir, filename_prefix)
 
+    '''
     clean_cmd = 'rm {0}/{1}-*-query-*'.format(output_dir, filename_prefix)
 
     if not dry_run:
         print('Cleaning up intermediate outputs in {} ...'.format(output_dir))
         # print(clean_cmd)
         subprocess.call(clean_cmd, shell=True)
+    '''

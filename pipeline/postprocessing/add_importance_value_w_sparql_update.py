@@ -3,18 +3,18 @@ from argparse import ArgumentParser
 from operator import itemgetter
 
 from aida_utexas import util
-from aida_utexas.aif import JsonGraph
+from aida_utexas.aif import JsonGraph, AIDA, LDC, LDC_ONT, UTEXAS
 
 update_prefix = \
-    'PREFIX ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LDCOntology#>\n' \
-    'PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n' \
-    'PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>\n' \
-    'PREFIX aida:  <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>\n' \
-    'PREFIX ldc:   <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/LdcAnnotations#>\n' \
-    'PREFIX utexas: <http://www.utexas.edu/aida/>\n\n'
+    f'PREFIX ldcOnt: {LDC_ONT}\n' \
+    f'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n' \
+    f'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n' \
+    f'PREFIX aida: {AIDA}\n' \
+    f'PREFIX ldc: {LDC}\n' \
+    f'PREFIX utexas: {UTEXAS}\n\n'
 
 
-def compute_importance_mapping(json_graph, hypothesis, member_to_clusters):
+def compute_importance_mapping(json_graph, hypothesis, member_to_clusters, cluster_to_prototype):
     stmt_importance = {}
     node_importance = {}
 
@@ -42,10 +42,12 @@ def compute_importance_mapping(json_graph, hypothesis, member_to_clusters):
             #     node_importance[stmt_subj] = stmt_weight
 
             for cluster in member_to_clusters[stmt_subj]:
-                if cluster not in node_importance:
-                    node_importance[cluster] = stmt_weight
-                elif node_importance[cluster] < stmt_weight:
-                    node_importance[cluster] = stmt_weight
+                prototype = cluster_to_prototype.get(cluster, None)
+                if prototype is not None:
+                    if prototype not in node_importance:
+                        node_importance[prototype] = stmt_weight
+                    elif node_importance[prototype] < stmt_weight:
+                        node_importance[prototype] = stmt_weight
 
     return stmt_importance, node_importance
 
@@ -64,7 +66,7 @@ def main():
     args = parser.parse_args()
 
     json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
-    member_to_clusters = json_graph.build_cluster_member_mappings()['member_to_clusters']
+    mappings = json_graph.build_cluster_member_mappings()
 
     hypotheses_json = util.read_json_file(args.hypotheses_path, 'hypotheses')
 
@@ -101,7 +103,8 @@ def main():
         update_str += '  {} a aida:Subgraph .\n'.format(subgraph_name)
 
         stmt_importance, node_importance = compute_importance_mapping(
-            json_graph, hypothesis, member_to_clusters)
+            json_graph, hypothesis, member_to_clusters=mappings['member_to_clusters'],
+            cluster_to_prototype=mappings['cluster_to_prototype'])
 
         for node_id, importance_value in node_importance.items():
             update_str += '  <{}> aida:importance "{:.4f}"^^xsd:double .\n'.format(
