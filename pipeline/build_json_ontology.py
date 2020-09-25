@@ -7,6 +7,16 @@ import pandas
 from aida_utexas import util
 
 
+def get_type_str(record):
+    type_str = record['Type']
+    if isinstance(record['Subtype'], str):
+        type_str += '.' + record['Subtype']
+        sub_subtype = record.get('Sub-subtype', record.get('Sub-Subtype', None))
+        if isinstance(sub_subtype, str):
+            type_str += '.' + sub_subtype
+    return type_str
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('input_path', help='path to the input Excel ontology file')
@@ -23,11 +33,7 @@ def main():
     roles_ontology = defaultdict(dict)
 
     for ev in event_records:
-        ev_type = ev['Type']
-        if isinstance(ev['Subtype'], str):
-            ev_type += '.' + ev['Subtype']
-            if isinstance(ev['Sub-subtype'], str):
-                ev_type += '.' + ev['Sub-subtype']
+        ev_type = get_type_str(ev)
 
         for arg_idx in range(1, 6):
             arg_key = f'arg{arg_idx} label'
@@ -35,11 +41,7 @@ def main():
                 roles_ontology[ev_type][f'arg{arg_idx}'] = ev[arg_key]
 
     for rel in relation_records:
-        rel_type = rel['Type']
-        if isinstance(rel['Subtype'], str):
-            rel_type += '.' + rel['Subtype']
-            if isinstance(rel['Sub-Subtype'], str):
-                rel_type += '.' + rel['Sub-Subtype']
+        rel_type = get_type_str(rel)
 
         roles_ontology[rel_type]['arg1'] = rel['arg1 label']
         roles_ontology[rel_type]['arg2'] = rel['arg2 label']

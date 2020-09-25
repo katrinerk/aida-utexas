@@ -1,0 +1,1092 @@
+{
+  "ArtifactExistence.ArtifactFailure.MechanicalFailure": {
+    "arg1": "MechanicalArtifact ",
+    "arg2": "Instrument ",
+    "arg3": "Place "
+  },
+  "ArtifactExistence.DamageDestroy": {
+    "arg1": "DamagerDestroyer",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "ArtifactExistence.DamageDestroy.Damage": {
+    "arg1": "Damager",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "ArtifactExistence.DamageDestroy.Destroy": {
+    "arg1": "Destroyer",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "ArtifactExistence.Shortage.Shortage": {
+    "arg1": "Experiencer ",
+    "arg2": "Supply ",
+    "arg3": "Place "
+  },
+  "Conflict.Attack": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.AirstrikeMissileStrike": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.BiologicalChemicalPoisonAttack": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.Bombing": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.FirearmAttack": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.Hanging": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.Invade": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.SelfDirectedBattle": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.SetFire": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.Stabbing": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Attack.StealRobHijack": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place",
+    "arg5": "Artifact"
+  },
+  "Conflict.Attack.Strangling": {
+    "arg1": "Attacker",
+    "arg2": "Target",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Conflict.Coup.Coup": {
+    "arg1": "DeposedEntity ",
+    "arg2": "DeposingEntity ",
+    "arg3": "Place "
+  },
+  "Conflict.Demonstrate": {
+    "arg1": "Demonstrator",
+    "arg2": "Place"
+  },
+  "Conflict.Demonstrate.MarchProtestPoliticalGathering": {
+    "arg1": "Demonstrator",
+    "arg2": "Place"
+  },
+  "Conflict.Yield": {
+    "arg1": "Yielder",
+    "arg2": "Recipient",
+    "arg3": "Place"
+  },
+  "Conflict.Yield.Retreat": {
+    "arg1": "Retreater",
+    "arg2": "Origin",
+    "arg3": "Destination"
+  },
+  "Conflict.Yield.Surrender": {
+    "arg1": "Surrenderer",
+    "arg2": "Recipient",
+    "arg3": "Place"
+  },
+  "Contact.Collaborate": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Contact.Collaborate.Correspondence": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Contact.Collaborate.Meet": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Contact.CommandOrder": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommandOrder.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommandOrder.Correspondence": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommandOrder.Meet": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommitmentPromiseExpressIntent": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommitmentPromiseExpressIntent.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommitmentPromiseExpressIntent.Correspondence": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.CommitmentPromiseExpressIntent.Meet": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Discussion": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Contact.Discussion.Correspondence": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Contact.Discussion.Meet": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Contact.FuneralVigil": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Deceased",
+    "arg4": "Place"
+  },
+  "Contact.FuneralVigil.Meet": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Deceased",
+    "arg4": "Place"
+  },
+  "Contact.MediaStatement": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place"
+  },
+  "Contact.MediaStatement.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place"
+  },
+  "Contact.Negotiate": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Negotiate.Correspondence": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Negotiate.Meet": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Prevarication": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Prevarication.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Prevarication.Correspondence": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.Prevarication.Meet": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.PublicStatementInPerson": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place"
+  },
+  "Contact.PublicStatementInPerson.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place"
+  },
+  "Contact.RequestAdvise": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.RequestAdvise.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.RequestAdvise.Correspondence": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.RequestAdvise.Meet": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.ThreatenCoerce": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.ThreatenCoerce.Broadcast": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.ThreatenCoerce.Correspondence": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Contact.ThreatenCoerce.Meet": {
+    "arg1": "Communicator",
+    "arg2": "Recipient",
+    "arg3": "Place",
+    "arg4": "Topic"
+  },
+  "Disaster.AccidentCrash.AccidentCrash": {
+    "arg1": "DriverPassenger",
+    "arg2": "Vehicle",
+    "arg3": "CrashObject",
+    "arg4": "Place"
+  },
+  "Disaster.DiseaseOutbreak.DiseaseOutbreak": {
+    "arg1": "Disease ",
+    "arg2": "Victim ",
+    "arg3": "Place "
+  },
+  "Disaster.FireExplosion.FireExplosion": {
+    "arg1": "FireExplosionObject",
+    "arg2": "Instrument",
+    "arg3": "Place"
+  },
+  "GenericCrime.GenericCrime.GenericCrime": {
+    "arg1": "Perpetrator ",
+    "arg2": "Victim ",
+    "arg3": "Place "
+  },
+  "Government.Agreements": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Government.Agreements.AcceptAgreementContractCeasefire": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Government.Agreements.RejectNullifyAgreementContractCeasefire": {
+    "arg1": "RejecterNullifier",
+    "arg2": "OtherParticipant",
+    "arg3": "Place"
+  },
+  "Government.Agreements.ViolateAgreement": {
+    "arg1": "Violator",
+    "arg2": "OtherParticipant",
+    "arg3": "Place"
+  },
+  "Government.Convene.Convene": {
+    "arg1": "Convener ",
+    "arg2": "ConvenedThing ",
+    "arg3": "Place "
+  },
+  "Government.Formation": {
+    "arg1": "GPE",
+    "arg2": "Founder",
+    "arg3": "Place"
+  },
+  "Government.Formation.MergeGPE": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Place"
+  },
+  "Government.Formation.StartGPE": {
+    "arg1": "GPE",
+    "arg2": "Founder",
+    "arg3": "Place"
+  },
+  "Government.Legislate.Legislate": {
+    "arg1": "GovernmentBody",
+    "arg2": "Law",
+    "arg3": "Place"
+  },
+  "Government.Spy.Spy": {
+    "arg1": "Spy",
+    "arg2": "ObservedEntity",
+    "arg3": "Beneficiary",
+    "arg4": "Place"
+  },
+  "Government.Vote": {
+    "arg1": "Voter",
+    "arg2": "Candidate",
+    "arg3": "Ballot",
+    "arg4": "Result",
+    "arg5": "Place"
+  },
+  "Government.Vote.CastVote": {
+    "arg1": "Voter",
+    "arg2": "Candidate",
+    "arg3": "Ballot",
+    "arg4": "Result",
+    "arg5": "Place"
+  },
+  "Government.Vote.ViolationsPreventVote": {
+    "arg1": "Preventer",
+    "arg2": "Voter",
+    "arg3": "Candidate",
+    "arg4": "Ballot",
+    "arg5": "Place"
+  },
+  "Inspection.SensoryObserve": {
+    "arg1": "Observer",
+    "arg2": "ObservedEntity",
+    "arg3": "Place"
+  },
+  "Inspection.SensoryObserve.InspectPeopleOrganization": {
+    "arg1": "Inspector",
+    "arg2": "InspectedEntity",
+    "arg3": "Place"
+  },
+  "Inspection.SensoryObserve.MonitorElection": {
+    "arg1": "Monitor",
+    "arg2": "MonitoredEntity",
+    "arg3": "Place"
+  },
+  "Inspection.SensoryObserve.PhysicalInvestigateInspect": {
+    "arg1": "Inspector",
+    "arg2": "InspectedEntity",
+    "arg3": "Place"
+  },
+  "Inspection.TargetAimAt.TargetAimAt": {
+    "arg1": "Targeter ",
+    "arg2": "Target ",
+    "arg3": "Instrument ",
+    "arg4": "Place "
+  },
+  "Justice.ArrestJailDetain.ArrestJailDetain": {
+    "arg1": "Jailer",
+    "arg2": "Detainee",
+    "arg3": "Crime",
+    "arg4": "Place"
+  },
+  "Justice.InitiateJudicialProcess": {
+    "arg1": "Prosecutor",
+    "arg2": "Defendant",
+    "arg3": "JudgeCourt",
+    "arg4": "Crime",
+    "arg5": "Place"
+  },
+  "Justice.InitiateJudicialProcess.ChargeIndict": {
+    "arg1": "Prosecutor",
+    "arg2": "Defendant",
+    "arg3": "JudgeCourt",
+    "arg4": "Crime",
+    "arg5": "Place"
+  },
+  "Justice.InitiateJudicialProcess.TrialHearing": {
+    "arg1": "Prosecutor",
+    "arg2": "Defendant",
+    "arg3": "JudgeCourt",
+    "arg4": "Crime",
+    "arg5": "Place"
+  },
+  "Justice.Investigate": {
+    "arg1": "Investigator",
+    "arg2": "Defendant",
+    "arg3": "Place"
+  },
+  "Justice.Investigate.InvestigateCrime": {
+    "arg1": "Investigator",
+    "arg2": "Defendant",
+    "arg3": "Crime",
+    "arg4": "Place"
+  },
+  "Justice.JudicialConsequences": {
+    "arg1": "JudgeCourt",
+    "arg2": "Defendant",
+    "arg3": "Crime",
+    "arg4": "Place"
+  },
+  "Justice.JudicialConsequences.Convict": {
+    "arg1": "JudgeCourt",
+    "arg2": "Defendant",
+    "arg3": "Crime",
+    "arg4": "Place"
+  },
+  "Justice.JudicialConsequences.Execute": {
+    "arg1": "Executioner",
+    "arg2": "Defendant",
+    "arg3": "Crime",
+    "arg4": "Place"
+  },
+  "Justice.JudicialConsequences.Extradite": {
+    "arg1": "Extraditer",
+    "arg2": "Defendant",
+    "arg3": "Crime",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Life.Die": {
+    "arg1": "Victim",
+    "arg2": "Place",
+    "arg3": "Killer",
+    "arg4": "MedicalIssue"
+  },
+  "Life.Die.DeathCausedByViolentEvents": {
+    "arg1": "Killer",
+    "arg2": "Victim",
+    "arg3": "Instrument",
+    "arg4": "Place",
+    "arg5": "MedicalIssue"
+  },
+  "Life.Die.NonviolentDeath": {
+    "arg1": "Victim",
+    "arg2": "Place",
+    "arg3": "Killer",
+    "arg4": "MedicalIssue"
+  },
+  "Life.Injure": {
+    "arg1": "Victim",
+    "arg2": "Injurer",
+    "arg3": "Place",
+    "arg4": "MedicalIssue"
+  },
+  "Life.Injure.IllnessDegradationHungerThirst": {
+    "arg1": "Victim",
+    "arg2": "Place",
+    "arg3": "Injurer",
+    "arg4": "MedicalIssue"
+  },
+  "Life.Injure.IllnessDegradationPhysical": {
+    "arg1": "Victim",
+    "arg2": "Place",
+    "arg3": "Injurer",
+    "arg4": "MedicalIssue"
+  },
+  "Life.Injure.IllnessDegredationSickness": {
+    "arg1": "Victim ",
+    "arg2": "Injurer ",
+    "arg3": "Disease ",
+    "arg4": "Place "
+  },
+  "Life.Injure.InjuryCausedByViolentEvents": {
+    "arg1": "Injurer",
+    "arg2": "Victim",
+    "arg3": "Instrument",
+    "arg4": "Place",
+    "arg5": "MedicalIssue"
+  },
+  "Manufacture.Artifact": {
+    "arg1": "Manufacturer",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Manufacture.Artifact.Build": {
+    "arg1": "Manufacturer",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Manufacture.Artifact.CreateIntellectualProperty": {
+    "arg1": "Manufacturer",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Manufacture.Artifact.CreateManufacture": {
+    "arg1": "Manufacturer",
+    "arg2": "Artifact",
+    "arg3": "Instrument",
+    "arg4": "Place"
+  },
+  "Medical.Intervention.Intervention": {
+    "arg1": "Treater ",
+    "arg2": "Patient ",
+    "arg3": "MedicalIssue ",
+    "arg4": "Instrument ",
+    "arg5": "Place "
+  },
+  "Movement.TransportArtifact": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.BringCarryUnload": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.DisperseSeparate": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.Fall": {
+    "arg1": "Artifact",
+    "arg2": "Origin",
+    "arg3": "Destination"
+  },
+  "Movement.TransportArtifact.GrantEntry": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Origin",
+    "arg4": "Destination"
+  },
+  "Movement.TransportArtifact.Hide": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "HidingPlace",
+    "arg4": "Vehicle",
+    "arg5": "Origin"
+  },
+  "Movement.TransportArtifact.LossOfControl": {
+    "arg1": "Controller ",
+    "arg2": "ControlledThing ",
+    "arg3": "Place "
+  },
+  "Movement.TransportArtifact.NonviolentThrowLaunch": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.PreventEntry": {
+    "arg1": "Preventer",
+    "arg2": "Transporter",
+    "arg3": "Artifact",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.PreventExit": {
+    "arg1": "Preventer",
+    "arg2": "Transporter",
+    "arg3": "Artifact",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.ReceiveImport": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.SendSupplyExport": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportArtifact.SmuggleExtract": {
+    "arg1": "Transporter",
+    "arg2": "Artifact",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson": {
+    "arg1": "Transporter",
+    "arg2": "Passenger",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.BringCarryUnload": {
+    "arg1": "Transporter",
+    "arg2": "Passenger",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.DisperseSeparate": {
+    "arg1": "Transporter",
+    "arg2": "Passenger",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.EvacuationRescue": {
+    "arg1": "Transporter",
+    "arg2": "Passenger",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.Fall": {
+    "arg1": "Passenger",
+    "arg2": "Origin",
+    "arg3": "Destination"
+  },
+  "Movement.TransportPerson.GrantEntryAsylum": {
+    "arg1": "Granter",
+    "arg2": "Transporter",
+    "arg3": "Passenger",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.Hide": {
+    "arg1": "Transporter",
+    "arg2": "Passenger",
+    "arg3": "HidingPlace",
+    "arg4": "Vehicle",
+    "arg5": "Origin"
+  },
+  "Movement.TransportPerson.PreventEntry": {
+    "arg1": "Preventer",
+    "arg2": "Transporter",
+    "arg3": "Passenger",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.PreventExit": {
+    "arg1": "Preventer",
+    "arg2": "Transporter",
+    "arg3": "Passenger",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Movement.TransportPerson.SelfMotion": {
+    "arg1": "Transporter",
+    "arg2": "Vehicle",
+    "arg3": "Origin",
+    "arg4": "Destination"
+  },
+  "Movement.TransportPerson.SmuggleExtract": {
+    "arg1": "Transporter",
+    "arg2": "Passenger",
+    "arg3": "Vehicle",
+    "arg4": "Origin",
+    "arg5": "Destination"
+  },
+  "Personnel.Elect": {
+    "arg1": "Voter",
+    "arg2": "Candidate",
+    "arg3": "Place"
+  },
+  "Personnel.Elect.WinElection": {
+    "arg1": "Voter",
+    "arg2": "Candidate",
+    "arg3": "Place"
+  },
+  "Personnel.EndPosition": {
+    "arg1": "Employee",
+    "arg2": "PlaceOfEmployment",
+    "arg3": "Place"
+  },
+  "Personnel.EndPosition.FiringLayoff": {
+    "arg1": "Employee",
+    "arg2": "PlaceOfEmployment",
+    "arg3": "Place"
+  },
+  "Personnel.EndPosition.QuitRetire": {
+    "arg1": "Employee",
+    "arg2": "PlaceOfEmployment",
+    "arg3": "Place"
+  },
+  "Personnel.StartPosition": {
+    "arg1": "Employee",
+    "arg2": "PlaceOfEmployment",
+    "arg3": "Place"
+  },
+  "Personnel.StartPosition.Hiring": {
+    "arg1": "Employee",
+    "arg2": "PlaceOfEmployment",
+    "arg3": "Place"
+  },
+  "Transaction.Transaction": {
+    "arg1": "Participant",
+    "arg2": "Participant",
+    "arg3": "Beneficiary",
+    "arg4": "Place"
+  },
+  "Transaction.Transaction.EmbargoSanction": {
+    "arg1": "Preventer",
+    "arg2": "Giver",
+    "arg3": "Recipient",
+    "arg4": "ArtifactMoney",
+    "arg5": "Place"
+  },
+  "Transaction.Transaction.GiftGrantProvideAid": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Place"
+  },
+  "Transaction.TransferMoney": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Money",
+    "arg5": "Place"
+  },
+  "Transaction.TransferMoney.BorrowLend": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Money",
+    "arg5": "Place"
+  },
+  "Transaction.TransferMoney.EmbargoSanction": {
+    "arg1": "Preventer",
+    "arg2": "Giver",
+    "arg3": "Recipient",
+    "arg4": "Money",
+    "arg5": "Place"
+  },
+  "Transaction.TransferMoney.GiftGrantProvideAid": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Money",
+    "arg5": "Place"
+  },
+  "Transaction.TransferMoney.PayForService": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Money",
+    "arg5": "Place"
+  },
+  "Transaction.TransferMoney.Purchase": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Money",
+    "arg5": "Place"
+  },
+  "Transaction.TransferOwnership": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Artifact",
+    "arg5": "Place"
+  },
+  "Transaction.TransferOwnership.BorrowLend": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Artifact",
+    "arg5": "Place"
+  },
+  "Transaction.TransferOwnership.EmbargoSanction": {
+    "arg1": "Preventer",
+    "arg2": "Giver",
+    "arg3": "Recipient",
+    "arg4": "Artifact",
+    "arg5": "Place"
+  },
+  "Transaction.TransferOwnership.GiftGrantProvideAid": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Artifact",
+    "arg5": "Place"
+  },
+  "Transaction.TransferOwnership.Purchase": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "Artifact",
+    "arg5": "Place"
+  },
+  "Transaction.Transaction.TransferControl": {
+    "arg1": "Giver",
+    "arg2": "Recipient",
+    "arg3": "Beneficiary",
+    "arg4": "TerritoryOrFacility",
+    "arg5": "Place"
+  },
+  "Evaluate.Deliberateness.Accidental": {
+    "arg1": "Holder",
+    "arg2": "Event"
+  },
+  "Evaluate.Deliberateness.Deliberate": {
+    "arg1": "Holder",
+    "arg2": "Event"
+  },
+  "Evaluate.Legitimacy.Illegitimate": {
+    "arg1": "Holder",
+    "arg2": "Event"
+  },
+  "Evaluate.Legitimacy.Legitimate": {
+    "arg1": "Holder",
+    "arg2": "Event"
+  },
+  "Evaluate.Sentiment.Negative": {
+    "arg1": "Holder",
+    "arg2": "SentimentTarget"
+  },
+  "Evaluate.Sentiment.Positive": {
+    "arg1": "Holder",
+    "arg2": "SentimentTarget"
+  },
+  "Evaluate.Status.HoaxFraud": {
+    "arg1": "Holder",
+    "arg2": "HoaxFraud"
+  },
+  "GeneralAffiliation.ArtifactPoliticalOrganizationReligiousAffiliation": {
+    "arg1": "Artifact",
+    "arg2": "EntityOrFiller"
+  },
+  "GeneralAffiliation.ArtifactPoliticalOrganizationReligiousAffiliation.ControlTerritory": {
+    "arg1": "Territory",
+    "arg2": "Controller"
+  },
+  "GeneralAffiliation.ArtifactPoliticalOrganizationReligiousAffiliation.NationalityCitizen": {
+    "arg1": "Artifact",
+    "arg2": "Nationality"
+  },
+  "GeneralAffiliation.ArtifactPoliticalOrganizationReligiousAffiliation.OwnershipPossession": {
+    "arg1": "Artifact",
+    "arg2": "Owner"
+  },
+  "GeneralAffiliation.MemberOriginReligionEthnicity": {
+    "arg1": "Person",
+    "arg2": "EntityOrFiller"
+  },
+  "GeneralAffiliation.MemberOriginReligionEthnicity.Ethnicity": {
+    "arg1": "Person",
+    "arg2": "Ethnicity"
+  },
+  "GeneralAffiliation.MemberOriginReligionEthnicity.NationalityCitizen": {
+    "arg1": "Citizen",
+    "arg2": "Nationality"
+  },
+  "GeneralAffiliation.OrganizationPoliticalReligiousAffiliation": {
+    "arg1": "Organization",
+    "arg2": "EntityOrFiller"
+  },
+  "GeneralAffiliation.OrganizationPoliticalReligiousAffiliation.NationalityCitizen": {
+    "arg1": "Organization",
+    "arg2": "Nationality"
+  },
+  "GeneralAffiliation.OrganizationWebsite.OrganizationWebsite": {
+    "arg1": "Organization",
+    "arg2": "Website"
+  },
+  "GeneralAffiliation.Sponsorship": {
+    "arg1": "ActorOrEvent",
+    "arg2": "Sponsor"
+  },
+  "GeneralAffiliation.Sponsorship.AdvisePlanOrganize": {
+    "arg1": "ActorOrEvent",
+    "arg2": "Sponsor"
+  },
+  "GeneralAffiliation.Sponsorship.Affiliated": {
+    "arg1": "ActorOrEvent",
+    "arg2": "Sponsor"
+  },
+  "GeneralAffiliation.Sponsorship.HelpSupport": {
+    "arg1": "ActorOrEvent",
+    "arg2": "Sponsor"
+  },
+  "Information.Color.Color": {
+    "arg1": "EntityOrFiller",
+    "arg2": "Color"
+  },
+  "Information.Make.Make": {
+    "arg1": "EntityOrFiller",
+    "arg2": "Brand"
+  },
+  "Measurement.Size": {
+    "arg1": "Measurement",
+    "arg2": "EntityOrFiller"
+  },
+  "Measurement.Size.Count": {
+    "arg1": "Measurement",
+    "arg2": "EntityOrFiller"
+  },
+  "Measurement.Size.HeightLengthWidth": {
+    "arg1": "Measurement",
+    "arg2": "EntityOrFiller"
+  },
+  "Measurement.Size.Percentage": {
+    "arg1": "Measurement",
+    "arg2": "EntityOrFiller"
+  },
+  "Measurement.Size.Weight": {
+    "arg1": "Measurement",
+    "arg2": "EntityOrFiller"
+  },
+  "OrganizationAffiliation.EmploymentMembership": {
+    "arg1": "EmployeeMember",
+    "arg2": "PlaceOfEmploymentMembership"
+  },
+  "OrganizationAffiliation.EmploymentMembership.Employment": {
+    "arg1": "Employee",
+    "arg2": "PlaceOfEmployment"
+  },
+  "OrganizationAffiliation.EmploymentMembership.Membership": {
+    "arg1": "Member",
+    "arg2": "PlaceOfMembership"
+  },
+  "OrganizationAffiliation.Founder.Founder": {
+    "arg1": "Founder",
+    "arg2": "Organization"
+  },
+  "OrganizationAffiliation.Leadership": {
+    "arg1": "Leader",
+    "arg2": "Organization"
+  },
+  "OrganizationAffiliation.Leadership.Government": {
+    "arg1": "Leader",
+    "arg2": "GovernmentBodyOrGPE"
+  },
+  "OrganizationAffiliation.Leadership.HeadOfState": {
+    "arg1": "Leader",
+    "arg2": "Country"
+  },
+  "OrganizationAffiliation.Leadership.MilitaryPolice": {
+    "arg1": "Leader",
+    "arg2": "MilitaryPoliceORG"
+  },
+  "PartWhole.Subsidiary": {
+    "arg1": "Subsidiary",
+    "arg2": "Parent"
+  },
+  "PartWhole.Subsidiary.NationalityCitizen": {
+    "arg1": "Subsidiary",
+    "arg2": "Parent"
+  },
+  "PartWhole.Subsidiary.OrganizationSubsidiary": {
+    "arg1": "Subsidiary",
+    "arg2": "Parent"
+  },
+  "PersonalSocial.Role": {
+    "arg1": "Person",
+    "arg2": "Role"
+  },
+  "PersonalSocial.Role.ProfessionalRole": {
+    "arg1": "Person",
+    "arg2": "JobRole"
+  },
+  "PersonalSocial.Role.TitleFormOfAddress": {
+    "arg1": "Person",
+    "arg2": "Title"
+  },
+  "PersonalSocial.Relationship": {
+    "arg1": "Person",
+    "arg2": "Person"
+  },
+  "PersonalSocial.Relationship.Political": {
+    "arg1": "Person",
+    "arg2": "Person"
+  },
+  "Physical.LocatedNear": {
+    "arg1": "EntityOrFiller",
+    "arg2": "Place"
+  },
+  "Physical.LocatedNear.Surround": {
+    "arg1": "Place",
+    "arg2": "EntityOrFiller"
+  },
+  "Physical.OrganizationHeadquarters.OrganizationHeadquarters": {
+    "arg1": "Organization",
+    "arg2": "Place"
+  },
+  "Physical.Resident.Resident": {
+    "arg1": "Resident",
+    "arg2": "Place"
+  },
+  "ResponsibilityBlame.AssignBlame.AssignBlame": {
+    "arg1": "EntityResponsible",
+    "arg2": "Event"
+  },
+  "ResponsibilityBlame.ClaimResponsibility.ClaimResponsibility": {
+    "arg1": "EntityResponsible",
+    "arg2": "Event"
+  }
+}
