@@ -14,35 +14,62 @@ from tqdm import tqdm
 
 from aida_utexas.aif.aida_graph import AidaGraph
 
+APORA = 'GeneralAffiliation.ArtifactPoliticalOrganizationReligiousAffiliation'
+MORE = 'GeneralAffiliation.MemberOriginReligionEthnicity'
+OPRA = 'GeneralAffiliation.OrganizationPoliticalReligiousAffiliation'
+SPONSOR = 'GeneralAffiliation.Sponsorship'
+
 # role labels of affiliates in an affiliation relation
 affiliate_role_labels = [
-    'Affiliate', 'MORE_Person', 'Sponsorship_Entity',
-    'EmploymentMembership_Employee', 'Founder_Founder',
-    'InvestorShareholder_InvestorShareholder', 'ControlTerritory_Controller',
-    'NationalityCitizen_Artifact', 'OwnershipPossession_Artifact',
-    'ArtifactPoliticalOrganizationReligiousAffiliation_Artifact',
-    'Ethnicity_Person', 'NationalityCitizen_Citizen',
-    'MemberOriginReligionEthnicity_Person', 'NationalityCitizen_Organization',
-    'OrganizationPoliticalReligiousAffiliation_Organization',
-    'OrganizationWebsite_Organization', 'AdvisePlanOrganize_ActorOrEvent',
-    'Affiliated_ActorOrEvent', 'HelpSupport_ActorOrEvent',
-    'Sponsorship_ActorOrEvent',
-    'Leadership_Leader', 'Ownership_Organization', 'StudentAlum_StudentAlum']
+    APORA + '_Artifact',
+    APORA + '.ControlTerritory_Territory',
+    APORA + '.NationalityCitizen_Artifact',
+    APORA + '.OwnershipPossession_Artifact',
+    MORE + '_Person',
+    MORE + '.Ethnicity_Person',
+    MORE + '.NationalityCitizen_Citizen',
+    OPRA + '_Organization',
+    OPRA + '.NationalityCitizen_Organization',
+    'GeneralAffiliation.OrganizationWebsite.OrganizationWebsite_Website',
+    SPONSOR + '_ActorOrEvent',
+    SPONSOR + '.AdvisePlanOrganize_ActorOrEvent',
+    SPONSOR + '.Affiliated_ActorOrEvent',
+    SPONSOR + '.HelpSupport_ActorOrEvent',
+    'OrganizationAffiliation.EmploymentMembership_EmployeeMember',
+    'OrganizationAffiliation.EmploymentMembership.Employment_Employee',
+    'OrganizationAffiliation.EmploymentMembership.Membership_Member',
+    'OrganizationAffiliation.Founder.Founder_Founder',
+    'OrganizationAffiliation.Leadership_Leader',
+    'OrganizationAffiliation.Leadership.Government_Leader',
+    'OrganizationAffiliation.Leadership.HeadOfState_Leader',
+    'OrganizationAffiliation.Leadership.MilitaryPolice_Leader'
+]
 
 # role labels of affiliations in an affiliation relation
 affiliation_role_labels = [
-    'Affiliation', 'OPRA_Organization', 'Sponsorship_Sponsor',
-    'EmploymentMembership_Organization', 'Founder_Organization',
-    'ControlTerritory_Territory', 'NationalityCitizen_Nationality',
-    'OwnershipPossession_Owner',
-    'ArtifactPoliticalOrganizationReligiousAffiliation_EntityOrFiller',
-    'Ethnicity_Ethnicity', 'NationalityCitizen_Nationality',
-    'MemberOriginReligionEthnicity_EntityOrFiller',
-    'OrganizationPoliticalReligiousAffiliation_EntityOrFiller',
-    'OrganizationWebsite_Website', 'AdvisePlanOrganize_Sponsor',
-    'Affiliated_Sponsor', 'HelpSupport_Sponsor', 'Sponsorship_Sponsor',
-    'InvestorShareholder_Organization', 'Leadership_Organization',
-    'Ownership_Owner', 'StudentAlum_Organization']
+    APORA + '_EntityOrFiller',
+    APORA + '.ControlTerritory_Controller',
+    APORA + '.NationalityCitizen_Nationality',
+    APORA + '.OwnershipPossession_Owner',
+    MORE + '_EntityOrFiller',
+    MORE + '.Ethnicity_Ethnicity',
+    MORE + '.NationalityCitizen_Nationality',
+    OPRA + '_EntityOrFiller',
+    OPRA + '.NationalityCitizen_Nationality',
+    'GeneralAffiliation.OrganizationWebsite.OrganizationWebsite_Organization',
+    SPONSOR + '_Sponsor',
+    SPONSOR + '.AdvisePlanOrganize_Sponsor',
+    SPONSOR + '.Affiliated_Sponsor',
+    SPONSOR + '.HelpSupport_Sponsor',
+    'OrganizationAffiliation.EmploymentMembership_PlaceOfEmploymentMembership',
+    'OrganizationAffiliation.EmploymentMembership.Employment_PlaceOfEmployment',
+    'OrganizationAffiliation.EmploymentMembership.Membership_PlaceOfMembership',
+    'OrganizationAffiliation.Founder.Founder_Organization',
+    'OrganizationAffiliation.Leadership_Organization',
+    'OrganizationAffiliation.Leadership.Government_GovernmentBodyOrGPE',
+    'OrganizationAffiliation.Leadership.HeadOfState_Country',
+    'OrganizationAffiliation.Leadership.MilitaryPolice_MilitaryPoliceORG'
+]
 
 
 @dataclass
