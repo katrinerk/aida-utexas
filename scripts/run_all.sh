@@ -7,7 +7,7 @@ print_usage() {
     printf "[--num_hyps NUM_HYPS] [--num_hops NUM_HOPS] [--coref_compress] [--device DEVICE] [--sin_id_prefix PREFIX] [--force]\n"
     printf "* <INPUT_RUN_NAME>: the RUN_NAME of a TA2 KB as the input, i.e., LDC_2.LDC_2\n"
     printf "* <RUN_NAME>: the name of our run, which will be appended to <input_run_name> to get the output RUN_NAME, i.e., UTexas_1\n"
-    printf "* --num_hyps <NUM_HYPS>: number of hypotheses to produce for each SIN, default = 14\n"
+    printf "* --num_hyps <NUM_HYPS>: number of hypotheses to produce for each SIN, default = 50\n"
     printf "* --num_hops <NUM_HOPS>: number of hops to expand from a cluster seed to extract a subgraph, default = 2\n"
     printf "* --coref_compress: when specified, first compress ERE coreference on the input TA2 KB\n"
     printf "* --device: which CUDA device to use for the neural module, default = -1 (CPU)\n"
@@ -30,7 +30,7 @@ parse_args() {
     num_hops=2
     do_coref_compression=false
     device=-1
-    sin_id_prefix="AIDA_M18_TA3"
+    sin_id_prefix="AIDA_M36_TA3"
     force_overwrite=false
 
     while [ "$1" != "" ]; do
