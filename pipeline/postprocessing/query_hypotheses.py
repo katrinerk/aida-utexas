@@ -1,7 +1,7 @@
+import subprocess
 from argparse import ArgumentParser
 from operator import itemgetter
 
-from aida_utexas import sparql_helper
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph, AIDA, LDC, LDC_ONT
 
@@ -25,8 +25,8 @@ def queries_for_aida_result(
         num_node_queries=5, num_stmts_per_query=3000,
         query_just=False, query_conf=False):
     ere_id_list = []
+    prototype_id_list = []
 
-    ere_query_item_list = []
     cluster_query_item_list = []
     stmt_query_item_list = []
     just_query_item_list = []
@@ -43,13 +43,11 @@ def queries_for_aida_result(
         object_id = json_graph.stmt_object(stmt_label)
 
         # add subject to node_str_list for node query
-        ere_query_item_list.append('<{}>'.format(subject_id))
         ere_id_list.append(subject_id)
 
         if predicate_id != 'type':
             # add object to node_str_list for node query if
             # it's not a typing statement
-            ere_query_item_list.append('<{}>'.format(object_id))
             ere_id_list.append(object_id)
 
             stmt_constraint = \
@@ -191,7 +189,7 @@ def queries_for_aida_result(
 
             # Always add the prototype member of the clusters included in the hypothesis.
             prototype_id = cluster_to_prototype[cluster_id]
-            ere_query_item_list.append('<{}>'.format(prototype_id))
+            prototype_id_list.append(prototype_id)
 
             # Add the informative justification of the prototype if needed.
             if query_just:
@@ -247,26 +245,54 @@ def queries_for_aida_result(
                     '?j aida:confidence ?c .\n'
                     '}}'.format(proto_stmt_constraint))
 
-    node_query_item_list = list(set(ere_query_item_list)) + list(set(cluster_query_item_list))
-    stmt_query_item_list = list(set(stmt_query_item_list))
-    just_query_item_list = list(set(just_query_item_list))
+    entity_query_item_list, relation_query_item_list, event_query_item_list = set(), set(), set()
+    for ere_label in ere_id_list + prototype_id_list:
+        if json_graph.is_entity(ere_label):
+            entity_query_item_list.add('<{}>'.format(ere_label))
+        if json_graph.is_relation(ere_label):
+            relation_query_item_list.add('<{}>'.format(ere_label))
+        if json_graph.is_event(ere_label):
+            event_query_item_list.add('<{}>'.format(ere_label))
 
-    node_query_list = sparql_helper.produce_node_queries(
-        node_query_item_list, num_node_queries=num_node_queries)
+    all_query_constraints = []
+    if len(entity_query_item_list) > 0:
+        all_query_constraints.append('{{?x a aida:Entity .\nFILTER (?x IN ({})) \n}}'.format(
+            ', '.join(entity_query_item_list)))
+    if len(relation_query_item_list) > 0:
+        all_query_constraints.append('{{?x a aida:Relation .\nFILTER (?x IN ({})) \n}}'.format(
+            ', '.join(relation_query_item_list)))
+    if len(event_query_item_list) > 0:
+        all_query_constraints.append('{{?x a aida:Event .\nFILTER (?x IN ({})) \n}}'.format(
+            ', '.join(event_query_item_list)))
+    if len(cluster_query_item_list) > 0:
+        all_query_constraints.append('{{?x a aida:SameAsCluster .\nFILTER (?x IN ({})) \n}}'.format(
+            ', '.join(cluster_query_item_list)))
 
-    stmt_query_list = sparql_helper.produce_stmt_queries(
-        stmt_query_item_list, query_prefixes=QUERY_PREFIXES,
-        num_stmts_per_query=num_stmts_per_query)
+    all_query_constraints.extend(stmt_query_item_list)
 
-    just_query_list = sparql_helper.produce_just_queries(
-        just_query_item_list, query_prefixes=QUERY_PREFIXES,
-        num_stmts_per_query=num_stmts_per_query)
+    return QUERY_PREFIXES + 'DESCRIBE ?x\nWHERE {{\n{}\n}}'.format(
+        '\nUNION\n'.join(all_query_constraints))
 
-    conf_query_list = sparql_helper.produce_conf_queries(
-        conf_query_item_list, query_prefixes=QUERY_PREFIXES,
-        num_stmts_per_query=num_stmts_per_query)
+    # node_query_item_list = list(set(ere_query_item_list)) + list(set(cluster_query_item_list))
+    # stmt_query_item_list = list(set(stmt_query_item_list))
+    # just_query_item_list = list(set(just_query_item_list))
+    #
+    # node_query_list = sparql_helper.produce_node_queries(
+    #     node_query_item_list, num_node_queries=1)
+    #
+    # stmt_query_list = sparql_helper.produce_stmt_queries(
+    #     stmt_query_item_list, query_prefixes=QUERY_PREFIXES,
+    #     num_stmts_per_query=num_stmts_per_query)
 
-    return node_query_list, stmt_query_list, just_query_list, conf_query_list
+    # just_query_list = sparql_helper.produce_just_queries(
+    #     just_query_item_list, query_prefixes=QUERY_PREFIXES,
+    #     num_stmts_per_query=num_stmts_per_query)
+    #
+    # conf_query_list = sparql_helper.produce_conf_queries(
+    #     conf_query_item_list, query_prefixes=QUERY_PREFIXES,
+    #     num_stmts_per_query=num_stmts_per_query)
+    #
+    # return node_query_list, stmt_query_list, just_query_list, conf_query_list
 
 
 def main():
@@ -309,7 +335,8 @@ def main():
     for result_idx, prob in sorted(
             enumerate(hypotheses_json['probs']), key=itemgetter(1), reverse=True):
         hypothesis = hypotheses_json['support'][result_idx]
-        node_query_list, stmt_query_list, just_query_list, conf_query_list = \
+        # node_query_list, stmt_query_list, just_query_list, conf_query_list = \
+        sparql_query_str = \
             queries_for_aida_result(
                 json_graph=json_graph,
                 hypothesis=hypothesis,
@@ -324,11 +351,24 @@ def main():
 
         print(f'Writing queries for hypothesis #{top_count} with prob {prob}')
 
-        sparql_helper.execute_sparql_queries(
-            node_query_list, stmt_query_list, just_query_list, conf_query_list,
-            db_path_list, output_dir,
-            filename_prefix='hypothesis-{:0>3d}'.format(top_count),
-            header_prefixes=AIF_HEADER_PREFIXES, dry_run=args.dry_run)
+        sparql_query_path = output_dir / 'hypothesis-{:0>3d}-query.rq'.format(top_count)
+        with open(str(sparql_query_path), 'w') as fout:
+            fout.write(sparql_query_str + '\n')
+
+        if not args.dry_run:
+            query_result_path = output_dir / 'hypothesis-{:0>3d}-raw.ttl'.format(top_count)
+            query_cmd = 'echo "query {0}"; tdbquery --loc {1} --query {0} > {2}; '.format(
+                sparql_query_path, db_path_list[0], query_result_path)
+
+            print('Executing queries ...')
+            process = subprocess.Popen(query_cmd, shell=True)
+            process.wait()
+
+        # sparql_helper.execute_sparql_queries(
+        #     node_query_list, stmt_query_list, just_query_list, conf_query_list,
+        #     db_path_list, output_dir,
+        #     filename_prefix='hypothesis-{:0>3d}'.format(top_count),
+        #     header_prefixes=AIF_HEADER_PREFIXES, dry_run=args.dry_run)
 
         if top_count >= args.top:
             break
