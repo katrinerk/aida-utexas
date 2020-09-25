@@ -27,7 +27,7 @@ if "$do_coref_compression"; then
         "${working_dir}/${input_run_name}_compressed.json" \
         "${working_dir}/result_jsons" \
         "${working_dir}/result_jsons_filtered" \
-        "$optional_args"
+        $optional_args
 
     python -m pipeline.postprocessing.recover_coref \
         "${working_dir}/result_jsons_filtered/" \
@@ -35,7 +35,7 @@ if "$do_coref_compression"; then
         "${working_dir}/${input_run_name}.json" \
         "${working_dir}/${input_run_name}_compressed.json" \
         "${working_dir}/${input_run_name}_log.json" \
-        "$optional_args"
+        $optional_args
 
     results_dir="result_jsons_recovered"
 else
@@ -43,7 +43,7 @@ else
         "${working_dir}/${input_run_name}.json" \
         "${working_dir}/result_jsons" \
         "${working_dir}/result_jsons_filtered" \
-        "$optional_args"
+        $optional_args
 
     results_dir="result_jsons_filtered"
 fi
@@ -59,7 +59,7 @@ for result_file in "$working_dir"/"$results_dir"/*.json; do
         "${working_dir}/tdb_database" \
         "${working_dir}/hypotheses/${sin_name}/raw" \
         --top "${num_hyps}" \
-        "$optional_args"
+        $optional_args
 
     ./pipeline/postprocessing/build_hypotheses_tdb.sh \
         "${working_dir}/hypotheses/${sin_name}/raw" \
@@ -72,14 +72,14 @@ for result_file in "$working_dir"/"$results_dir"/*.json; do
         "${working_dir}/hypotheses/${sin_name}/update_importance" \
         "${sin_id_prefix}_${sin_name}_F1" \
         --top "${num_hyps}" \
-        "$optional_args"
+        $optional_args
 
     python -m pipeline.postprocessing.add_handle_w_sparql_update \
         "${working_dir}/${input_run_name}.json" \
         "${result_file}" \
         "${working_dir}/hypotheses/${sin_name}/update_handle" \
         --top "${num_hyps}" \
-        "$optional_args"
+        $optional_args
 
     ./pipeline/postprocessing/update_hypotheses_importance.sh \
         "${working_dir}/hypotheses/${sin_name}/tdb" \

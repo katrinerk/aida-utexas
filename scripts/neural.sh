@@ -33,9 +33,9 @@ fi
 echo
 python -m aida_utexas.neural.index \
     "$working_dir" --indexer_path "$indexer_path" \
-    "$optional_args"
+    $optional_args
 
 echo
 python -m aida_utexas.neural.gen_hypoth \
     "$working_dir" --indexer_path "$indexer_path" --model_path "$model_path" --device="$device" \
-    "$optional_args"
+    $optional_args

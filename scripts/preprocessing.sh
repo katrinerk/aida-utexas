@@ -19,7 +19,7 @@ python -m pipeline.preprocessing.process_input \
     "${working_dir}/${input_run_name}.json" \
     -s "$SIN" \
     -q "${working_dir}/query_jsons" \
-    "$optional_args"
+    $optional_args
 
 echo
 if $do_coref_compression; then
@@ -27,7 +27,7 @@ if $do_coref_compression; then
         "${working_dir}/${input_run_name}.json" \
         "${working_dir}/${input_run_name}_compressed.json" \
         "${working_dir}/${input_run_name}_log.json" \
-        "$optional_args"
+        $optional_args
     graph_name="${input_run_name}_compressed.json"
 else
     graph_name="${input_run_name}.json"
@@ -39,7 +39,7 @@ python -m pipeline.preprocessing.make_hypothesis_seeds \
     "${working_dir}/query_jsons" \
     "${working_dir}/cluster_seeds_raw" \
     --max_num_seeds "$num_hyps" \
-    "$optional_args"
+    $optional_args
 
 echo
 python -m pipeline.preprocessing.rerank_hypothesis_seeds \
@@ -47,7 +47,7 @@ python -m pipeline.preprocessing.rerank_hypothesis_seeds \
     "${working_dir}/cluster_seeds_raw" \
     "${working_dir}/cluster_seeds" \
     --max_num_seeds "$num_hyps" \
-    "$optional_args"
+    $optional_args
 
 for seed_file in "${working_dir}"/cluster_seeds/*.json; do
     echo
@@ -58,9 +58,9 @@ for seed_file in "${working_dir}"/cluster_seeds/*.json; do
         "${seed_file}" \
         "${working_dir}/subgraph/${seed_name}"/ \
         -n "${num_hops}" \
-        "$optional_args"
+        $optional_args
 done
 
 echo
 ./pipeline/preprocessing/build_TA2_tdb.sh \
-    "$input_kb_path" "${working_dir}/tdb_database" 5
+    "$input_kb_path" "${working_dir}/tdb_database" 1
