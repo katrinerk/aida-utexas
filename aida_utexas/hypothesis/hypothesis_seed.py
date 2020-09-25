@@ -177,10 +177,12 @@ class HypothesisSeed:
         if self.connectedness_score is None:
             self.connectedness_score = self.hypothesis.get_connectedness_score()
 
-        scores = (self.entrypoint_score, self.penalty_score,
-                  self.hypothesis.get_connectedness_score())
+        scores = (self.entrypoint_score,)
         if self.plausibility_score is not None:
             scores += self.plausibility_score
+        scores += (self.penalty_score,
+                   self.hypothesis.get_connectedness_score())
+
         return scores
 
     # extend hypothesis by one statement filling the next fillable core constraint.
