@@ -11,8 +11,15 @@ import time
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+import argparse
+import os
 from copy import deepcopy
 from modules import *
+
+# Make a dir (if it doesn't already exist)
+def verify_dir(dir):
+    if not os.path.exists(dir):
+        os.makedirs(dir)
 
 # Run the model on a graph salad
 def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_highest_ranked_gold, extraction_size, back_prop, device):
@@ -80,11 +87,11 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         if force and data_group == "Train":
             if np.random.uniform(0, 1) <= prob_force:
                 random_true_index = get_random_gold_label(graph_dict, prediction, use_highest_ranked_gold)
-                next_state(graph_dict, random_true_index, False)
+                next_state(graph_dict, random_true_index)
             else:
-                next_state(graph_dict, predicted_index, False)
+                next_state(graph_dict, predicted_index)
         else:
-            next_state(graph_dict, predicted_index, False)
+            next_state(graph_dict, predicted_index)
 
     loss = multi_correct_nll_loss(predictions, trues, device)
 
@@ -107,7 +114,7 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
 def train(batch_size, extraction_size, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend,
           attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs, learning_rate, save_path, load_path, load_optim,
           use_highest_ranked_gold, valid_every, print_every, device):
-    model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
+    model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
 
     # If a pretrained model should be used, load its parameters in
     if load_path is not None:
@@ -306,7 +313,7 @@ if __name__ == "__main__":
                       learning_rate, save_path, load_path, load_optim, use_highest_ranked_gold, valid_every, print_every, device)
     # Evaluate an existing model on test data
     elif mode == 'validate':
-        model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
+        model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
         model.load_state_dict(torch.load(load_path, map_location=device)['model'])
 
         print("\nRunning on test set ...\n")

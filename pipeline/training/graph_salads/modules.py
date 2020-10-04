@@ -184,9 +184,9 @@ class CoherenceNetWithGCN(nn.Module):
 
     # Runs a graph salad through the GCN network
     def gcn(self, graph_dict, gcn_embeds, device):
-        adj_head = torch.from_numpy(graph_dict['adj_head']).to(dtype=torch.float, device=device)
-        adj_tail = torch.from_numpy(graph_dict['adj_tail']).to(dtype=torch.float, device=device)
-        adj_type = torch.from_numpy(graph_dict['adj_type']).to(dtype=torch.float, device=device)
+        adj_head = graph_dict['adj_head'].to(dtype=torch.float, device=device)
+        adj_tail = graph_dict['adj_tail'].to(dtype=torch.float, device=device)
+        adj_type = graph_dict['adj_type'].to(dtype=torch.float, device=device)
         ere_labels = graph_dict['ere_labels']
         stmt_labels = graph_dict['stmt_labels']
 
