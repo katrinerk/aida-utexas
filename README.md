@@ -24,15 +24,15 @@
 
 ### Dependencies
 
-* Install the latest Apache Jena package: https://jena.apache.org/download/index.cgi.
-* Set environment variables for command line usage: https://jena.apache.org/documentation/tools/.
-* Install python dependencies by `pip install -r requirements.txt` (virtualenv or Conda environment recommended).
+* (Recommended) Create a virtual environment with either virtualenv or Conda.
+* Install PyTorch: https://pytorch.org/get-started/locally/.
+* Install other python dependencies by `pip install -r requirements.txt`.
 
 ### Run Model
 
 ```
 INPUT=<input_dir> SIN=<sin_dir> OUTPUT=<output_dir> \
-    ./scripts/run_all.sh <TA2_run_name> <TA3_run_name> [optional_args]
+    ./scripts/run_simple.sh <TA2_run_name> <TA3_run_name> [optional_args]
 ```
 
 * `<input_dir>` and `<sin_dir>` are as described in the [Date Preparation](#data-preparation) section.
@@ -62,7 +62,7 @@ docker run \
     -e INPUT=/input \
     -e SIN=/sin \
     -e OUTPUT=/output \
-    pxch/aida-utexas:0.3.0 \
-    bash /aida-utexas/scripts/run_all.sh <TA2_run_name> <TA3_run_name> [optional_args]
+    pxch/aida-utexas:0.3.1 \
+    <TA2_run_name> <TA3_run_name> [optional_args]
 ```
 * See the [Run Model](#run-model) section for definitions of `<input_dir>`, `<sin_dir>`, `<output_dir>`, `<TA2_run_name>`, `<TA3_run_name>`, and `[optional_args]`.
