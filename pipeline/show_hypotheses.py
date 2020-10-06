@@ -16,8 +16,8 @@ def main():
 
     json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
 
-    json_hypotheses = util.read_json_file(args.hypothesis_path, 'hypotheses')
-    hypothesis_collection = AidaHypothesisCollection.from_json(json_hypotheses, json_graph)
+    hypotheses_json = util.read_json_file(args.hypothesis_path, 'hypotheses')
+    hypothesis_collection = AidaHypothesisCollection.from_json(hypotheses_json, json_graph)
 
     roles_ontology = util.read_json_file(args.roles_ontology_path, 'roles ontology')
 

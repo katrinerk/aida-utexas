@@ -37,8 +37,8 @@ def main():
     hypotheses_file_paths = util.get_file_list(args.hypotheses_path, suffix='.json', sort=True)
 
     for hypotheses_file_path in hypotheses_file_paths:
-        json_hypotheses = util.read_json_file(hypotheses_file_path, 'hypotheses')
-        hypothesis_collection = AidaHypothesisCollection.from_json(json_hypotheses, json_graph)
+        hypotheses_json = util.read_json_file(hypotheses_file_path, 'hypotheses')
+        hypothesis_collection = AidaHypothesisCollection.from_json(hypotheses_json, json_graph)
 
         hypothesis_collection.expand()
 
@@ -48,19 +48,19 @@ def main():
         filtered_hypothesis_collection = AidaHypothesisCollection(
             [hypothesis_filter.filtered(hypothesis) for hypothesis in hypothesis_collection])
 
-        filtered_json_hypotheses = filtered_hypothesis_collection.to_json()
+        filtered_hypotheses_json = filtered_hypothesis_collection.to_json()
 
         # add graph filename and queries, if they were there before
-        if 'graph' in json_hypotheses:
-            filtered_json_hypotheses['graph'] = json_hypotheses['graph']
-        if "queries" in json_hypotheses:
-            filtered_json_hypotheses['queries'] = json_hypotheses['queries']
+        if 'graph' in hypotheses_json:
+            filtered_hypotheses_json['graph'] = hypotheses_json['graph']
+        if "queries" in hypotheses_json:
+            filtered_hypotheses_json['queries'] = hypotheses_json['queries']
 
         output_path = output_dir / hypotheses_file_path.name
         logging.info('Writing filtered hypotheses to {} ...'.format(output_path))
 
         with open(str(output_path), 'w') as fout:
-            json.dump(filtered_json_hypotheses, fout, indent=1)
+            json.dump(filtered_hypotheses_json, fout, indent=1)
 
 
 if __name__ == '__main__':
