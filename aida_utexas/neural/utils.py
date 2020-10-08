@@ -101,7 +101,7 @@ def multi_correct_nll_loss(predictions, trues, device=torch.device("cpu")):
 
     for prediction, true in zip(predictions, trues):
         masked_log_probability = torch.mul(prediction, true)
-        log_probabilities = masked_log_probability[torch.where(masked_log_probability != 0)[0].squeeze()]#masked_log_probability[masked_log_probability.nonzero().squeeze()]
+        log_probabilities = masked_log_probability[torch.where(masked_log_probability != 0)[0].squeeze()] # masked_log_probability[masked_log_probability.nonzero().squeeze()]
         if len(log_probabilities.shape) == 0:
             log_probabilities = log_probabilities.unsqueeze(0)
         log_sum_probability = (-1 * torch.logsumexp(log_probabilities, dim=0)).unsqueeze(0)
@@ -140,9 +140,9 @@ def next_state(batch, selected_indices, evaluate):
     for iter, set_diff in enumerate(set_diffs):
         if set_diff:
             for ere_iter in set_diff:
-                stmt_neighs = torch.cat((torch.nonzero(batch[iter]['adj_head'][ere_iter]),
-                                         torch.nonzero(batch[iter]['adj_tail'][ere_iter]),
-                                         torch.nonzero(batch[iter]['adj_type'][ere_iter])), dim=0).reshape((-1))
+                stmt_neighs = torch.cat((torch.nonzero(batch[iter]['adj_head'][ere_iter], as_tuple=False),
+                                         torch.nonzero(batch[iter]['adj_tail'][ere_iter], as_tuple=False),
+                                         torch.nonzero(batch[iter]['adj_type'][ere_iter], as_tuple=False)), dim=0).reshape((-1))
                 stmt_neighs = [stmt_neigh for stmt_neigh in stmt_neighs[stmt_neighs != sel_vals[iter]].tolist() if
                                stmt_neigh not in batch[iter]['candidates']]
                 batch[iter]['candidates'] += stmt_neighs
@@ -158,3 +158,54 @@ def get_stmt_ids(gcn_info, predicted_ids):
     for predicted_id in predicted_ids:
         stmt_ids += gcn_info[predicted_id]["Stmts"]
     return list(set(stmt_ids))
+
+
+def select_valid_hypothesis(batch, prediction):
+    """Select the index of the highest-scoring valid candidate stmt"""
+    graph_mix = batch[0]['graph_mix']
+    # get the indices that sort the prediction tensor
+    sorted_pred_indices = torch.argsort(prediction[0], descending=True)
+    query_stmts = {batch[0]['stmt_mat_ind'].get_word(item) for item in batch[0]['query_stmts']}
+
+    # Test stmts one after another for their validity
+    for index in sorted_pred_indices:
+        cand_stmt = graph_mix.stmts[batch[0]['stmt_mat_ind'].get_word(batch[0]['candidates'][index])]
+        query_stmts_arguments = {(stmt.raw_label, stmt.head_id, stmt.tail_id) for stmt in [graph_mix.stmts[item] for item in query_stmts]}
+        # Remove stmts that agree in stmt type and in the IDs of all arguments
+        if (cand_stmt.raw_label, cand_stmt.head_id, cand_stmt.tail_id) in query_stmts_arguments:
+            continue
+        # A person is not supposed to die twice
+        if cand_stmt.raw_label == 'Life.Die_Victim' and cand_stmt.tail_id in [stmt.tail_id for stmt in [graph_mix.stmts[item] for item in query_stmts] if stmt.raw_label == 'Life.Die_Victim']:
+            continue
+        # If the stmt is valid, just return its index
+        # Since we already sorted the prediction tensor, the score of the stmt is highest among all valid candidate stmts 
+        return index
+    # If all stmts are invalid, just return the first index (in general this case shouldn't happen)
+    return sorted_pred_indices[0]
+
+
+def remove_duplicate_events(batch):
+    """Remove events that agree in event type and in the IDs of all arguments"""
+    graph_mix = batch[0]['graph_mix']
+    query_stmts = {batch[0]['stmt_mat_ind'].get_word(item) for item in batch[0]['query_stmts']}
+    query_eres = {batch[0]['ere_mat_ind'].get_word(item) for item in batch[0]['query_eres']}
+    tups = set()
+    # For all query ERE objects that are classified as an "Event"/"Relation"
+    for ere in [graph_mix.eres[item] for item in query_eres if graph_mix.eres[item].category in ['Event', 'Relation']]:
+        # Determine the set of all event typing labels (as determined by the labels of all surrounding non-typing statements); with our synthetic data, we should have only one of these,
+        # so we assume it's a singleton set and take the single element
+        # This would be, for example, 'Life.Die'
+        event_type_label = list({graph_mix.stmts[stmt_id].raw_label for stmt_id in ere.stmt_ids if not graph_mix.stmts[stmt_id].tail_id})[0]
+        # Find the set of role/non-typing statements which are attached to the current ERE and appear in the query set
+        ere_query_stmt_ids = set.intersection(query_stmts, {stmt_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].tail_id})
+        role_stmt_tups = set()
+        # Find all non-typing (or "role") statements for the current ERE (a second time); record their label, head ERE, and tail ERE
+        for stmt in [graph_mix.stmts[stmt_id] for stmt_id in ere_query_stmt_ids]:
+            role_stmt_tups.add((stmt.raw_label, stmt.head_id, stmt.tail_id))
+        tup = (event_type_label, frozenset(role_stmt_tups))
+        # Remove any query statements that belong to an offending/duplicate ERE
+        if tup in tups:
+            query_stmts -= ere.stmt_ids
+        else:
+            tups.add(tup)
+    batch[0]['query_stmts'] = np.asarray([batch[0]['stmt_mat_ind'].get_index(item, add=False) for item in query_stmts])

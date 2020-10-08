@@ -70,10 +70,9 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         else:
             _, coherence_out, gcn_embeds = model(graph_dict, gcn_embeds, device)
 
-        # Take a log softmax and identify the index of the highest-scoring candidate stmt
+        # Take a log softmax and identify the index of the highest-scoring valid candidate stmt
         prediction = F.log_softmax(coherence_out, dim=0)
-        predicted_index = prediction.argmax().item()
-
+        predicted_index = select_valid_hypothesis(graph_dict, prediction)
         num_correct += 1 if graph_dict['stmt_class_labels'][predicted_index] == 1 else 0
 
         predictions.append(prediction.reshape(-1))
@@ -93,6 +92,9 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         else:
             next_state(graph_dict, predicted_index)
 
+    # Finish the full inference/extraction sequence, and then remove events that agree in event type and in the IDs of all arguments
+    remove_duplicate_events(graph_dict)
+    
     loss = multi_correct_nll_loss(predictions, trues, device)
 
     if data_group == "Train":
@@ -217,7 +219,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="train",
                         help="Mode to run script in (can be either train or validate)")
-    parser.add_argument("--data_dir", type=str, default="/home/cc/Final_Graphs_Indexed/Final_Graphs_Indexed",
+    parser.add_argument("--data_dir", type=str, default="D:/AIDA/Final_Graphs_Indexed",
                         help="Data directory")
     parser.add_argument("--train_dir", type=str, default="Train",
                         help="Name of subdir under data directory containing training mixtures")
@@ -225,7 +227,7 @@ if __name__ == "__main__":
                         help="Name of subdir under data directory containing validation mixtures")
     parser.add_argument("--test_dir", type=str, default="Test",
                         help="Name of subdir under data directory containing test mixtures")
-    parser.add_argument("--indexer_info_file", type=str, default="/home/cc/Final_Graphs_Indexed/Indexers/indexers.p",
+    parser.add_argument("--indexer_info_file", type=str, default="D:/AIDA/Final_Graphs_Indexed/Indexers/indexers.p",
                         help="Indexer info file (contains word-to-index maps for ERE and statement names, contains top k most frequent Word2Vec embeds in training set)")
     parser.add_argument("--use_highest_ranked_gold", action='store_true',
                         help="During teacher forcing, always provide the model with the target-narrative candidate which was ranked most highly by the model")
@@ -265,7 +267,7 @@ if __name__ == "__main__":
                         help="Weight decay for Adam optimizer")
     parser.add_argument("--learning_rate", type=float, default=1e-5,
                         help="Learning rate")
-    parser.add_argument("--save_path", type=str, default="SavedModels_Test",
+    parser.add_argument("--save_path", type=str, default="D:/aida-utexas/SavedModels_Test",
                         help="Directory to which model/optimizer checkpoints will be saved")
     parser.add_argument("--load_path", type=str, default=None,
                         help="File path for pretrained model/optimizer")

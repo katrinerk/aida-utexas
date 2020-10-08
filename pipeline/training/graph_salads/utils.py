@@ -143,9 +143,9 @@ def next_state(graph_dict, selected_index):
     if set_diff:
         # For each new ERE in the query set, add all surrounding statements (less existing query statements) to the candidate set
         for ere_iter in set_diff:
-            stmt_neighs = torch.cat((torch.nonzero(graph_dict['adj_head'][ere_iter]),
-                                     torch.nonzero(graph_dict['adj_tail'][ere_iter]),
-                                     torch.nonzero(graph_dict['adj_type'][ere_iter])), dim=0).reshape((-1))
+            stmt_neighs = torch.cat((torch.nonzero(torch.from_numpy(graph_dict['adj_head'][ere_iter]), as_tuple=False),
+                                     torch.nonzero(torch.from_numpy(graph_dict['adj_tail'][ere_iter]), as_tuple=False),
+                                     torch.nonzero(torch.from_numpy(graph_dict['adj_type'][ere_iter]), as_tuple=False)), dim=0).reshape((-1))
             stmt_neighs = [stmt_neigh for stmt_neigh in stmt_neighs[stmt_neighs != sel_val].tolist() if stmt_neigh not in graph_dict['candidates']]
             graph_dict['candidates'] += stmt_neighs
 
@@ -153,3 +153,53 @@ def next_state(graph_dict, selected_index):
                                                                          else 0 for stmt_iter in stmt_neighs]
 
     graph_dict['query_eres'] = set.union(graph_dict['query_eres'], set_diff)
+
+def select_valid_hypothesis(graph_dict, prediction):
+    """Select the index of the highest-scoring valid candidate stmt"""
+    graph_mix = graph_dict['graph_mix']
+    # get the indices that sort the prediction tensor
+    sorted_pred_indices = torch.argsort(prediction, descending=True)
+    query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
+
+    # Test stmts one after another for their validity
+    for index in sorted_pred_indices:
+        cand_stmt = graph_mix.stmts[graph_dict['stmt_mat_ind'].get_word(graph_dict['candidates'][index])]
+        query_stmts_arguments = {(stmt.raw_label, stmt.head_id, stmt.tail_id) for stmt in [graph_mix.stmts[item] for item in query_stmts]}
+        # Remove stmts that agree in stmt type and in the IDs of all arguments
+        if (cand_stmt.raw_label, cand_stmt.head_id, cand_stmt.tail_id) in query_stmts_arguments:
+            continue
+        # A person is not supposed to die twice
+        if cand_stmt.raw_label == 'Life.Die_Victim' and cand_stmt.tail_id in [stmt.tail_id for stmt in [graph_mix.stmts[item] for item in query_stmts] if stmt.raw_label == 'Life.Die_Victim']:
+            continue
+        # If the stmt is valid, just return its index
+        # Since we already sorted the prediction tensor, the score of the stmt is highest among all valid candidate stmts 
+        return index
+    # If all stmts are invalid, just return the first index (in general this case shouldn't happen)
+    return sorted_pred_indices[0]
+
+def remove_duplicate_events(graph_dict):
+    """Remove events that agree in event type and in the IDs of all arguments"""
+    graph_mix = graph_dict['graph_mix']
+    query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
+    query_eres = {graph_dict['ere_mat_ind'].get_word(item) for item in graph_dict['query_eres']}
+    tups = set()
+    # For all query ERE objects that are classified as an "Event"/"Relation"
+    for ere in [graph_mix.eres[item] for item in query_eres if graph_mix.eres[item].category in ['Event', 'Relation']]:
+        # Determine the set of all event typing labels (as determined by the labels of all surrounding non-typing statements); with our synthetic data, we should have only one of these,
+        # so we assume it's a singleton set and take the single element
+        # This would be, for example, 'Life.Die'
+        event_type_label = list({graph_mix.stmts[stmt_id].raw_label for stmt_id in ere.stmt_ids if not graph_mix.stmts[stmt_id].tail_id})[0]
+        # Find the set of role/non-typing statements which are attached to the current ERE and appear in the query set
+        ere_query_stmt_ids = set.intersection(query_stmts, {stmt_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].tail_id})
+        role_stmt_tups = set()
+        # Find all non-typing (or "role") statements for the current ERE (a second time); record their label, head ERE, and tail ERE
+        for stmt in [graph_mix.stmts[stmt_id] for stmt_id in ere_query_stmt_ids]:
+            role_stmt_tups.add((stmt.raw_label, stmt.head_id, stmt.tail_id))
+        tup = (event_type_label, frozenset(role_stmt_tups))
+        # Remove any query statements that belong to an offending/duplicate ERE
+        if tup in tups:
+            query_stmts -= ere.stmt_ids
+        else:
+            tups.add(tup)
+    graph_dict['query_stmts'] = np.asarray([graph_dict['stmt_mat_ind'].get_index(item, add=False) for item in query_stmts])
+    

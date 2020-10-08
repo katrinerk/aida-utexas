@@ -62,7 +62,7 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
                 else:
                     prediction, gcn_embeds = model(batch, padded_batch_mats, gcn_embeds, device)
 
-                predicted_index = prediction.argmax().item()
+                predicted_index = select_valid_hypothesis(batch, prediction)
                 predicted_stmt_id = batch[0]['candidates'][predicted_index]
                 add_stmts.append((batch[0]['stmt_mat_ind'].get_word(predicted_stmt_id)).split(batch[0]['graph_mix'].graph_id + '_')[-1])
 
@@ -71,6 +71,8 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
                 i += 1
 
                 next_state(batch, [predicted_index], True)
+
+            remove_duplicate_events(batch)
 
             seed_json['support'][idx]['statements'] += add_stmts
             seed_json['support'][idx]['statementWeights'] += add_weights
