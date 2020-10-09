@@ -28,14 +28,27 @@ def powerset(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
 
 def gen_neg_samples(g0, g1, g2):
-    # g1g2 = list(powerset(set.union(g1,g2)))
-    # g2g0 = list(powerset(set.union(g2,g0)))
-    # g0g1 = list(powerset(set.union(g0,g1)))
-
     g1g2 = list(powerset(g1 + g2))
     g2g0 = list(powerset(g2 + g0))
     g0g1 = list(powerset(g0 + g1))
     neg_samples = [g0 + list(i) for i in g1g2] + [g1 + list(i) for i in g2g0] + [g2 + list(i) for i in g0g1]
+    return neg_samples
+
+def gen_1_neg_sample(g0, g1, g2):
+    while True:
+        n_g0 = rd.randint(0, len(g0))
+        n_g1 = rd.randint(0, len(g1))
+        n_g2 = rd.randint(0, len(g2))
+        if sum([n_g0, n_g1, n_g2]) != n_g0 and sum([n_g0, n_g1, n_g2]) != n_g1 and sum([n_g0, n_g1, n_g2]) != n_g2:
+            break
+    neg_sample = rd.sample(g0, n_g0) + rd.sample(g1, n_g1) + rd.sample(g2, n_g2)
+    return neg_sample
+
+def gen_neg_samples_faster(g0, g1, g2):
+    neg_samples = []
+    neg_samples.append(gen_1_neg_sample(g0, g1, g2))
+    neg_samples.append(gen_1_neg_sample(g0, g1, g2))
+    neg_samples.append(gen_1_neg_sample(g0, g1, g2))
     return neg_samples
 
 def get_stmt_between_eres(graph_mix, ere1, ere2):
@@ -56,8 +69,11 @@ salad_fname_list = os.listdir(input_dir)
 
 # Loop over all graph salads
 for salad_fname in tqdm(salad_fname_list):
+    # salad_fname = input_path
+
     # Load graph salad
-    graph_dict = dill.load(open("5k_Graph_Salads/" + salad_fname, 'rb'))
+    # graph_dict = dill.load(open("5k_Graph_Salads/" + salad_fname, 'rb'))
+    graph_dict = dill.load(open(os.path.join(input_dir, salad_fname), 'rb'))
     graph_mix = graph_dict['graph_mix']
 
     # Graph ids (of three subgraphs)
@@ -122,17 +138,14 @@ for salad_fname in tqdm(salad_fname_list):
                 pos_samples_list.append(neigh_gx)
         pos_samples[merge_m] = pos_samples_list
 
-        # Generate a pool of all possible negative samples using the existing neighbors from different sources
-        neg_samples_full = gen_neg_samples(neigh_g0, neigh_g1, neigh_g2)
-
-        # Randomly sample out three negative samples from the pool
-        neg_samples[merge_m] = rd.sample(neg_samples_full, 3)
+        # Generate negative samples using the existing neighbors from different sources
+        neg_samples[merge_m] = gen_neg_samples_faster(neigh_g0, neigh_g1, neigh_g2)
 
     graph_dict["pos_samples"] = pos_samples
     graph_dict["neg_samples"] = neg_samples
 
     # Save pickled graph
-    dill.dump(graph_dict, open(os.path.join(output_dir, "ps_" + salad_fname), "wb"))
+    dill.dump(graph_dict, open(os.path.join(output_dir, salad_fname), "wb"))
 
 
 # # --------------------------------------------------------------------------------------------------------------
