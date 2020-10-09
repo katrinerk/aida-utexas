@@ -11,6 +11,7 @@ import dill
 import numpy as np
 import random
 import os
+import re
 import torch
 
 # Get the set of candidate stmts available for evaluation at the current time step;
@@ -161,19 +162,42 @@ def select_valid_hypothesis(graph_dict, prediction):
     sorted_pred_indices = torch.argsort(prediction, descending=True)
     query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
 
+    # Find all event EREs with 'Attacker' statements in the query set
+    query_events_w_atk = {graph_mix.stmts[stmt_id].head_id for stmt_id in query_stmts if '_Attacker' in graph_mix.stmts[stmt_id].raw_label}
+    # Find all event EREs with 'Target' statements in the query set
+    query_events_w_trg = {graph_mix.stmts[stmt_id].head_id for stmt_id in query_stmts if '_Target' in graph_mix.stmts[stmt_id].raw_label}
+
+    query_stmt_tups = {(stmt.raw_label, stmt.head_id, stmt.tail_id) for stmt in [graph_mix.stmts[item] for item in query_stmts if graph_mix.stmts[item].tail_id]}
+    die_victim_list = {stmt.tail_id for stmt in [graph_mix.stmts[item] for item in query_stmts if graph_mix.stmts[item].tail_id] if 'Die_Victim' in stmt.raw_label}
+
+    # Account for EREs which have both 'Attacker' and 'Target' statements in the query set
+    need_atk_set = query_events_w_trg - query_events_w_atk
+    need_trg_set = query_events_w_atk - query_events_w_trg
+
+    # Filter out EREs which have no 'Attacker' or 'Target' statements in the graph salad
+    need_atk_set = {ere_id for ere_id in need_atk_set if ('_Attacker' in '.'.join([graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]))}
+    need_trg_set = {ere_id for ere_id in need_trg_set if ('_Target' in '.'.join([graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]))}
+
     # Test stmts one after another for their validity
     for index in sorted_pred_indices:
-        cand_stmt = graph_mix.stmts[graph_dict['stmt_mat_ind'].get_word(graph_dict['candidates'][index])]
-        query_stmts_arguments = {(stmt.raw_label, stmt.head_id, stmt.tail_id) for stmt in [graph_mix.stmts[item] for item in query_stmts]}
-        # Remove stmts that agree in stmt type and in the IDs of all arguments
-        if (cand_stmt.raw_label, cand_stmt.head_id, cand_stmt.tail_id) in query_stmts_arguments:
-            continue
-        # A person is not supposed to die twice
-        if cand_stmt.raw_label == 'Life.Die_Victim' and cand_stmt.tail_id in [stmt.tail_id for stmt in [graph_mix.stmts[item] for item in query_stmts] if stmt.raw_label == 'Life.Die_Victim']:
-            continue
-        # If the stmt is valid, just return its index
-        # Since we already sorted the prediction tensor, the score of the stmt is highest among all valid candidate stmts 
-        return index
+        cand_stmt_id = graph_dict['stmt_mat_ind'].get_word(graph_dict['candidates'][index])
+        cand_stmt = graph_mix.stmts[cand_stmt_id]
+
+        # If either need_atk_set or need_trg_set are non-empty, we know there is a candidate statement which is guaranteed to pass the two tests in the "else" branch
+        if need_atk_set or need_trg_set:
+            if cand_stmt.head_id in need_atk_set and '_Attacker' in cand_stmt.raw_label:
+                return index
+            elif cand_stmt.head_id in need_trg_set and '_Target' in cand_stmt.raw_label:
+                return index
+            else:
+                # If either need_atk_set or need_trg_set are non-empty, we know there is a candidate statement which is guaranteed to pass the below two tests
+                continue
+        else:
+            if (cand_stmt.raw_label, cand_stmt.head_id, cand_stmt.tail_id) in query_stmt_tups:
+                continue
+            if 'Die_Victim' in cand_stmt.raw_label and cand_stmt.tail_id in die_victim_list:
+                continue
+            return index
     # If all stmts are invalid, just return the first index (in general this case shouldn't happen)
     return sorted_pred_indices[0]
 
