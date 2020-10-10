@@ -39,8 +39,14 @@ def gen_1_neg_sample(g0, g1, g2):
         n_g0 = rd.randint(0, len(g0))
         n_g1 = rd.randint(0, len(g1))
         n_g2 = rd.randint(0, len(g2))
-        if sum([n_g0, n_g1, n_g2]) != n_g0 and sum([n_g0, n_g1, n_g2]) != n_g1 and sum([n_g0, n_g1, n_g2]) != n_g2:
+
+        if (n_g0 == 0 and n_g1*n_g2 == 0) or (n_g1 == 0 and n_g2*n_g0 == 0) or (n_g2 == 0 and n_g1*n_g0 == 0):
+            print('lens:', len(g0), len(g1), len(g2))
+            print('n_gx:', n_g0, n_g1, n_g2)
+            continue
+        else:
             break
+
     neg_sample = rd.sample(g0, n_g0) + rd.sample(g1, n_g1) + rd.sample(g2, n_g2)
     return neg_sample
 
@@ -69,10 +75,9 @@ salad_fname_list = os.listdir(input_dir)
 
 # Loop over all graph salads
 for salad_fname in tqdm(salad_fname_list):
-    # salad_fname = input_path
+    print('Input: {}'.format(salad_fname))
 
     # Load graph salad
-    # graph_dict = dill.load(open("5k_Graph_Salads/" + salad_fname, 'rb'))
     graph_dict = dill.load(open(os.path.join(input_dir, salad_fname), 'rb'))
     graph_mix = graph_dict['graph_mix']
 
@@ -93,7 +98,6 @@ for salad_fname in tqdm(salad_fname_list):
 
     for m in range(len(merge_ere_ids)):  # loop over merge points
         merge_m = merge_ere_ids[m]
-        # print("\nMerge point: {} ({})".format(graph_mix.eres[merge_m].label[0], graph_mix.eres[merge_m].category))
         merge_m_neigh = graph_mix.eres[merge_m].neighbor_ere_ids
 
         # Initialize neighbor sets of each source graph
@@ -108,15 +112,6 @@ for salad_fname in tqdm(salad_fname_list):
             stmt_between = get_stmt_between_eres(graph_mix, merge_m, neighbor_n)
             src_graph_stmt = graph_ids_dict[graph_mix.stmts[stmt_between].graph_id]
 
-            # if src_graph != src_graph_stmt:
-            #     print('****** Mismatch ******')
-            #     print('ERE source: {} (Neighbor ERE: {}, Merge ERE: {})'.format(src_graph, neighbor_n, merge_m))
-            #     print('STMT source: {} (STMT: {})'.format(src_graph_stmt, stmt_between))
-            #
-            # print("Graph # {}".format(src_graph_stmt))
-            # print("Statement: {}".format(graph_mix.stmts[stmt_between].raw_label))
-            # print("Neighbor: {}".format(graph_mix.eres[neighbor_n].label[0]))
-
             # Classify the neighboring statement by source graph
             if src_graph_stmt == 0:
                 neigh_g0.add(stmt_between)
@@ -130,22 +125,29 @@ for salad_fname in tqdm(salad_fname_list):
         neigh_g1 = list(neigh_g1)
         neigh_g2 = list(neigh_g2)
 
+        print('Ready to generate samples!')
+
         # Generate three positive samples
-        # Do not use merge point with only one argument from a source
         pos_samples_list = []
         for neigh_gx in [neigh_g0, neigh_g1, neigh_g2]:
-            if len(neigh_gx) > 1:
+            if len(neigh_gx) > 1: # Do not use merge point with only one argument from a source
                 pos_samples_list.append(neigh_gx)
         pos_samples[merge_m] = pos_samples_list
 
+        print('Positive finished')
+
         # Generate negative samples using the existing neighbors from different sources
         neg_samples[merge_m] = gen_neg_samples_faster(neigh_g0, neigh_g1, neigh_g2)
+        print('Negative finished')
 
     graph_dict["pos_samples"] = pos_samples
     graph_dict["neg_samples"] = neg_samples
 
     # Save pickled graph
     dill.dump(graph_dict, open(os.path.join(output_dir, salad_fname), "wb"))
+
+    # Save memory by deleting variables
+    del graph_dict, graph_mix, graph_ids, graph_ids_dict, merge_ere_ids, pos_samples, neg_samples, neighbor_n, neigh_g0, neigh_g1, neigh_g2
 
 
 # # --------------------------------------------------------------------------------------------------------------
