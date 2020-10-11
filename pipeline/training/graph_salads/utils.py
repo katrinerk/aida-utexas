@@ -166,38 +166,60 @@ def select_valid_hypothesis(graph_dict, prediction):
     query_events_w_atk = {graph_mix.stmts[stmt_id].head_id for stmt_id in query_stmts if '_Attacker' in graph_mix.stmts[stmt_id].raw_label}
     # Find all event EREs with 'Target' statements in the query set
     query_events_w_trg = {graph_mix.stmts[stmt_id].head_id for stmt_id in query_stmts if '_Target' in graph_mix.stmts[stmt_id].raw_label}
+    
+    # Find all event EREs with 'Killer' statements in the query set
+    query_events_w_kle = {graph_mix.stmts[stmt_id].head_id for stmt_id in query_stmts if '_Killer' in graph_mix.stmts[stmt_id].raw_label}
+    # Find all event EREs with 'Life.Die' and '_Victim' statements in the query set
+    query_events_w_vct = {graph_mix.stmts[stmt_id].head_id for stmt_id in query_stmts if all(x in graph_mix.stmts[stmt_id].raw_label for x in ['Life.Die', '_Victim'])}
 
     query_stmt_tups = {(stmt.raw_label, stmt.head_id, stmt.tail_id) for stmt in [graph_mix.stmts[item] for item in query_stmts if graph_mix.stmts[item].tail_id]}
-    die_victim_list = {stmt.tail_id for stmt in [graph_mix.stmts[item] for item in query_stmts if graph_mix.stmts[item].tail_id] if 'Die_Victim' in stmt.raw_label}
+    die_victim_list = {stmt.tail_id for stmt in [graph_mix.stmts[item] for item in query_stmts if graph_mix.stmts[item].tail_id] if all(x in stmt.raw_label for x in ['Life.Die', '_Victim'])}
 
     # Account for EREs which have both 'Attacker' and 'Target' statements in the query set
     need_atk_set = query_events_w_trg - query_events_w_atk
     need_trg_set = query_events_w_atk - query_events_w_trg
 
+    # Account for EREs which have both 'Die_Killer' and 'Life.Die'/'_Victim' statements in the query set
+    need_kle_set = query_events_w_vct - query_events_w_kle
+    need_vct_set = query_events_w_kle - query_events_w_vct
+
     # Filter out EREs which have no 'Attacker' or 'Target' statements in the graph salad
     need_atk_set = {ere_id for ere_id in need_atk_set if ('_Attacker' in '.'.join([graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]))}
     need_trg_set = {ere_id for ere_id in need_trg_set if ('_Target' in '.'.join([graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]))}
+
+    # Filter out EREs which have no 'Killer' or 'Life.Die'/'_Victim' statements in the graph salad
+    need_kle_set = {ere_id for ere_id in need_atk_set if ('_Killer' in '.'.join([graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]))}
+    need_vct_set = {ere_id for ere_id in need_trg_set if (all(x in '.'.join([graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]) for x in ['Life.Die', '_Victim']))}
 
     # Test stmts one after another for their validity
     for index in sorted_pred_indices:
         cand_stmt_id = graph_dict['stmt_mat_ind'].get_word(graph_dict['candidates'][index])
         cand_stmt = graph_mix.stmts[cand_stmt_id]
 
-        # If either need_atk_set or need_trg_set are non-empty, we know there is a candidate statement which is guaranteed to pass the two tests in the "else" branch
-        if need_atk_set or need_trg_set:
-            if cand_stmt.head_id in need_atk_set and '_Attacker' in cand_stmt.raw_label:
-                return index
-            elif cand_stmt.head_id in need_trg_set and '_Target' in cand_stmt.raw_label:
-                return index
-            else:
-                # If either need_atk_set or need_trg_set are non-empty, we know there is a candidate statement which is guaranteed to pass the below two tests
-                continue
+        # If at least one 'need_set' is non-empty, we know there is a candidate statement which is guaranteed to pass the two tests in the "else" branch
+        if any([need_atk_set, need_trg_set, need_kle_set, need_vct_set]):
+            if need_atk_set or need_trg_set:
+                if cand_stmt.head_id in need_atk_set and '_Attacker' in cand_stmt.raw_label:
+                    return index
+                elif cand_stmt.head_id in need_trg_set and '_Target' in cand_stmt.raw_label:
+                    return index
+                else:
+                    continue
+            elif need_kle_set or need_vct_set:
+                if cand_stmt.head_id in need_kle_set and 'Killer' in cand_stmt.raw_label:
+                    return index
+                elif cand_stmt.head_id in need_vct_set and all(x in cand_stmt.raw_label for x in ['Life.Die', '_Victim']):
+                    if cand_stmt.tail_id not in die_victim_list:
+                        return index
+                else:
+                    continue                
         else:
             if (cand_stmt.raw_label, cand_stmt.head_id, cand_stmt.tail_id) in query_stmt_tups:
                 continue
-            if 'Die_Victim' in cand_stmt.raw_label and cand_stmt.tail_id in die_victim_list:
+            if all(x in cand_stmt.raw_label for x in ['Life.Die', '_Victim']) and cand_stmt.tail_id in die_victim_list:
                 continue
             return index
+
     # If all stmts are invalid, just return the first index (in general this case shouldn't happen)
     return sorted_pred_indices[0]
 
