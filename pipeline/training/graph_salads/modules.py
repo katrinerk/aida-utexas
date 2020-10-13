@@ -163,9 +163,8 @@ class CoherenceNetWithGCN(nn.Module):
         self.attention_type = attention_type
 
         if plaus:
-            #TO-DO
-            pass
-            #
+            self.linear_plaus = nn.Linear((hidden_size * 2), 1)
+            torch.nn.init.xavier_uniform_(self.linear_plaus.weight)
 
         # Only needed if num_layers >= 3
         if self.num_layers >= 3:
@@ -223,9 +222,9 @@ class CoherenceNetWithGCN(nn.Module):
 
     # Runs a graph salad through the GCN network
     def gcn(self, graph_dict, gcn_embeds, device):
-        adj_head = torch.from_numpy(graph_dict['adj_head']).to(dtype=torch.float, device=device)
-        adj_tail = torch.from_numpy(graph_dict['adj_tail']).to(dtype=torch.float, device=device)
-        adj_type = torch.from_numpy(graph_dict['adj_type']).to(dtype=torch.float, device=device)
+        adj_head = graph_dict['adj_head'].to(dtype=torch.float, device=device)
+        adj_tail = graph_dict['adj_tail'].to(dtype=torch.float, device=device)
+        adj_type = graph_dict['adj_type'].to(dtype=torch.float, device=device)
         ere_labels = graph_dict['ere_labels']
         stmt_labels = graph_dict['stmt_labels']
 
@@ -305,9 +304,14 @@ class CoherenceNetWithGCN(nn.Module):
             self_att_vectors_stmts = self.coherence_attention.get_attention_vectors(stmt_attendees, None, stmt_attendees)
             self_att_vectors_eres = self.coherence_attention.get_attention_vectors(ere_attendees, None, ere_attendees)
 
-            #TO-DO
-            return torch.tensor([5.0], requires_grad=True).to(device=device), gcn_embeds
-            #
+            stmts_vector = torch.mean(self_att_vectors_stmts, dim=0)
+            eres_vector = torch.mean(self_att_vectors_eres, dim=0)
+
+            final_vector = torch.cat([stmts_vector, eres_vector], dim=0)
+
+            plaus_out = self.linear_plaus(final_vector)
+
+            return plaus_out, gcn_embeds
         else:
             stmt_attendees = gcn_embeds['stmts'][graph_dict['query_stmts']]
             ere_attendees = gcn_embeds['eres'][list(graph_dict['query_eres'])]

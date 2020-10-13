@@ -55,11 +55,18 @@ class DataIterator:
 
         graph_dict = dill.load(open(self.file_paths[self.cursor], "rb"))
 
-        #TO-DO
-        graph_dict['plaus_clusters'] = [[0, 1, 2], [5, 79, 282]]
-        #
+        pos_samples = [item for sublist in graph_dict['pos_samples'].values() for item in sublist]
+        neg_samples = [item for sublist in graph_dict['neg_samples'].values() for item in sublist]
 
-        plaus_clusters = graph_dict['plaus_clusters']
+        for iter in range(len(pos_samples)):
+            for sub_iter in range(len(pos_samples[iter])):
+                pos_samples[iter][sub_iter] = graph_dict['stmt_mat_ind'].get_index(pos_samples[iter][sub_iter], add=False)
+
+        for iter in range(len(neg_samples)):
+            for sub_iter in range(len(neg_samples[iter])):
+                neg_samples[iter][sub_iter] = graph_dict['stmt_mat_ind'].get_index(neg_samples[iter][sub_iter], add=False)
+
+        plaus_clusters = pos_samples + neg_samples
 
         cluster_labels = []
         graph_mix = graph_dict['graph_mix']
@@ -123,7 +130,7 @@ def run_classifier(model, optimizer, graph_dict, loss_func, data_group, back_pro
 
         predictions.append(prediction)
         actual_classes.append(actual_class)
-    print(predictions, actual_classes)
+
     loss = loss_func(torch.cat(predictions, dim=0), torch.cat(actual_classes, dim=0))
 
     if data_group == "Train":
@@ -197,7 +204,7 @@ def train(batch_size, weight_decay, train_path, valid_path, test_path, indexer_i
                     print('New best val checkpoint at step ' + str(step) + ' of epoch ' + str(current_epoch + 1))
 
                 model.train()
-
+            print(step)
         current_epoch += 1
 
     # Run the model on the test set
