@@ -73,7 +73,7 @@ while i < len(graph_ids):
 
 elements = []
 
-color_list = ['black', 'blue', 'orange', 'brown', '#0DC99A', '#8D0DC9', 'grey']
+color_list = ['black', 'blue', 'orange', '#F705D3', '#0DC99A', '#8D0DC9', 'grey']
 
 for ere_id in graph_mix.eres.keys():
     ere = graph_mix.eres[ere_id]
@@ -339,4 +339,4 @@ def generate_stylesheet(data_edge, data_node_hover, data_node_tap):
     return stylesheet
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8080)
+    app.run_server(debug=True, port=8090)
