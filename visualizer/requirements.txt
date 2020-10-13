@@ -1,3 +1,0 @@
-dill
-dash
-dash-cytoscape
