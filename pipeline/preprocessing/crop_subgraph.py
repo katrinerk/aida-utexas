@@ -113,7 +113,8 @@ def nodes_to_subgraph(graph, nodes_dict):
     return subgraph
 
 
-def extract_subgraph(index, graph, statements, num_hops=2, verbose=False):
+def extract_subgraph(index, graph, statements, max_num_hops, min_num_eres, min_num_stmts,
+                     verbose=False):
     nodes_so_far = {
         'stmts': set(),
         'general_stmts': set(),
@@ -130,7 +131,13 @@ def extract_subgraph(index, graph, statements, num_hops=2, verbose=False):
         graph=graph, hop_idx=0, this_hop_stmts=zero_hop_stmts,
         nodes_so_far=nodes_so_far, verbose=verbose)
 
-    for hop_idx in range(1, num_hops + 1):
+    num_hops = 1
+    while True:
+        if max_num_hops is not None and num_hops >= max_num_hops:
+            break
+
+        num_hops += 1
+
         this_hop_stmts = set()
 
         for ere_label in last_hop_eres:
@@ -141,8 +148,17 @@ def extract_subgraph(index, graph, statements, num_hops=2, verbose=False):
                     this_hop_stmts.add(stmt_label)
 
         last_hop_eres = stmts_to_eres(
-            graph=graph, hop_idx=hop_idx, this_hop_stmts=this_hop_stmts,
+            graph=graph, hop_idx=num_hops, this_hop_stmts=this_hop_stmts,
             nodes_so_far=nodes_so_far, verbose=verbose)
+
+        if min_num_eres is not None or min_num_stmts is not None:
+            stop = True
+            if min_num_eres is not None and len(nodes_so_far['eres']) < min_num_eres:
+                stop = False
+            if min_num_stmts is not None and len(nodes_so_far['stmts']) < min_num_stmts:
+                stop = False
+            if stop:
+                break
 
     extra_typing_stmts = set()
     for ere_label in last_hop_eres:
@@ -179,11 +195,15 @@ def main():
     parser.add_argument('graph_file', help='path to the graph json file')
     parser.add_argument('seed_file', help='path to the hypothesis seed file')
     parser.add_argument('output_dir', help='path to the output directory')
-    parser.add_argument('--num_hops', '-n', type=int, default=2,
-                        help='number of hops to extend from')
+    parser.add_argument('--max_num_hops', type=int, default=None,
+                        help='maximum number of hops to extend from')
+    parser.add_argument('--min_num_eres', type=int, default=None,
+                        help='minimum number of EREs in the subgraph to stop extending')
+    parser.add_argument('--min_num_stmts', type=int, default=None,
+                        help='minimum number of statements in the subgraph to stop extending')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='print more details in each hop of extraction')
-    parser.add_argument('-f', '--force', action='store_true', default=False,
+    parser.add_argument('--force', '-f', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
 
     args = parser.parse_args()
@@ -193,13 +213,23 @@ def main():
     graph_json = util.read_json_file(args.graph_file, 'JSON graph')
     seed_json = util.read_json_file(args.seed_file, 'hypothesis seeds')
 
+    max_num_hops = args.max_num_hops
+    min_num_eres = args.min_num_eres
+    min_num_stmts = args.min_num_stmts
+
+    if not (max_num_hops or min_num_eres or min_num_stmts):
+        raise RuntimeError('Must specify at least one of "max_num_hops", "min_num_eres", and '
+                           '"min_num_stmts"')
+
     for hypothesis_idx, (prob, hypothesis) in enumerate(
             zip(seed_json['probs'], seed_json['support'])):
         subgraph = extract_subgraph(
             index=hypothesis_idx,
             graph=graph_json,
             statements=hypothesis['statements'],
-            num_hops=args.num_hops,
+            max_num_hops=max_num_hops,
+            min_num_eres=min_num_eres,
+            min_num_stmts=min_num_stmts,
             verbose=args.verbose
         )
         output_path = output_dir / f'subgraph_{hypothesis_idx}.json'

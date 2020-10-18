@@ -8,7 +8,9 @@ print_usage() {
     printf "* <INPUT_RUN_NAME>: the RUN_NAME of a TA2 KB as the input, i.e., LDC_2.LDC_2\n"
     printf "* <RUN_NAME>: the name of our run, which will be appended to <input_run_name> to get the output RUN_NAME, i.e., UTexas_1\n"
     printf "* --num_hyps <NUM_HYPS>: number of hypotheses to produce for each SIN, default = 50\n"
-    printf "* --num_hops <NUM_HOPS>: number of hops to expand from a cluster seed to extract a subgraph, default = 2\n"
+    printf "* --max_num_hops <MAX_NUM_HOPS>: maximum number of hops to expand from a cluster seed to extract a subgraph, default = 5\n"
+    printf "* --min_num_eres <MIN_NUM_ERES>: minimum number of EREs to  stop subgraph expansion, default = 100\n"
+    printf "* --min_num_stmts <MIN_NUM_STMTS>: minimum number of statements to stop subgraph expansion, default = 200\n"
     printf "* --coref_compress: when specified, first compress ERE coreference on the input TA2 KB\n"
     printf "* --device: which CUDA device to use for the neural module, default = -1 (CPU)\n"
     printf "* --sin_id_prefix: the prefix of SIN IDs to use in naming the final hypotheses, default = AIDA_M18_TA3\n"
@@ -27,7 +29,9 @@ parse_args() {
     shift
 
     num_hyps=50
-    num_hops=2
+    max_num_hops=5
+    min_num_eres=100
+    min_num_stmts=200
     do_coref_compression=false
     device=-1
     sin_id_prefix="AIDA_M36_TA3"
@@ -39,9 +43,17 @@ parse_args() {
             shift
             num_hyps=$1
             ;;
-        --num_hops)
+        --max_num_hops)
             shift
-            num_hops=$1
+            max_num_hops=$1
+            ;;
+        --min_num_eres)
+            shift
+            min_num_eres=$1
+            ;;
+        --min_num_stmts)
+            shift
+            min_num_stmts=$1
             ;;
         --coref_compress)
             do_coref_compression=true
@@ -109,7 +121,9 @@ print_args() {
 
     printf "\nOptional parameters:\n"
     printf "+ Number of hypotheses per SIN: %s\n" "$num_hyps"
-    printf "+ Number of hops to extract subgraphs: %s\n" "$num_hops"
+    printf "+ Maximum number of hops to extract subgraphs: %s\n" "$max_num_hops"
+    printf "+ Minimum number of EREs to stop subgraph expansion: %s\n" "$min_num_eres"
+    printf "+ Minimum number of statements to stop subgraph expansion: %s\n" "$min_num_stmts"
     printf "+ Do coref compression?: %s\n" "$do_coref_compression"
     printf "+ Device for neural module: %s\n" "$device"
     printf "+ Prefix of SIN IDs: %s\n" "$sin_id_prefix"
@@ -175,7 +189,9 @@ for seed_file in "${working_dir}"/cluster_seeds/*.json; do
         "${working_dir}/${graph_name}" \
         "${seed_file}" \
         "${working_dir}/subgraph/${seed_name}"/ \
-        -n "${num_hops}" \
+        --max_num_hops "${max_num_hops}" \
+        --min_num_eres "${min_num_eres}" \
+        --min_num_stmts "${min_num_stmts}" \
         $optional_args
 done
 
