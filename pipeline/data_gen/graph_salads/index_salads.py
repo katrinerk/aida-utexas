@@ -27,7 +27,7 @@ def get_tokens(train_path, word2vec_model, return_freq_cut_set):
     train_list = [os.path.join(train_path, file_name) for file_name in os.listdir(train_path)]
 
     for file_name in train_list:
-        _, _, graph_mix, _ = dill.load(open(file_name, "rb"))
+        _, _, graph_mix, _, _ = dill.load(open(file_name, "rb"))
         for ere in graph_mix.eres.values():
             for label in [item for item in ere.label if item != 'Relation']:
                 try:
@@ -40,7 +40,23 @@ def get_tokens(train_path, word2vec_model, return_freq_cut_set):
 
         for stmt in graph_mix.stmts.values():
             for label in stmt.label:
-                [stmt_labels.add(word.lower()) for word in re.findall('[a-zA-Z][^A-Z]*', label)]
+                if label.isupper():
+                    stmt_labels.add(label)
+                else:
+                    all_caps = list(re.finditer('[A-Z]{2,}', label))
+                    assert len(all_caps) in [0, 1]
+
+                    if len(all_caps) > 0:
+                        span = all_caps[0].span()
+                        assert span[1] == len(label)
+                        label = label[:span[0]]
+                        stmt_labels.add(all_caps[0].group(0))
+
+                    for word in re.findall('[a-zA-Z][^A-Z]*', label):
+                        if word.isupper():
+                            stmt_labels.add(word)
+                        else:
+                            stmt_labels.add(word.lower())
 
         if i % 10000 == 0:
             print("... processed %d files (%.2fs)." % (i, time.time() - start))
@@ -63,7 +79,7 @@ def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim
 
     # Get set of tokens to index
     token_set, stmt_labels = get_tokens(train_paths, word2vec_model, return_freq_cut_set)
-
+    print(stmt_labels)
     # Determine space of representations for Word2Vec embeddings
     min_vec = np.full(emb_dim, np.inf, dtype=np.float64)
     max_vec = -1 * np.full(emb_dim, np.inf, dtype=np.float64)
@@ -192,10 +208,33 @@ def convert_labels_to_indices(graph_mix, indexer_info):
         for label in graph_mix.stmts[stmt_id].label:
             temp = []
 
-            # Split by capital letters
-            for word in re.findall('[a-zA-Z][^A-Z]*', label):
-                if word.lower() in stmt_indexer.word_to_index.keys():
-                    temp.append(stmt_indexer.get_index(word.lower(), add=False))
+            if label.isupper():
+                if label in stmt_indexer.word_to_index.keys():
+                    temp.append(stmt_indexer.get_index(label, add=False))
+            else:
+                all_caps = list(re.finditer('[A-Z]{2,}', label))
+                assert len(all_caps) in [0, 1]
+
+                all_caps_word = None
+
+                if len(all_caps) > 0:
+                    span = all_caps[0].span()
+                    assert span[1] == len(label)
+                    label = label[:span[0]]
+                    word = all_caps[0].group(0)
+
+                    if word in stmt_indexer.word_to_index.keys():
+                        all_caps_word = word
+
+                # Split by capital letters
+                for word in re.findall('[a-zA-Z][^A-Z]*', label):
+                    if word.isupper() and word in stmt_indexer.word_to_index.keys():
+                        temp.append(stmt_indexer.get_index(word, add=False))
+                    elif word.lower() in stmt_indexer.word_to_index.keys():
+                        temp.append(stmt_indexer.get_index(word.lower(), add=False))
+
+                if all_caps_word is not None:
+                    temp.append(stmt_indexer.get_index(all_caps_word, add=False))
 
             stmt_labels[stmt_iter].append(temp)
 
@@ -225,7 +264,7 @@ def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
     # Index graph salads
     for data_iter, path in enumerate([train_path, val_path, test_path]):
         for file_iter, file_name in enumerate(os.listdir(path)):
-            _, query, graph_mix, target_graph_id = dill.load(open(os.path.join(path, file_name), 'rb'))
+            _, query, graph_mix, target_graph_id, noisy_merge_points = dill.load(open(os.path.join(path, file_name), 'rb'))
 
             graph_dict = convert_labels_to_indices(graph_mix, indexer_info)
 
@@ -238,6 +277,7 @@ def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
             graph_dict['query_stmts'] = query_stmt_indices
             graph_dict['query_eres'] = query_ere_indices
             graph_dict['target_graph_id'] = target_graph_id
+            graph_dict['noisy_merge_points'] = noisy_merge_points
 
             if data_iter == 0:
                 dill.dump(graph_dict, open(os.path.join(indexed_data_dir, 'Train', file_name), 'wb'))
@@ -250,8 +290,8 @@ def index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="/home/atomko/out_salads", help='Directory containing folders of different mixture types')
-    parser.add_argument("--pre_word2vec_bin", type=str, default='GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
+    parser.add_argument("--data_dir", type=str, default="/home/cc/M36_Elections_25k", help='Directory containing folders of different mixture types')
+    parser.add_argument("--pre_word2vec_bin", type=str, default='/home/cc/GoogleNews-vectors-negative300.bin', help='Location (abs path) of binary containing pretrained Word2Vec embeds')
     parser.add_argument("--emb_dim", type=int, default=300, help='Index the x most frequent ERE label tokens')
     parser.add_argument("--return_freq_cut_set", type=int, default=50000, help='Index the x most frequent ERE label tokens')
 
