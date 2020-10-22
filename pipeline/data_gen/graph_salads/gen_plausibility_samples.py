@@ -22,39 +22,35 @@ import sys
 import os
 from tqdm import tqdm
 
-def powerset(iterable):
-    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
+# def powerset(iterable):
+#     "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+#     s = list(iterable)
+#     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
 
-def gen_neg_samples(g0, g1, g2):
-    g1g2 = list(powerset(g1 + g2))
-    g2g0 = list(powerset(g2 + g0))
-    g0g1 = list(powerset(g0 + g1))
-    neg_samples = [g0 + list(i) for i in g1g2] + [g1 + list(i) for i in g2g0] + [g2 + list(i) for i in g0g1]
-    return neg_samples
+# def gen_neg_samples(g0, g1, g2):
+#     g1g2 = list(powerset(g1 + g2))
+#     g2g0 = list(powerset(g2 + g0))
+#     g0g1 = list(powerset(g0 + g1))
+#     neg_samples = [g0 + list(i) for i in g1g2] + [g1 + list(i) for i in g2g0] + [g2 + list(i) for i in g0g1]
+#     return neg_samples
 
 def gen_1_neg_sample(g0, g1, g2):
     while True:
         n_g0 = rd.randint(0, len(g0))
         n_g1 = rd.randint(0, len(g1))
         n_g2 = rd.randint(0, len(g2))
-
+        # if sum([n_g0, n_g1, n_g2]) != n_g0 and sum([n_g0, n_g1, n_g2]) != n_g1 and sum([n_g0, n_g1, n_g2]) != n_g2:
         if (n_g0 == 0 and n_g1*n_g2 == 0) or (n_g1 == 0 and n_g2*n_g0 == 0) or (n_g2 == 0 and n_g1*n_g0 == 0):
             print('lens:', len(g0), len(g1), len(g2))
             print('n_gx:', n_g0, n_g1, n_g2)
             continue
         else:
             break
-
     neg_sample = rd.sample(g0, n_g0) + rd.sample(g1, n_g1) + rd.sample(g2, n_g2)
     return neg_sample
 
 def gen_neg_samples_faster(g0, g1, g2):
-    neg_samples = []
-    neg_samples.append(gen_1_neg_sample(g0, g1, g2))
-    neg_samples.append(gen_1_neg_sample(g0, g1, g2))
-    neg_samples.append(gen_1_neg_sample(g0, g1, g2))
+    neg_samples = [gen_1_neg_sample(g0, g1, g2), gen_1_neg_sample(g0, g1, g2), gen_1_neg_sample(g0, g1, g2)]
     return neg_samples
 
 def get_stmt_between_eres(graph_mix, ere1, ere2):
@@ -73,6 +69,10 @@ if not os.path.exists(output_dir):
 # List all graph salads in the input_dir
 salad_fname_list = os.listdir(input_dir)
 
+# Counts for no src_graphs / src_graph_stmt
+cnt_no_src = 0
+cnt_no_src_stmt = 0
+
 # Loop over all graph salads
 for salad_fname in tqdm(salad_fname_list):
     print('Input: {}'.format(salad_fname))
@@ -82,13 +82,13 @@ for salad_fname in tqdm(salad_fname_list):
     graph_mix = graph_dict['graph_mix']
 
     # Graph ids (of three subgraphs)
-    graph_ids = list({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.stmts.keys()})
+    graph_ids = [graph_dict['target_graph_id']] + list({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[graph_dict['origin_id']].stmt_ids} - {graph_dict['target_graph_id']})
     graph_ids_dict = dict(zip(graph_ids, [0, 1, 2]))
 
     # Find merge points
     merge_ere_ids = set()
     for ere_id, ere in graph_mix.eres.items():
-        if len({graph_mix.stmts[stmt_id].graph_id for stmt_id in ere.stmt_ids}) == 3:
+        if len({graph_mix.stmts[stmt_id].graph_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].graph_id not in graph_dict}) == 3:
             merge_ere_ids.add(ere_id)
     merge_ere_ids = list(merge_ere_ids)
 
@@ -98,6 +98,7 @@ for salad_fname in tqdm(salad_fname_list):
 
     for m in range(len(merge_ere_ids)):  # loop over merge points
         merge_m = merge_ere_ids[m]
+        # print("\nMerge point: {} ({})".format(graph_mix.eres[merge_m].label[0], graph_mix.eres[merge_m].category))
         merge_m_neigh = graph_mix.eres[merge_m].neighbor_ere_ids
 
         # Initialize neighbor sets of each source graph
@@ -108,9 +109,29 @@ for salad_fname in tqdm(salad_fname_list):
         # For each neighbor around a merge point
         for n in range(len(merge_m_neigh)):
             neighbor_n = list(merge_m_neigh)[n]
-            src_graph = graph_ids_dict[graph_mix.eres[neighbor_n].graph_id]
+            try:
+                src_graph = graph_ids_dict[graph_mix.eres[neighbor_n].graph_id]
+            except KeyError:
+                cnt_no_src += 1
+                print('src_graph: No such graph in the dict!')
+                continue
+
             stmt_between = get_stmt_between_eres(graph_mix, merge_m, neighbor_n)
-            src_graph_stmt = graph_ids_dict[graph_mix.stmts[stmt_between].graph_id]
+            try:
+                src_graph_stmt = graph_ids_dict[graph_mix.stmts[stmt_between].graph_id]
+            except KeyError:
+                cnt_no_src_stmt += 1
+                print('src_graph_stmt: No such graph in the dict!')
+                continue
+
+            # if src_graph != src_graph_stmt:
+            #     print('****** Mismatch ******')
+            #     print('ERE source: {} (Neighbor ERE: {}, Merge ERE: {})'.format(src_graph, neighbor_n, merge_m))
+            #     print('STMT source: {} (STMT: {})'.format(src_graph_stmt, stmt_between))
+            #
+            # print("Graph # {}".format(src_graph_stmt))
+            # print("Statement: {}".format(graph_mix.stmts[stmt_between].raw_label))
+            # print("Neighbor: {}".format(graph_mix.eres[neighbor_n].label[0]))
 
             # Classify the neighboring statement by source graph
             if src_graph_stmt == 0:
@@ -125,12 +146,16 @@ for salad_fname in tqdm(salad_fname_list):
         neigh_g1 = list(neigh_g1)
         neigh_g2 = list(neigh_g2)
 
+        if len(neigh_g0) == 0 or len(neigh_g1) == 0 or len(neigh_g2) == 0:
+            continue
+
         print('Ready to generate samples!')
 
         # Generate three positive samples
+        # Do not use merge point with only one argument from a source
         pos_samples_list = []
         for neigh_gx in [neigh_g0, neigh_g1, neigh_g2]:
-            if len(neigh_gx) > 1: # Do not use merge point with only one argument from a source
+            if len(neigh_gx) > 1:
                 pos_samples_list.append(neigh_gx)
         pos_samples[merge_m] = pos_samples_list
 
