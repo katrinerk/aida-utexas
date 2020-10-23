@@ -22,18 +22,6 @@ import sys
 import os
 from tqdm import tqdm
 
-# def powerset(iterable):
-#     "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-#     s = list(iterable)
-#     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
-
-# def gen_neg_samples(g0, g1, g2):
-#     g1g2 = list(powerset(g1 + g2))
-#     g2g0 = list(powerset(g2 + g0))
-#     g0g1 = list(powerset(g0 + g1))
-#     neg_samples = [g0 + list(i) for i in g1g2] + [g1 + list(i) for i in g2g0] + [g2 + list(i) for i in g0g1]
-#     return neg_samples
-
 def gen_1_neg_sample(g0, g1, g2):
     while True:
         n_g0 = rd.randint(0, len(g0))
@@ -80,10 +68,14 @@ for salad_fname in tqdm(salad_fname_list):
     # Load graph salad
     graph_dict = dill.load(open(os.path.join(input_dir, salad_fname), 'rb'))
     graph_mix = graph_dict['graph_mix']
+    ere_mat_ind = graph_dict['ere_mat_ind']
+    query_ere_ids = {ere_mat_ind.get_word(ere_ind) for ere_ind in graph_dict['query_eres']}
+    origin_id = [ere_id for ere_id in query_ere_ids if graph_dict['graph_mix'].eres[ere_id].category == 'Event'][0]
 
     # Graph ids (of three subgraphs)
-    graph_ids = [graph_dict['target_graph_id']] + list({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[graph_dict['origin_id']].stmt_ids} - {graph_dict['target_graph_id']})
+    graph_ids = [graph_dict['target_graph_id']] + list({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[origin_id].stmt_ids} - {graph_dict['target_graph_id']})
     graph_ids_dict = dict(zip(graph_ids, [0, 1, 2]))
+    query_ere_ids = {ere_mat_ind.get_word(ere_ind) for ere_ind in graph_dict['query_eres']}
 
     # Find merge points
     merge_ere_ids = set()
@@ -124,15 +116,6 @@ for salad_fname in tqdm(salad_fname_list):
                 print('src_graph_stmt: No such graph in the dict!')
                 continue
 
-            # if src_graph != src_graph_stmt:
-            #     print('****** Mismatch ******')
-            #     print('ERE source: {} (Neighbor ERE: {}, Merge ERE: {})'.format(src_graph, neighbor_n, merge_m))
-            #     print('STMT source: {} (STMT: {})'.format(src_graph_stmt, stmt_between))
-            #
-            # print("Graph # {}".format(src_graph_stmt))
-            # print("Statement: {}".format(graph_mix.stmts[stmt_between].raw_label))
-            # print("Neighbor: {}".format(graph_mix.eres[neighbor_n].label[0]))
-
             # Classify the neighboring statement by source graph
             if src_graph_stmt == 0:
                 neigh_g0.add(stmt_between)
@@ -172,7 +155,7 @@ for salad_fname in tqdm(salad_fname_list):
     dill.dump(graph_dict, open(os.path.join(output_dir, salad_fname), "wb"))
 
     # Save memory by deleting variables
-    del graph_dict, graph_mix, graph_ids, graph_ids_dict, merge_ere_ids, pos_samples, neg_samples, neighbor_n, neigh_g0, neigh_g1, neigh_g2
+    del graph_dict, graph_mix, graph_ids, graph_ids_dict, merge_ere_ids, pos_samples, neg_samples, neighbor_n, neigh_g0, neigh_g1, neigh_g2, ere_mat_ind, query_ere_ids
 
 
 # # --------------------------------------------------------------------------------------------------------------
