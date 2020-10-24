@@ -11,12 +11,23 @@ Update: Pengxiang Cheng, Aug 2020
 
 import json
 import logging
+import sys
 from argparse import ArgumentParser
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis import AidaHypothesisCollection, AidaHypothesisFilter
 
+
+# Katrin Erk Oct 2020:
+# remove hypotheses that have too few events overall.
+# for now, set to require at least two events per hypothesis.
+def hypothesis_too_short(hypothesis):
+    eretypes = [str(hypothesis.node_type(e)) for e in hypothesis.eres()]
+    # if eretypes.count("Event") < 2:
+    #     logging.info("KATRIN FILTERED AWAY HYPOTHESIS")
+    return (eretypes.count("Event") < 2)
+    
 
 def main():
     parser = ArgumentParser()
@@ -46,7 +57,8 @@ def main():
         hypothesis_filter = AidaHypothesisFilter(json_graph)
 
         filtered_hypothesis_collection = AidaHypothesisCollection(
-            [hypothesis_filter.filtered(hypothesis) for hypothesis in hypothesis_collection])
+            [hypothesis_filter.filtered(hypothesis) for hypothesis in hypothesis_collection\
+                 if not hypothesis_too_short(hypothesis)])
 
         filtered_hypotheses_json = filtered_hypothesis_collection.to_json()
 
