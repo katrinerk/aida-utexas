@@ -222,9 +222,9 @@ class CoherenceNetWithGCN(nn.Module):
 
     # Runs a graph salad through the GCN network
     def gcn(self, graph_dict, gcn_embeds, device):
-        adj_head = graph_dict['adj_head'].to(dtype=torch.float, device=device)
-        adj_tail = graph_dict['adj_tail'].to(dtype=torch.float, device=device)
-        adj_type = graph_dict['adj_type'].to(dtype=torch.float, device=device)
+        adj_head = torch.from_numpy(graph_dict['adj_head']).to(dtype=torch.float, device=device)
+        adj_tail = torch.from_numpy(graph_dict['adj_tail']).to(dtype=torch.float, device=device)
+        adj_type = torch.from_numpy(graph_dict['adj_type']).to(dtype=torch.float, device=device)
         ere_labels = graph_dict['ere_labels']
         stmt_labels = graph_dict['stmt_labels']
 
@@ -298,9 +298,6 @@ class CoherenceNetWithGCN(nn.Module):
         ere_attendees = gcn_embeds['eres'][list(graph_dict['query_eres'])]
 
         if self.plaus:
-            query_stmts = gcn_embeds['stmts'][graph_dict['query_stmts']]
-            query_eres = gcn_embeds['eres'][list(graph_dict['query_eres'])]
-
             self_att_vectors_stmts = self.coherence_attention.get_attention_vectors(stmt_attendees, None, stmt_attendees)
             self_att_vectors_eres = self.coherence_attention.get_attention_vectors(ere_attendees, None, ere_attendees)
 
@@ -313,8 +310,6 @@ class CoherenceNetWithGCN(nn.Module):
 
             return plaus_out, gcn_embeds
         else:
-            stmt_attendees = gcn_embeds['stmts'][graph_dict['query_stmts']]
-            ere_attendees = gcn_embeds['eres'][list(graph_dict['query_eres'])]
             attenders = gcn_embeds['stmts'][graph_dict['candidates']]
 
             # Get attention vectors for candidate statements
