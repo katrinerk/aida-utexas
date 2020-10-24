@@ -299,4 +299,3 @@ if __name__ == "__main__":
     locals().update(vars(args))
 
     index(data_dir, pre_word2vec_bin, emb_dim, return_freq_cut_set)
-
