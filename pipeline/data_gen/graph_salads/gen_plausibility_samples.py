@@ -80,7 +80,7 @@ for salad_fname in tqdm(salad_fname_list):
     # Find merge points
     merge_ere_ids = set()
     for ere_id, ere in graph_mix.eres.items():
-        if len({graph_mix.stmts[stmt_id].graph_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].graph_id not in graph_dict}) == 3:
+        if len({graph_mix.stmts[stmt_id].graph_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].graph_id not in graph_dict}) > 1:
             merge_ere_ids.add(ere_id)
     merge_ere_ids = list(merge_ere_ids)
 
