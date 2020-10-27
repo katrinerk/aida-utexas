@@ -965,15 +965,14 @@ if __name__ == "__main__":
     event_types = dill.load(open(event_type_maps, 'rb'))
     entity_types = dill.load(open(entity_type_maps, 'rb'))
 
-    event_names = dill.load(open(event_name_maps, 'rb'))
-    entity_names = dill.load(open(entity_name_maps, 'rb'))
-
     if not match_event_names:
         event_names = defaultdict(set)
 
         for key, value in event_types.items():
             for item in value:
                 event_names[item].add(key)
+    else:
+        event_names = dill.load(open(event_name_maps, 'rb'))
 
     if not match_entity_names:
         entity_names = defaultdict(set)
@@ -981,6 +980,8 @@ if __name__ == "__main__":
         for key, value in entity_types.items():
             for item in value:
                 entity_names[item].add(key)
+    else:
+        entity_names = dill.load(open(entity_name_maps, 'rb'))
 
     one_step_connectedness_map = dill.load(open(one_step_connectedness_map, 'rb'))
     two_step_connectedness_map = dill.load(open(two_step_connectedness_map, 'rb'))
