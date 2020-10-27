@@ -902,29 +902,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--out_data_dir", type=str, default="/home/cc/out_salads",
                         help='Folder (abs path) where the mixtures will be written (will be created by the script, if it does not already exist)')
-    parser.add_argument("--single_doc_graphs_folder", type=str, default="/home/cc/test_file_gen",
+    parser.add_argument("--single_doc_graphs_folder", type=str, default="/home/cc/json_graphs_wars_conflicts_out",
                         help='Input folder (abs path) containing single-doc Wiki graphs (as pickled Python objects)')
-    parser.add_argument("--event_name_maps", type=str, default="/home/cc/test_event_entity_map_out/event_names.p",
+    parser.add_argument("--event_name_maps", type=str, default="/home/cc/event_entity_maps/event_names.p",
                         help='File location (abs path) of pickled dict mapping names to event ERE IDs')
-    parser.add_argument("--entity_name_maps", type=str, default="/home/cc/test_event_entity_map_out/entity_names.p",
+    parser.add_argument("--entity_name_maps", type=str, default="/home/cc/event_entity_maps/entity_names.p",
                         help='File location (abs path) of pickled dict mapping names to entity ERE IDs')
-    parser.add_argument("--event_type_maps", type=str, default="/home/cc/test_event_entity_map_out/event_types.p",
+    parser.add_argument("--event_type_maps", type=str, default="/home/cc/event_entity_maps/event_types.p",
                         help='File location (abs path) of pickled dict mapping event ERE IDs to ontology types')
-    parser.add_argument("--entity_type_maps", type=str, default="/home/cc/test_event_entity_map_out/entity_types.p",
+    parser.add_argument("--entity_type_maps", type=str, default="/home/cc/event_entity_maps/entity_types.p",
                         help='File location (abs path) of pickled dict mapping entity ERE IDs to ontology types')
     parser.add_argument("--match_event_names", action='store_true',
                         help='Require that merged event nodes overlap in at least one name label')
     parser.add_argument("--match_entity_names", action='store_true',
                         help='Require that merged entity nodes overlap in at least one name label')
-    parser.add_argument("--one_step_connectedness_map", type=str, default="/home/cc/test_event_entity_map_out/connectedness_one_step.p",
+    parser.add_argument("--one_step_connectedness_map", type=str, default="/home/cc/event_entity_maps/connectedness_one_step.p",
                         help='File location (abs path) of pickled dict mapping ERE IDs to one-step connectedness values')
-    parser.add_argument("--two_step_connectedness_map", type=str, default="/home/cc/test_event_entity_map_out/connectedness_two_step.p",
+    parser.add_argument("--two_step_connectedness_map", type=str, default="/home/cc/event_entity_maps/connectedness_two_step.p",
                         help='File location (abs path) of pickled dict mapping ERE IDs to two-step connectedness values')
     parser.add_argument("--num_sources", type=int, default=3,
                         help='Number of single-doc sources to mix at one time')
     parser.add_argument("--num_shared_eres", type=int, default=3,
                         help='Required number of event merge points in a produced graph salad')
-    parser.add_argument("--num_total_merge_points", type=int, default=10,
+    parser.add_argument("--num_total_merge_points", type=int, default=12,
                         help='Required number of event merge points in a produced graph salad')
     parser.add_argument("--num_noisy_sources", type=int, default=3,
                         help='Number of single-doc sources to mix at one time')
@@ -934,9 +934,9 @@ if __name__ == "__main__":
                         help='Required number of event merge points in a produced graph salad')
     parser.add_argument("--num_abridge_hops", type=int, default=2,
                         help='When set, this value crops the graph salad to extend out a maximum of <num_abridge_hops> hops from each event merge point')
-    parser.add_argument("--data_size", type=int, default=1000,
+    parser.add_argument("--data_size", type=int, default=25000,
                         help='Total number of mixtures to create (train + val + test)')
-    parser.add_argument("--max_size", type=int, default=500,
+    parser.add_argument("--max_size", type=int, default=750,
                         help='Maximum size of each graph salad (approximately in kilobytes)')
     parser.add_argument("--print_every", type=int, default=100,
                         help='Generate a message to stdout each time <print_every> salads are created')
