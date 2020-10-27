@@ -42,22 +42,22 @@ class Score(nn.Module):
 # Attention mechanism after Luong et. al, 2015
 # Source: https://github.com/tensorflow/nmt#background-on-the-attention-mechanism
 class Attention(nn.Module):
-    def __init__(self, plaus, attention_type, just_context_vectors, hidden_size, attention_size, attention_dropout):
+    def __init__(self, plaus, attention_type, use_attender_vectors, hidden_size, attention_size, attention_dropout):
         super(Attention, self).__init__()
 
         if plaus:
-            if just_context_vectors:
-                self.linear_plaus = nn.Linear(hidden_size, attention_size)
+            if use_attender_vectors:
+                self.linear_plaus = nn.Linear(hidden_size * 2, attention_size)
                 torch.nn.init.xavier_uniform_(self.linear_plaus.weight)
             else:
-                self.linear_plaus = nn.Linear(hidden_size * 2, attention_size)
+                self.linear_plaus = nn.Linear(hidden_size, attention_size)
                 torch.nn.init.xavier_uniform_(self.linear_plaus.weight)
         else:
             self.linear = nn.Linear(hidden_size * 3, attention_size)
             torch.nn.init.xavier_uniform_(self.linear.weight)
 
         self.plaus = plaus
-        self.just_context_vectors = just_context_vectors
+        self.use_attender_vectors = use_attender_vectors
 
         if plaus:
             self.score_stmt_to_stmt_plaus = Score(attention_type, hidden_size)
@@ -122,10 +122,10 @@ class Attention(nn.Module):
             elif attendee_eres is None:
                 context_vectors = self.get_context_vectors(attendee_stmts, attention_weights)
 
-            if self.just_context_vectors:
-                attention_vectors = torch.tanh(self.linear_plaus(context_vectors))
-            else:
+            if self.use_attender_vectors:
                 attention_vectors = torch.tanh(self.linear_plaus(torch.cat([attender, context_vectors], dim=-1)))
+            else:
+                attention_vectors = torch.tanh(self.linear_plaus(context_vectors))
         else:
             context_vectors = self.get_context_vectors((attendee_stmts, attendee_eres), attention_weights)
 
@@ -141,7 +141,7 @@ def to_tensor(inputs, tensor_type=torch.LongTensor, device=torch.device("cpu")):
 # Class defining the GCN architecture
 # forward() method runs graphs through GCN and attention mechanism
 class CoherenceNetWithGCN(nn.Module):
-    def __init__(self, plaus, indexer_info_dict, attention_type, just_context_vectors, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout):
+    def __init__(self, plaus, indexer_info_dict, attention_type, use_attender_vectors, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout):
         super(CoherenceNetWithGCN, self).__init__()
         ere_emb = indexer_info_dict['ere_emb_mat']
         stmt_emb = indexer_info_dict['stmt_emb_mat']
@@ -167,7 +167,7 @@ class CoherenceNetWithGCN(nn.Module):
 
         self.plaus = plaus
 
-        self.coherence_attention = Attention(plaus, attention_type, just_context_vectors, hidden_size, attention_size, attention_dropout)
+        self.coherence_attention = Attention(plaus, attention_type, use_attender_vectors, hidden_size, attention_size, attention_dropout)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.conv_dropout = torch.nn.Dropout(p=conv_dropout, inplace=False)
