@@ -10,6 +10,7 @@ import os
 from copy import deepcopy
 from modules import CoherenceNetWithGCN
 import random
+from tqdm import tqdm
 
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
@@ -17,7 +18,8 @@ def verify_dir(dir):
         os.makedirs(dir)
 
 class DataIterator:
-    def __init__(self, data_dir):
+    def __init__(self, index_data_dir, data_dir):
+        self.index_data_dir = index_data_dir
         self.file_paths = [os.path.join(data_dir, file_name) for file_name in os.listdir(data_dir)]
         self.cursor = 0
         self.epoch = 0
@@ -32,7 +34,6 @@ class DataIterator:
     def next_batch(self):
         if self.cursor >= self.size:
             self.cursor = 0
-            self.epoch += 1
 
         # Data comes in the form of a "graph_dict" dictionary which contains the following key-value pairs:
         # 'graph_mix'    -     --> pickled graph salad object
@@ -53,45 +54,45 @@ class DataIterator:
         # 'query_eres'         --> list of query ERE indices
         # 'plaus_clusters'     --> list of query sets for plausibility classifier
 
-        graph_dict = dill.load(open(self.file_paths[self.cursor], "rb"))
+        data_group = self.file_paths[self.cursor].split('/')[-2]
 
-        pos_samples = [item for sublist in graph_dict['pos_samples'].values() for item in sublist]
-        neg_samples = [item for sublist in graph_dict['neg_samples'].values() for item in sublist]
+        if 'Train' in data_group:
+            data_group = 'Train'
+        elif 'Val' in data_group:
+            data_group = 'Val'
+        elif 'Test' in data_group:
+            data_group = 'Test'
+
+        plaus_dict = dill.load(open(self.file_paths[self.cursor], "rb"))
+        graph_dict = dill.load(open(os.path.join(self.index_data_dir, data_group, self.file_paths[self.cursor].split('/')[-1]), "rb"))
+
+        pos_samples = [item for sublist in plaus_dict['pos_samples'].values() for item in sublist]
+        neg_samples = [item for sublist in plaus_dict['neg_samples'].values() for item in sublist]
 
         for iter in range(len(pos_samples)):
-            for sub_iter in range(len(pos_samples[iter])):
-                pos_samples[iter][sub_iter] = graph_dict['stmt_mat_ind'].get_index(pos_samples[iter][sub_iter], add=False)
+            pos_samples[iter] = (1, [graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in pos_samples[iter]])
 
         for iter in range(len(neg_samples)):
-            for sub_iter in range(len(neg_samples[iter])):
-                neg_samples[iter][sub_iter] = graph_dict['stmt_mat_ind'].get_index(neg_samples[iter][sub_iter], add=False)
+            neg_samples[iter] = (0, [graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in neg_samples[iter]])
 
-        plaus_clusters = pos_samples + neg_samples
+        random.seed(self.epoch)
+        random.shuffle(pos_samples)
+        random.seed(self.epoch)
+        random.shuffle(neg_samples)
 
-        cluster_labels = []
-        graph_mix = graph_dict['graph_mix']
+        plaus_clusters_with_labels = [item for sublist in list(zip(pos_samples, neg_samples)) for item in sublist]
+        graph_dict['plaus_clusters'] = [item[1] for item in plaus_clusters_with_labels]
+        graph_dict['plaus_labels'] = [item[0] for item in plaus_clusters_with_labels]
 
-        for iter in range(len(plaus_clusters)):
-            graph_ids = {graph_mix.stmts[stmt_id].graph_id for stmt_id in [graph_dict['stmt_mat_ind'].get_word(item) for item in plaus_clusters[iter]]}
-
-            cluster_labels.append(1 if len(graph_ids) == 1 else 0)
-
-        pos_cluster_ind = [iter for iter, item in enumerate(cluster_labels) if item == 1]
-        neg_cluster_ind = [iter for iter, item in enumerate(cluster_labels) if item == 0]
-
-        random.shuffle(pos_cluster_ind)
-        random.shuffle(neg_cluster_ind)
-
-        graph_dict['plaus_clusters'] = [item for sublist in list(zip([plaus_clusters[ind] for ind in pos_cluster_ind],
-                                                                    [plaus_clusters[ind] for ind in neg_cluster_ind])) for item in sublist]
-        graph_dict['plaus_labels'] = [1, 0] * len(pos_cluster_ind)
+        if self.cursor == self.size - 1:
+            self.epoch += 1
 
         self.cursor += 1
 
         return graph_dict
 
 # Run the model on a graph salad
-def run_classifier(model, optimizer, graph_dict, loss_func, data_group, back_prop, device):
+def run_classifier(model, optimizer, graph_dict, loss_func, data_group, device):
     plaus_cluster_stmt_ind_sets = graph_dict['plaus_clusters']
     plaus_cluster_stmt_name_sets = []
 
@@ -122,31 +123,28 @@ def run_classifier(model, optimizer, graph_dict, loss_func, data_group, back_pro
         else:
             pred_logit, _ = model(graph_dict, gcn_embeds, device)
 
-        prediction = torch.sigmoid(pred_logit)
-
-        correct = int(torch.round(prediction).to(dtype=torch.float).item() == plaus_labels[i])
+        correct = int(torch.round(torch.sigmoid(pred_logit)).to(dtype=torch.float).item() == plaus_labels[i])
         num_correct += correct
         actual_class = torch.tensor([plaus_labels[i]], dtype=torch.float, device=device)
 
-        predictions.append(prediction)
+        predictions.append(pred_logit)
         actual_classes.append(actual_class)
 
+    # Don't need to divide by batch size; this is the default behavior of nn.BCELossWithLogits
     loss = loss_func(torch.cat(predictions, dim=0), torch.cat(actual_classes, dim=0))
+    loss_to_report = loss.item()
 
-    if data_group == "Train":
+    if data_group == 'Train':
         loss.backward()
-
-    # Only backprop when told to (as per the batch_size in the train() function)
-    if data_group == "Train" and back_prop:
         optimizer.step()
         optimizer.zero_grad()
 
     # Accuracy calculation
     accuracy = float(num_correct) / len(plaus_cluster_stmt_ind_sets)
 
-    return loss.item(), accuracy
+    return loss_to_report, accuracy
 
-def train(batch_size, weight_decay, train_path, valid_path, test_path, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
+def train(weight_decay, index_data_dir, train_path, valid_path, test_path, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
     learning_rate, save_path, load_path, load_optim, valid_every, print_every, device):
     model = CoherenceNetWithGCN(True, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
     loss_func = nn.BCEWithLogitsLoss()
@@ -166,7 +164,7 @@ def train(batch_size, weight_decay, train_path, valid_path, test_path, indexer_i
     best_loss = np.inf
 
     # Create DataIterator object to manage data
-    train_iter = DataIterator(train_path)
+    train_iter = DataIterator(index_data_dir, train_path)
 
     while train_iter.epoch < num_epochs:
         step = 0
@@ -176,25 +174,22 @@ def train(batch_size, weight_decay, train_path, valid_path, test_path, indexer_i
 
         while train_iter.epoch <= current_epoch:
             # "Artificial" batching; allow gradients to accumulate and only backprop after every <batch_size> graph salads
-            if step != 0 and step % batch_size == 0:
-                train_loss, train_accuracy = run_classifier(model, optimizer, train_iter.next_batch(), loss_func, 'Train', True, device)
-            else:
-                train_loss, train_accuracy = run_classifier(model, optimizer, train_iter.next_batch(), loss_func, 'Train', False, device)
+            train_loss, train_accuracy = run_classifier(model, optimizer, train_iter.next_batch(), loss_func, 'Train', device)
 
             step += 1
             train_losses.append(train_loss)
             train_accuracies.append(train_accuracy)
 
             # Print output report after every <print_every> graph salads
-            if step % print_every == 0:
+            if (step % print_every == 0) or (step == train_iter.size):
                 print("At step %d: loss = %.6f | accuracy = %.4f (%.2fs)." % (step, np.mean(train_losses), np.mean(train_accuracies), time.time() - start))
                 start = time.time()
 
             # Validate the model on the validation set after every <valid_every> salads
-            if step % valid_every == 0:
+            if (step % valid_every == 0) or (step == train_iter.size):
                 print("\nRunning valid ...\n")
                 model.eval()
-                average_valid_loss, average_valid_accuracy = run_no_backprop(valid_path, model, loss_func)
+                average_valid_loss, average_valid_accuracy = run_no_backprop(index_data_dir, valid_path, model, loss_func)
                 print("Valid (avg): loss = %.6f | accuracy = %.4f" % (average_valid_loss, average_valid_accuracy))
 
                 # Save checkpoint if the reported loss is lower than all previous reported losses
@@ -204,23 +199,23 @@ def train(batch_size, weight_decay, train_path, valid_path, test_path, indexer_i
                     print('New best val checkpoint at step ' + str(step) + ' of epoch ' + str(current_epoch + 1))
 
                 model.train()
-            print(step)
+
         current_epoch += 1
 
     # Run the model on the test set
     model.eval()
-    average_test_loss, average_test_accuracy = run_no_backprop(test_path, model, loss_func)
+    average_test_loss, average_test_accuracy = run_no_backprop(index_data_dir, test_path, model, loss_func)
     print("Test (avg): loss = %.6f | accuracy = %.4f" % (average_test_loss, average_test_accuracy))
     model.train()
 
 # Run the model on a set of data for evaluative purposes (called when validating and testing only)
-def run_no_backprop(data_path, model, loss_func):
-    valid_iter = DataIterator(data_path)
+def run_no_backprop(index_data_dir, data_path, model, loss_func):
+    valid_iter = DataIterator(index_data_dir, data_path)
 
     valid_losses, valid_accuracies = [], []
 
     while valid_iter.epoch == 0:
-        valid_loss, valid_accuracy = run_classifier(model, None, valid_iter.next_batch(), loss_func, 'Val', False, device)
+        valid_loss, valid_accuracy = run_classifier(model, None, valid_iter.next_batch(), loss_func, 'Val', device)
         valid_losses.append(valid_loss)
         valid_accuracies.append(valid_accuracy)
 
@@ -233,7 +228,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="train",
                         help="Mode to run script in (can be either train or validate)")
-    parser.add_argument("--data_dir", type=str, default="/home/cc/Final_Graphs_Indexed/Final_Graphs_Indexed",
+    parser.add_argument("--data_dir", type=str, default="/home/cc/test_plaus",
+                        help="Data directory")
+    parser.add_argument("--index_data_dir", type=str, default="/home/cc/M36_50k_Indexed",
                         help="Data directory")
     parser.add_argument("--train_dir", type=str, default="Train",
                         help="Name of subdir under data directory containing training mixtures")
@@ -241,10 +238,8 @@ if __name__ == "__main__":
                         help="Name of subdir under data directory containing validation mixtures")
     parser.add_argument("--test_dir", type=str, default="Test",
                         help="Name of subdir under data directory containing test mixtures")
-    parser.add_argument("--indexer_info_file", type=str, default="/home/cc/Final_Graphs_Indexed/Indexers/indexers.p",
+    parser.add_argument("--indexer_info_file", type=str, default="/home/cc/M36_50k_Indexed/indexers.p",
                         help="Indexer info file (contains word-to-index maps for ERE and statement names, contains top k most frequent Word2Vec embeds in training set)")
-    parser.add_argument("--batch_size", type=int, default=5,
-                        help="Number of graph salads per batch")
     parser.add_argument("--num_layers", type=int, default=2,
                         help="Number of layers in the GCN")
     parser.add_argument("--attention_type", type=str, default='concat',
@@ -307,5 +302,5 @@ if __name__ == "__main__":
 
     # Train a fresh model
     if mode == 'train':
-        train(batch_size, weight_decay, train_path, valid_path, test_path, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
+        train(weight_decay, index_data_dir, train_path, valid_path, test_path, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
                       learning_rate, save_path, load_path, load_optim, valid_every, print_every, device)
