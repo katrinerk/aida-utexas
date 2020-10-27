@@ -228,7 +228,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="train",
                         help="Mode to run script in (can be either train or validate)")
-    parser.add_argument("--data_dir", type=str, default="/home/cc/test_plaus",
+    parser.add_argument("--data_dir", type=str, default="/home/cc/Plaus_50k_Data",
                         help="Data directory")
     parser.add_argument("--index_data_dir", type=str, default="/home/cc/M36_50k_Indexed",
                         help="Data directory")
