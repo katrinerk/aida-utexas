@@ -144,9 +144,9 @@ def run_classifier(model, optimizer, graph_dict, loss_func, data_group, device):
 
     return loss_to_report, accuracy
 
-def train(weight_decay, index_data_dir, train_path, valid_path, test_path, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
+def train(weight_decay, index_data_dir, train_path, valid_path, test_path, indexer_info_dict, attention_type, just_context_vectors, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
     learning_rate, save_path, load_path, load_optim, valid_every, print_every, device):
-    model = CoherenceNetWithGCN(True, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
+    model = CoherenceNetWithGCN(True, indexer_info_dict, attention_type, just_context_vectors, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
     loss_func = nn.BCEWithLogitsLoss()
 
     # Instantiate Adam optimizer with specified weight decay (if any)
@@ -244,6 +244,8 @@ if __name__ == "__main__":
                         help="Number of layers in the GCN")
     parser.add_argument("--attention_type", type=str, default='concat',
                         help="Attention score type for inference (can be concat or bilinear)")
+    parser.add_argument("--just_context_vectors", action='store_true',
+                        help="Use just the context vectors when calculating attention vector for plausibility classifier")
     parser.add_argument("--hidden_size", type=int, default=300,
                         help="Size of hidden representations in model")
     parser.add_argument("--attention_size", type=int, default=300,
@@ -302,5 +304,5 @@ if __name__ == "__main__":
 
     # Train a fresh model
     if mode == 'train':
-        train(weight_decay, index_data_dir, train_path, valid_path, test_path, indexer_info_dict, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
+        train(weight_decay, index_data_dir, train_path, valid_path, test_path, indexer_info_dict, attention_type, just_context_vectors, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
                       learning_rate, save_path, load_path, load_optim, valid_every, print_every, device)
