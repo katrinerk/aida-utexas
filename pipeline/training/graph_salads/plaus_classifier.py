@@ -239,7 +239,7 @@ def eval_plaus(indexer_info_file, model_path, input_dict, attention_type='concat
     model.load_state_dict(torch.load(model_path, map_location=device)['model'])
 
     model.eval()
-
+    
     pred_dict = defaultdict(list)
 
     for file_path in input_dict.keys():
