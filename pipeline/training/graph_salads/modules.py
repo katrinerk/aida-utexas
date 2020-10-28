@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import *
+from pipeline.training.graph_salads.utils import *
 
 # Scoring function for attention mechanism; either "bilinear" or "concatentative" (both from Luong et al., 2015)
 class Score(nn.Module):

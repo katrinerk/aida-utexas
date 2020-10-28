@@ -9,12 +9,12 @@ import argparse
 import os
 import json
 from copy import deepcopy
-from modules import CoherenceNetWithGCN
+from pipeline.training.graph_salads.modules import CoherenceNetWithGCN
 import random
 from tqdm import tqdm
 from collections import defaultdict
-from gen_single_doc_graphs import read_graph
-from index_salads import convert_labels_to_indices
+from pipeline.training.graph_salads.gen_single_doc_graphs import read_graph
+from pipeline.training.graph_salads.index_salads import convert_labels_to_indices
 
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
@@ -231,6 +231,11 @@ def run_no_backprop(index_data_dir, data_path, model, loss_func):
 def eval_plaus(indexer_info_file, model_path, kb_path, list_of_clusters, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300, device='cpu'):
     json_obj = json.load(open(kb_path, 'r'))['theGraph']
     graph = read_graph('', json_obj, False)
+
+    import sys
+    from pipeline.training.graph_salads import gen_single_doc_graphs
+
+    sys.modules['gen_single_doc_graphs'] = gen_single_doc_graphs
 
     indexer_info = dill.load(open(indexer_info_file, 'rb'))
 
