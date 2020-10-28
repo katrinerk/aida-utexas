@@ -194,6 +194,9 @@ def load_statements(graph, graph_js, prepend_ids):
 
         stmt_id = graph.unique_id(entry_id) if prepend_ids else entry_id
         subj_id = graph.unique_id(entry['subject']) if prepend_ids else entry['subject']
+        
+        if subj_id not in graph.eres.keys():
+            continue
 
         # Process typing statements
         if entry["predicate"] == "type":
