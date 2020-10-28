@@ -222,7 +222,6 @@ def convert_labels_to_indices(graph_mix, indexer_info):
 
                 if len(all_caps) > 0:
                     span = all_caps[0].span()
-                    print(span[1], label)
                     assert span[1] == len(label)
                     label = label[:span[0]]
                     word = all_caps[0].group(0)
