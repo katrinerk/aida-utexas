@@ -230,7 +230,7 @@ def run_no_backprop(index_data_dir, data_path, model, loss_func):
 
 def eval_plaus(indexer_info_file, model_path, kb_path, list_of_clusters, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
     json_obj = json.load(open(kb_path, 'r'))['theGraph']
-    graph = read_graph('', json_obj)
+    graph = read_graph('', json_obj, False)
 
     indexer_info = dill.load(open(indexer_info_file, 'rb'))
 
@@ -283,9 +283,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="train",
                         help="Mode to run script in (can be either train or validate)")
-    parser.add_argument("--data_dir", type=str, default="/home/cc/Plaus_50k_Data",
+    parser.add_argument("--data_dir", type=str, default="/home/atomko/Plaus_50k_Data",
                         help="Data directory")
-    parser.add_argument("--index_data_dir", type=str, default="/home/cc/M36_50k_Indexed",
+    parser.add_argument("--index_data_dir", type=str, default="/home/atomko/M36_50k_Indexed",
                         help="Data directory")
     parser.add_argument("--train_dir", type=str, default="Train",
                         help="Name of subdir under data directory containing training mixtures")
@@ -293,7 +293,7 @@ if __name__ == "__main__":
                         help="Name of subdir under data directory containing validation mixtures")
     parser.add_argument("--test_dir", type=str, default="Test",
                         help="Name of subdir under data directory containing test mixtures")
-    parser.add_argument("--indexer_info_file", type=str, default="/home/cc/M36_50k_Indexed/indexers.p",
+    parser.add_argument("--indexer_info_file", type=str, default="/home/atomko/M36_50k_Indexed/indexers.p",
                         help="Indexer info file (contains word-to-index maps for ERE and statement names, contains top k most frequent Word2Vec embeds in training set)")
     parser.add_argument("--num_layers", type=int, default=2,
                         help="Number of layers in the GCN")
