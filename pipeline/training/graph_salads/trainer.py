@@ -14,7 +14,7 @@ import torch.optim as optim
 import argparse
 import os
 from copy import deepcopy
-from other_modules import *
+from modules import *
 
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
