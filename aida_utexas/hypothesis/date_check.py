@@ -56,6 +56,10 @@ class AidaIncompleteDate:
     # in all other cases, if any of the year, month, or day is unspecified, return None
     def interpret(self, time_type: str = None):
         year, month, day = self.year, self.month, self.day
+        # KATRIN QUICK FIX, don't know why we sometimes get year = 9999, month =12, day= 31
+        if year == 9999:
+            year = 9000
+            logging.warning(f'KATRIN2 {year} {month} {day}')
 
         # if year is not specified, this is an unspecified date
         if year is None:
