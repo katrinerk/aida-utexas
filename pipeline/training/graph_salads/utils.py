@@ -280,6 +280,7 @@ def remove_duplicate_events(graph_dict):
     query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
     query_eres = {graph_dict['ere_mat_ind'].get_word(item) for item in graph_dict['query_eres']}
     tups = []
+
     # For all query ERE objects that are classified as an "Event"/"Relation"
     for ere_id in [item for item in query_eres if graph_mix.eres[item].category in ['Event', 'Relation']]:
         ere = graph_mix.eres[ere_id]
@@ -307,8 +308,29 @@ def remove_duplicate_events(graph_dict):
 
         if dup:
             query_stmts -= ere.stmt_ids
+            query_eres.discard(ere_id)
         else:
             tups.append(tup)
 
     graph_dict['query_stmts'] = np.asarray([graph_dict['stmt_mat_ind'].get_index(item, add=False) for item in query_stmts])
+    graph_dict['query_eres'] = np.asarray([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in query_eres])
 
+def remove_place_only_events(graph_dict):
+    graph_mix = graph_dict['graph_mix']
+    query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
+    query_eres = {graph_dict['ere_mat_ind'].get_word(item) for item in graph_dict['query_eres']}
+
+    for ere_id in [item for item in query_eres if graph_mix.eres[item].category == 'Event']:
+        ere = graph_mix.eres[ere_id]
+
+        role_stmts = {stmt_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].tail_id}
+
+        place_role_stmts = {stmt_id for stmt_id in role_stmts if '_Place' in graph_mix.stmts[stmt_id].raw_label}
+
+        # Even if both of these are 0, we should still delete the event; we don't want events with no arguments
+        if len(place_role_stmts) == len(role_stmts):
+            query_stmts -= ere.stmt_ids
+            query_eres.discard(ere_id)
+
+    graph_dict['query_stmts'] = np.asarray([graph_dict['stmt_mat_ind'].get_index(item, add=False) for item in query_stmts])
+    graph_dict['query_eres'] = np.asarray([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in query_eres])
