@@ -11,6 +11,7 @@ from copy import deepcopy
 from modules import CoherenceNetWithGCN
 import random
 from tqdm import tqdm
+from collections import defaultdict
 
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
@@ -223,6 +224,53 @@ def run_no_backprop(index_data_dir, data_path, model, loss_func):
     average_valid_accuracy = np.mean(valid_accuracies)
 
     return (average_valid_loss, average_valid_accuracy)
+
+def eval_plaus(indexer_info_file, input_dict, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
+    indexer_info_dict = dict()
+    ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt = dill.load(open(indexer_info_file, 'rb'))
+    indexer_info_dict['ere_indexer'] = ere_indexer
+    indexer_info_dict['stmt_indexer'] = stmt_indexer
+    indexer_info_dict['ere_emb_mat'] = ere_emb_mat
+    indexer_info_dict['stmt_emb_mat'] = stmt_emb_mat
+    indexer_info_dict['num_word2vec_ere'] = num_word2vec_ere
+    indexer_info_dict['num_word2vec_stmt'] = num_word2vec_stmt
+
+    model = CoherenceNetWithGCN(True, indexer_info_dict, attention_type, use_attender_vectors, num_layers, hidden_size, attention_size, 0, 0).to(device)
+    model.load_state_dict(torch.load(load_path, map_location=device)['model'])
+
+    pred_dict = defaultdict(list)
+
+    for file_path in input_dict.keys():
+        graph_dict = dill.load(open(file_path, 'rb'))
+
+        plaus_cluster_stmt_name_sets = input_dict[file_path]
+        plaus_cluster_stmt_ind_sets = []
+
+        for item in plaus_cluster_stmt_name_sets:
+            plaus_cluster_stmt_ind_sets.append([graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in item])
+
+        graph_mix = graph_dict['graph_mix']
+
+        plaus_cluster_ere_ind_sets = []
+
+        for cluster_stmts in plaus_cluster_stmt_name_sets:
+            temp = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in cluster_stmts if graph_mix.stmts[stmt_id].tail_id])
+            temp = [graph_dict['ere_mat_ind'].get_index(item, add=False) for item in temp]
+
+            plaus_cluster_ere_ind_sets.append(temp)
+
+        for i in range(len(plaus_cluster_stmt_ind_sets)):
+            graph_dict['query_stmts'] = plaus_cluster_stmt_ind_sets[i]
+            graph_dict['query_eres'] = plaus_cluster_ere_ind_sets[i]
+
+            if i == 0:
+                pred_logit, gcn_embeds = model(graph_dict, None, device)
+            else:
+                pred_logit, _ = model(graph_dict, gcn_embeds, device)
+
+            pred_dict[file_path].append(torch.sigmoid(pred_logit).item())
+
+    return pred_dict
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
