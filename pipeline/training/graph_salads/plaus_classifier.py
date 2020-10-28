@@ -7,11 +7,14 @@ import torch.nn.functional as F
 import torch.optim as optim
 import argparse
 import os
+import json
 from copy import deepcopy
 from modules import CoherenceNetWithGCN
 import random
 from tqdm import tqdm
 from collections import defaultdict
+from gen_single_doc_graphs import read_graph
+from index_salads import convert_labels_to_indices
 
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
@@ -225,9 +228,16 @@ def run_no_backprop(index_data_dir, data_path, model, loss_func):
 
     return (average_valid_loss, average_valid_accuracy)
 
-def eval_plaus(indexer_info_file, model_path, input_dict, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
+def eval_plaus(indexer_info_file, model_path, kb_path, list_of_clusters, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
+    json_obj = json.load(open(kb_path, 'r'))['theGraph']
+    graph = read_graph('', json_obj)
+
+    indexer_info = dill.load(open(indexer_info_file, 'rb'))
+
+    graph_dict = convert_labels_to_indices(graph, indexer_info)
+
     indexer_info_dict = dict()
-    ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt = dill.load(open(indexer_info_file, 'rb'))
+    ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt = indexer_info
     indexer_info_dict['ere_indexer'] = ere_indexer
     indexer_info_dict['stmt_indexer'] = stmt_indexer
     indexer_info_dict['ere_emb_mat'] = ere_emb_mat
@@ -239,40 +249,35 @@ def eval_plaus(indexer_info_file, model_path, input_dict, attention_type='concat
     model.load_state_dict(torch.load(model_path, map_location=device)['model'])
 
     model.eval()
-    
-    pred_dict = defaultdict(list)
 
-    for file_path in input_dict.keys():
-        graph_dict = dill.load(open(file_path, 'rb'))
+    preds = []
+    plaus_cluster_stmt_ind_sets = []
 
-        plaus_cluster_stmt_name_sets = input_dict[file_path]
-        plaus_cluster_stmt_ind_sets = []
+    for item in list_of_clusters:
+        plaus_cluster_stmt_ind_sets.append([graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in item])
 
-        for item in plaus_cluster_stmt_name_sets:
-            plaus_cluster_stmt_ind_sets.append([graph_dict['stmt_mat_ind'].get_index(stmt_id, add=False) for stmt_id in item])
+    graph_mix = graph_dict['graph_mix']
 
-        graph_mix = graph_dict['graph_mix']
+    plaus_cluster_ere_ind_sets = []
 
-        plaus_cluster_ere_ind_sets = []
+    for cluster_stmts in list_of_clusters:
+        temp = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in cluster_stmts if graph_mix.stmts[stmt_id].tail_id])
+        temp = [graph_dict['ere_mat_ind'].get_index(item, add=False) for item in temp]
 
-        for cluster_stmts in plaus_cluster_stmt_name_sets:
-            temp = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in cluster_stmts if graph_mix.stmts[stmt_id].tail_id])
-            temp = [graph_dict['ere_mat_ind'].get_index(item, add=False) for item in temp]
+        plaus_cluster_ere_ind_sets.append(temp)
 
-            plaus_cluster_ere_ind_sets.append(temp)
+    for i in range(len(plaus_cluster_stmt_ind_sets)):
+        graph_dict['query_stmts'] = plaus_cluster_stmt_ind_sets[i]
+        graph_dict['query_eres'] = plaus_cluster_ere_ind_sets[i]
 
-        for i in range(len(plaus_cluster_stmt_ind_sets)):
-            graph_dict['query_stmts'] = plaus_cluster_stmt_ind_sets[i]
-            graph_dict['query_eres'] = plaus_cluster_ere_ind_sets[i]
+        if i == 0:
+            pred_logit, gcn_embeds = model(graph_dict, None, device)
+        else:
+            pred_logit, _ = model(graph_dict, gcn_embeds, device)
 
-            if i == 0:
-                pred_logit, gcn_embeds = model(graph_dict, None, device)
-            else:
-                pred_logit, _ = model(graph_dict, gcn_embeds, device)
+        preds.append(torch.sigmoid(pred_logit).item())
 
-            pred_dict[file_path].append(torch.sigmoid(pred_logit).item())
-
-    return pred_dict
+    return preds
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
