@@ -228,7 +228,7 @@ def run_no_backprop(index_data_dir, data_path, model, loss_func):
 
     return (average_valid_loss, average_valid_accuracy)
 
-def eval_plaus(indexer_info_file, model_path, kb_path, list_of_clusters, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
+def eval_plaus(indexer_info_file, model_path, kb_path, list_of_clusters, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300, device='cpu'):
     json_obj = json.load(open(kb_path, 'r'))['theGraph']
     graph = read_graph('', json_obj, False)
 
