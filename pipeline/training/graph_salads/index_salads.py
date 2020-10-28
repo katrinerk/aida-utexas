@@ -208,6 +208,9 @@ def convert_labels_to_indices(graph_mix, indexer_info):
         for label in graph_mix.stmts[stmt_id].label:
             temp = []
 
+            if label == 'TopicFIller':
+                label = 'TopicFiller'
+
             if label.isupper():
                 if label in stmt_indexer.word_to_index.keys():
                     temp.append(stmt_indexer.get_index(label, add=False))

@@ -147,13 +147,13 @@ class Graph:
         return self.graph_id + '_' + entry_id
 
 # Load the EREs from a graph JSON
-def load_eres(graph, graph_js, prepend_ids):
+def load_eres(graph, graph_js):
     for entry_id, entry in graph_js.items():
         # Ignore all Statements, SameAsClusters, and ClusterMemberships first
         if entry["type"] in ["Statement", "SameAsCluster", "ClusterMembership"]:
             continue
 
-        ere_id = graph.unique_id(entry_id) if prepend_ids else entry_id
+        ere_id = graph.unique_id(entry_id)
 
         # Process relation nodes
         if entry["type"] == "Relation":
@@ -185,15 +185,15 @@ def load_eres(graph, graph_js, prepend_ids):
             )
 
 # Load the statements from a graph JSON
-def load_statements(graph, graph_js, prepend_ids):
+def load_statements(graph, graph_js):
     seen_stmts = dict()
 
     for entry_id, entry in graph_js.items():
         if entry["type"] != "Statement":
             continue
 
-        stmt_id = graph.unique_id(entry_id) if prepend_ids else entry_id
-        subj_id = graph.unique_id(entry['subject']) if prepend_ids else entry['subject']
+        stmt_id = graph.unique_id(entry_id)
+        subj_id = graph.unique_id(entry['subject'])
 
         # Process typing statements
         if entry["predicate"] == "type":
@@ -221,7 +221,7 @@ def load_statements(graph, graph_js, prepend_ids):
             graph.eres[subj_id].stmt_ids.add(stmt_id)
         # Processing non-typing (event or relation) statements
         else:
-            obj_id = graph.unique_id(entry['object']) if prepend_ids else entry['object']
+            obj_id = graph.unique_id(entry['object'])
 
             split_label = re.sub("[._]", " ", entry["predicate"]).split()
 
@@ -275,12 +275,12 @@ def compute_connectedness(graph):
         graph.connectedness_two_step[ere_id] = len(two_step_neighbor_ere_ids)
 
 # Read in a graph (from a JSON)
-def read_graph(graph_id, graph_js, prepend_ids):
+def read_graph(graph_id, graph_js):
     # Construct Graph object
     graph = Graph(graph_id)
 
-    load_eres(graph, graph_js, prepend_ids)
-    load_statements(graph, graph_js, prepend_ids)
+    load_eres(graph, graph_js)
+    load_statements(graph, graph_js)
 
     # Prune nodes with no neighbors from the graph
     remove_singletons(graph)
@@ -315,7 +315,7 @@ if __name__ == "__main__":
 
         graph_id = file_name.split('.')[0]
 
-        graph = read_graph(graph_id, json_obj, True)
+        graph = read_graph(graph_id, json_obj)
 
         dill.dump(graph, open(os.path.join(args.out_dir, graph_id + '.p'), 'wb'))
 

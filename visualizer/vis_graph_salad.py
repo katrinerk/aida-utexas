@@ -25,10 +25,28 @@ else:
 # target_graph_id = graph_dict['target_graph_id']
 
 # Originally:
-origin_id, query_stmts, graph_mix, target_graph_id, noisy_merge_points = dill.load(open(file_name, 'rb'))
+temp = dill.load(open(file_name, 'rb'))
+
+if type(temp) == type(dict()):
+    graph_dict = temp
+    graph_mix = graph_dict['graph_mix']
+    target_graph_id = graph_dict['target_graph_id']
+    noisy_merge_points = graph_dict['noisy_merge_points']
+    ere_mat_ind = graph_dict['ere_mat_ind']
+    query_ere_ids = {ere_mat_ind.get_word(ere_ind) for ere_ind in graph_dict['query_eres']}
+    origin_id = [ere_id for ere_id in query_ere_ids if graph_dict['graph_mix'].eres[ere_id].category == 'Event'][0]
+    stmt_mat_ind = graph_dict['stmt_mat_ind']
+    query_stmts = {stmt_mat_ind.get_word(stmt_ind) for stmt_ind in graph_dict['query_stmts']}
+else:
+    origin_id, query_stmts, graph_mix, target_graph_id, noisy_merge_points = temp
 
 query_eres = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query_stmts if graph_mix.stmts[stmt_id].tail_id])
 cand_stmts = {item for item in graph_mix.stmts.keys() if graph_mix.stmts[item].tail_id and set.intersection({graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}, query_eres) and item not in query_stmts}
+
+if len(noisy_merge_points) > 0:
+    num_noisy_sources = len({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[list(noisy_merge_points)[0]].stmt_ids})
+else:
+    num_noisy_sources = 0
 
 for stmt_id in graph_mix.stmts.keys():
     if graph_mix.stmts[stmt_id].tail_id:
@@ -59,7 +77,6 @@ graph_id_ind_map[graph_ids[2]] = 2
 
 i = 3
 counter = 0
-num_noisy_sources = len({graph_mix.stmts[stmt_id].graph_id for stmt_id in graph_mix.eres[list(noisy_merge_points)[0]].stmt_ids})
 
 while i < len(graph_ids):
     graph_id_ind_map[graph_ids[i]] = 3 + counter
@@ -318,9 +335,9 @@ def generate_stylesheet(data_edge, data_node_hover, data_node_tap):
         })
 
     label_list = [graph_mix.eres[data_node_hover['id']].label[0]] + ['+' * int(.75 * len(graph_mix.eres[data_node_hover['id']].label[0]))] + [('*' if graph_mix.stmts[stmt_id].graph_id == target_graph_id else '') + graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[data_node_hover['id']].stmt_ids
-                                                                                                                                              if not graph_mix.stmts[stmt_id].tail_id and stmt_id in query_stmts]
+                                                                                                                                              if (not graph_mix.stmts[stmt_id].tail_id) and (stmt_id in query_stmts)]
     label_list += ['-' * int(1.5 * len(graph_mix.eres[data_node_hover['id']].label[0]))] + [('*' if graph_mix.stmts[stmt_id].graph_id == target_graph_id else '') + graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[data_node_hover['id']].stmt_ids
-                                                                                                                                              if not graph_mix.stmts[stmt_id].tail_id and stmt_id not in query_stmts]
+                                                                                                                                              if (not graph_mix.stmts[stmt_id].tail_id) and (stmt_id not in query_stmts)]
     stylesheet.append({
         "selector": 'node[id = "{}"]'.format(data_node_hover['id']),
         "style": {

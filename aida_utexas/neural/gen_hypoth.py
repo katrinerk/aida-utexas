@@ -6,26 +6,10 @@ from aida_utexas.neural.modules import *
 from aida_utexas.neural.utils import *
 from aida_utexas import util
 
+import torch.nn.functional as F
 import sys
 import os
-
-
-def reset_batch_mats(batch, device):
-    max_num_eres = max([len(batch[iter]['ere_labels']) for iter in range(len(batch))])
-    max_num_stmts = max([len(batch[iter]['stmt_labels']) for iter in range(len(batch))])
-
-    padded_batch_mats = {}
-    padded_batch_mats['adj_head'] = torch.zeros((len(batch), max_num_eres, max_num_stmts)).to(device=device)
-    padded_batch_mats['adj_tail'] = torch.zeros((len(batch), max_num_eres, max_num_stmts)).to(device=device)
-    padded_batch_mats['adj_type'] = torch.zeros((len(batch), max_num_eres, max_num_stmts)).to(device=device)
-
-    for iter in range(len(batch)):
-        padded_batch_mats['adj_head'][iter][:batch[iter]['adj_head'].shape[0], :batch[iter]['adj_head'].shape[1]] = batch[iter]['adj_head']
-        padded_batch_mats['adj_tail'][iter][:batch[iter]['adj_tail'].shape[0], :batch[iter]['adj_tail'].shape[1]] = batch[iter]['adj_tail']
-        padded_batch_mats['adj_type'][iter][:batch[iter]['adj_type'].shape[0], :batch[iter]['adj_type'].shape[1]] = batch[iter]['adj_type']
-
-    return padded_batch_mats
-
+import dill
 
 def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
     for seed_path in sorted(seed_dir.glob('*_seeds.json')):
@@ -39,9 +23,9 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
 
         for idx, indexed_data_path in enumerate(sorted(indexed_data_dir_for_sin.glob('*.p'), key=lambda p: int(p.stem.split('_')[2]))):
             with open(indexed_data_path, 'rb') as fin:
-                batch = [dill.load(fin)]
+                graph_dict = dill.load(fin)
 
-            batch[0]['candidates'] = get_candidates(batch)[0]
+            graph_dict['candidates'] = get_candidates(graph_dict)[0]
 
             curr_weight = -1
 
@@ -52,27 +36,27 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
 
             gcn_embeds = None
 
-            while len([ere for ere in batch[0]['query_eres'] if batch[0]['graph_mix'].eres[batch[0]['ere_mat_ind'].get_word(ere)].category in ['Event', 'Relation']]) < 25:
-                if len(batch[0]['candidates']) == 0:
+            while len([ere for ere in graph_dict['query_eres'] if graph_dict['graph_mix'].eres[graph_dict['ere_mat_ind'].get_word(ere)].category in ['Event', 'Relation']]) < 25:
+                if len(graph_dict['candidates']) == 0:
                     break
 
-                padded_batch_mats = reset_batch_mats(batch, device)
                 if i == 0:
-                    prediction, gcn_embeds = model(batch, padded_batch_mats, None, device)
+                    _, coherence_out, gcn_embeds = model(graph_dict, None, device)
                 else:
-                    prediction, gcn_embeds = model(batch, padded_batch_mats, gcn_embeds, device)
+                    _, coherence_out, gcn_embeds = model(graph_dict, gcn_embeds, device)
 
-                predicted_index = select_valid_hypothesis(batch, prediction)
-                predicted_stmt_id = batch[0]['candidates'][predicted_index]
-                add_stmts.append((batch[0]['stmt_mat_ind'].get_word(predicted_stmt_id)).split(batch[0]['graph_mix'].graph_id + '_')[-1])
+                prediction = F.log_softmax(coherence_out, dim=0)
+                predicted_index = select_valid_hypothesis(graph_dict, prediction)
+                predicted_stmt_id = graph_dict['candidates'][predicted_index]
+                add_stmts.append((graph_dict['stmt_mat_ind'].get_word(predicted_stmt_id)).split(graph_dict['graph_mix'].graph_id + '_')[-1])
 
                 add_weights.append(curr_weight)
                 curr_weight -= 1
                 i += 1
 
-                next_state(batch, [predicted_index], True)
+                next_state(graph_dict, predicted_index)
 
-            remove_duplicate_events(batch)
+            remove_duplicate_events(graph_dict)
 
             seed_json['support'][idx]['statements'] += add_stmts
             seed_json['support'][idx]['statementWeights'] += add_weights
@@ -96,19 +80,17 @@ def main():
 
     parser.add_argument("--indexer_path", default="resources/indexers.p",
                         help='path to the indexer file')
-    parser.add_argument("--model_path", default="resources/gcn2-cuda_best_5000_1.ckpt",
+    parser.add_argument("--model_path", default="resources/gcn2-cuda_best_15000_0.ckpt",
                         help='path to the pre-trained model checkpoint')
 
     parser.add_argument("--device", type=int, default=-1)
 
-    parser.add_argument("--self_attend", action='store_true')
     parser.add_argument("--attention_type", type=str, default='concat')
-    parser.add_argument("--attn_head_stmt_tail", action='store_true')
     parser.add_argument("--num_layers", type=int, default=2)
     parser.add_argument("--hidden_size", type=int, default=300)
     parser.add_argument("--attention_size", type=int, default=300)
     parser.add_argument("--conv_dropout", type=float, default=.5)
-    parser.add_argument("--attention_dropout", type=float, default=.2)
+    parser.add_argument("--attention_dropout", type=float, default=.3)
 
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
@@ -153,9 +135,8 @@ def main():
 
     model = CoherenceNetWithGCN(
         indexer_info_dict,
-        args.self_attend,
+        False,
         args.attention_type,
-        args.attn_head_stmt_tail,
         args.num_layers,
         args.hidden_size,
         args.attention_size,
