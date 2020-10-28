@@ -60,7 +60,7 @@ class ExtensionCandidate:
 
 
 # The class that holds a single hypothesis seed: just a data structure, doesn't do much.
-class HypothesisSeedHypothesisSeed:
+class HypothesisSeed:
     # some penalty constants for things that might go wrong during seed creation and extension
     FAILED_CORE = -0.1
     FAILED_TEMPORAL = -0.1
