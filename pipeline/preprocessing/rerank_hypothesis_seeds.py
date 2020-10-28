@@ -4,28 +4,36 @@ import logging
 import math
 from argparse import ArgumentParser
 from collections import Counter, defaultdict
-from pathlib import Path
-from typing import Dict, List, Set, Union
-
-from torch.nn import Module
+from typing import Dict, List, Set
 
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis import HypothesisSeed, AidaHypothesisCollection
+from pipeline.training.graph_salads.plaus_classifier import eval_plaus
 
 
-def load_plausibility_model(model_path: Union[str, Path]) -> Module:
-    raise NotImplementedError
-
-
-def rerank_seeds_by_plausibility(seeds_by_facet: Dict, plausibility_model: Module = None):
+def rerank_seeds_by_plausibility(seeds_by_facet: Dict, graph_path: str,
+                                 plausibility_model_path: str = None, indexer_path: str = None):
     logging.info('Re-rank hypothesis seeds by plausibility ...')
 
-    for facet_label, seeds in seeds_by_facet:
-        for seed in seeds:
-            seed.plausibility_score = plausibility_model(seed)
+    all_seed_stmts_list = [s.hypothesis.stmts for seeds in seeds_by_facet.values() for s in seeds]
 
-        seeds_by_facet[facet_label] = sorted(seeds, key=lambda s: s.get_scores(), reverse=True)
+    all_scores = eval_plaus(
+        indexer_info_file=indexer_path,
+        model_path=plausibility_model_path,
+        kb_path=graph_path,
+        list_of_clusters=all_seed_stmts_list
+    )
+
+    offset = 0
+
+    for facet_label, seeds in seeds_by_facet.items():
+        for seed, score in zip(seeds, all_scores[offset:]):
+            seed.plausibility_score = score
+        offset += len(seeds)
+
+    return {facet_label: sorted(seeds, key=lambda s: s.get_scores(), reverse=True)
+            for facet_label, seeds in seeds_by_facet.items()}
 
 
 def select_seeds_by_novelty(seeds_by_facet: Dict, max_num_seeds: int) -> List[HypothesisSeed]:
@@ -137,12 +145,12 @@ def main():
                         help='Path to the raw hypothesis seeds file, or a directory with '
                              'multiple seeds files')
     parser.add_argument('output_dir', help='Directory to write the reranked hypothesis seeds')
+    parser.add_argument('--plausibility_model_path', help='Path to a hypothesis plausibility model')
+    parser.add_argument('--indexer_path', help="Path to the indexers file")
     parser.add_argument('-n', '--max_num_seeds', type=int, default=None,
                         help='Only output up to n hypothesis seeds')
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
-    parser.add_argument('-p', '--plausibility_model_path',
-                        help='Path to a hypothesis plausibility model')
 
     args = parser.parse_args()
 
@@ -152,12 +160,6 @@ def main():
 
     output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
-    if args.plausibility_model_path is not None:
-        model_path = util.get_input_path(args.plausibility_model_path)
-        plausibility_model = load_plausibility_model(model_path)
-    else:
-        plausibility_model = None
-
     for raw_seeds_file_path in raw_seeds_file_paths:
         raw_seeds_json = util.read_json_file(raw_seeds_file_path, 'seeds by facet')
         seeds_by_facet = {}
@@ -166,8 +168,9 @@ def main():
                 seeds_by_facet[facet_label] = [HypothesisSeed.from_json(seed_json, json_graph)
                                                for seed_json in seeds_json]
 
-        if plausibility_model is not None:
-            rerank_seeds_by_plausibility(seeds_by_facet, plausibility_model)
+        if args.plausibility_model_path is not None and args.indexer_path is not None:
+            seeds_by_facet = rerank_seeds_by_plausibility(
+                seeds_by_facet, args.graph_path, args.plausibility_model_path, args.indexer_path)
 
         seeds = select_seeds_by_novelty(seeds_by_facet, args.max_num_seeds)
 

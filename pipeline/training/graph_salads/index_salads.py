@@ -14,7 +14,7 @@ from collections import Counter
 import numpy as np
 import os
 import gensim
-from gen_single_doc_graphs import Indexer, verify_dir
+from pipeline.training.graph_salads.gen_single_doc_graphs import Indexer, verify_dir
 
 # Count the number of times each token appears in the training set in names or labels
 def get_tokens(train_path, word2vec_model, return_freq_cut_set):

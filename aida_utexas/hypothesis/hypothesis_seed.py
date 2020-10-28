@@ -179,7 +179,7 @@ class HypothesisSeed:
 
         scores = (self.entrypoint_score,)
         if self.plausibility_score is not None:
-            scores += self.plausibility_score
+            scores += (self.plausibility_score,)
         scores += (self.penalty_score,
                    self.hypothesis.get_connectedness_score())
 
