@@ -358,7 +358,7 @@ def triples_for_ere(kb_graph, ere_id):
         triples.update(info_just_triples)
 
     for s, p, o in kb_graph.triples((ere_id, None, None)):
-        if p in [AIDA.justifiedBy, AIDA.privateData, AIDA.link, AIDA.ldcTime]:
+        if p in [AIDA.justifiedBy, AIDA.privateData]:
             continue
 
         if p == AIDA.informativeJustification:
@@ -366,7 +366,10 @@ def triples_for_ere(kb_graph, ere_id):
 
         triples.add((s, p, o))
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        if p == AIDA.ldcTime:
+            triples.update(triples_for_ldc_time(kb_graph, o))
+        else:
+            triples.update(expand_conf_and_system_node(kb_graph, p, o))
 
     return triples
 
@@ -467,6 +470,20 @@ def triples_for_conf(kb_graph, conf_id):
             triples.add((s, p, o))
 
         if p == AIDA.system:
+            triples.update(triples_for_subject(kb_graph, o))
+
+    return triples
+
+
+def triples_for_ldc_time(kb_graph, time_id):
+    """
+    Extracting all triples related to an LDCTime node.
+    """
+    triples = set()
+
+    for s, p, o in kb_graph.triples((time_id, None, None)):
+        triples.add((s, p, o))
+        if p in [AIDA.start, AIDA.end]:
             triples.update(triples_for_subject(kb_graph, o))
 
     return triples
