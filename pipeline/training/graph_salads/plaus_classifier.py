@@ -225,7 +225,7 @@ def run_no_backprop(index_data_dir, data_path, model, loss_func):
 
     return (average_valid_loss, average_valid_accuracy)
 
-def eval_plaus(indexer_info_file, input_dict, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
+def eval_plaus(indexer_info_file, model_path, input_dict, attention_type='concat', use_attender_vectors=False, num_layers=2, hidden_size=300, attention_size=300):
     indexer_info_dict = dict()
     ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt = dill.load(open(indexer_info_file, 'rb'))
     indexer_info_dict['ere_indexer'] = ere_indexer
@@ -236,7 +236,7 @@ def eval_plaus(indexer_info_file, input_dict, attention_type='concat', use_atten
     indexer_info_dict['num_word2vec_stmt'] = num_word2vec_stmt
 
     model = CoherenceNetWithGCN(True, indexer_info_dict, attention_type, use_attender_vectors, num_layers, hidden_size, attention_size, 0, 0).to(device)
-    model.load_state_dict(torch.load(load_path, map_location=device)['model'])
+    model.load_state_dict(torch.load(model_path, map_location=device)['model'])
 
     pred_dict = defaultdict(list)
 
