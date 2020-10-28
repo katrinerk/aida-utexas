@@ -138,6 +138,10 @@ optional_args=()
 $force_overwrite && optional_args+=( "--force" )
 optional_args="${optional_args[@]}"
 
+indexer_path="resources/indexers.p"
+gcn_model_path="resources/gcn2-cuda_best_5000_1.ckpt"
+plaus_model_path="resources/plaus_check.ckpt"
+
 echo
 printf "+ Optional arguments for python scripts: %s\n" "$optional_args"
 
@@ -179,6 +183,8 @@ python -m pipeline.preprocessing.rerank_hypothesis_seeds \
     "${working_dir}/cluster_seeds_raw" \
     "${working_dir}/cluster_seeds" \
     --max_num_seeds "$num_hyps" \
+    --plausibility_model_path "$plaus_model_path" \
+    --indexer_path "$indexer_path" \
     $optional_args
 
 for seed_file in "${working_dir}"/cluster_seeds/*.json; do
@@ -199,9 +205,6 @@ echo
 echo
 echo Start neural.sh ...
 
-indexer_path="resources/indexers.p"
-model_path="resources/gcn2-cuda_best_5000_1.ckpt"
-
 echo
 python -m aida_utexas.neural.index \
     "$working_dir" --indexer_path "$indexer_path" \
@@ -209,7 +212,10 @@ python -m aida_utexas.neural.index \
 
 echo
 python -m aida_utexas.neural.gen_hypoth \
-    "$working_dir" --indexer_path "$indexer_path" --model_path "$model_path" --device="$device" \
+    "$working_dir" \
+    --indexer_path "$indexer_path" \
+    --model_path "$gcn_model_path" \
+    --device="$device" \
     $optional_args
 
 echo
