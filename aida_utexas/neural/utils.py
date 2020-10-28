@@ -202,17 +202,43 @@ def select_valid_hypothesis(graph_dict, prediction):
         cand_stmt_id = graph_dict['stmt_mat_ind'].get_word(graph_dict['candidates'][index])
         cand_stmt = graph_mix.stmts[cand_stmt_id]
 
+        attk_and_targ = False
+
+        if '_Attacker' in cand_stmt.raw_label:
+            for stmt_id in set.intersection(query_stmts, graph_mix.eres[cand_stmt.head_id].stmt_ids):
+                if '_Target' in graph_mix.stmts[stmt_id].raw_label and cand_stmt.tail_id == graph_mix.stmts[stmt_id].tail_id:
+                    attk_and_targ = True
+                    break
+        if '_Target' in cand_stmt.raw_label:
+            for stmt_id in set.intersection(query_stmts, graph_mix.eres[cand_stmt.head_id].stmt_ids):
+                if '_Attacker' in graph_mix.stmts[stmt_id].raw_label and cand_stmt.tail_id == graph_mix.stmts[stmt_id].tail_id:
+                    attk_and_targ = True
+                    break
+
+        kllr_and_vict = False
+
+        if '_Killer' in cand_stmt.raw_label:
+            for stmt_id in set.intersection(query_stmts, graph_mix.eres[cand_stmt.head_id].stmt_ids):
+                if all([x in graph_mix.stmts[stmt_id].raw_label for x in ['Life.Die', '_Victim']]) and cand_stmt.tail_id == graph_mix.stmts[stmt_id].tail_id:
+                    kllr_and_vict = True
+                    break
+        if all([x in cand_stmt.raw_label for x in ['Life.Die', '_Victim']]):
+            for stmt_id in set.intersection(query_stmts, graph_mix.eres[cand_stmt.head_id].stmt_ids):
+                if '_Killer' in graph_mix.stmts[stmt_id].raw_label and cand_stmt.tail_id == graph_mix.stmts[stmt_id].tail_id:
+                    kllr_and_vict = True
+                    break
+
         # If at least one 'need_set' is non-empty, we know there is a candidate statement which is guaranteed to pass the two tests in the "else" branch
         if any([need_atk_set, need_trg_set, need_kle_set, need_vct_set]):
             if need_atk_set or need_trg_set:
-                if cand_stmt.head_id in need_atk_set and '_Attacker' in cand_stmt.raw_label:
+                if cand_stmt.head_id in need_atk_set and '_Attacker' in cand_stmt.raw_label and not attk_and_targ:
                     return index
-                elif cand_stmt.head_id in need_trg_set and '_Target' in cand_stmt.raw_label:
+                elif cand_stmt.head_id in need_trg_set and '_Target' in cand_stmt.raw_label and not attk_and_targ:
                     return index
             elif need_kle_set or need_vct_set:
-                if cand_stmt.head_id in need_kle_set and '_Killer' in cand_stmt.raw_label:
+                if cand_stmt.head_id in need_kle_set and '_Killer' in cand_stmt.raw_label and not kllr_and_vict:
                     return index
-                elif cand_stmt.head_id in need_vct_set and all([x in cand_stmt.raw_label for x in ['Life.Die', '_Victim']]):
+                elif cand_stmt.head_id in need_vct_set and all([x in cand_stmt.raw_label for x in ['Life.Die', '_Victim']]) and not kllr_and_vict:
                     if cand_stmt.tail_id not in die_victim_list:
                         return index
         else:
@@ -220,8 +246,8 @@ def select_valid_hypothesis(graph_dict, prediction):
                 continue
             if all([x in cand_stmt.raw_label for x in ['Life.Die', '_Victim']]) and cand_stmt.tail_id in die_victim_list:
                 continue
-
-            return index
+            if (not attk_and_targ) and (not kllr_and_vict):
+                return index
 
     # If all stmts are invalid, just return the first index (in general this case shouldn't happen)
     return sorted_pred_indices[0]
