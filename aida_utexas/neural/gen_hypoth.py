@@ -57,6 +57,7 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
                 next_state(graph_dict, predicted_index)
 
             remove_duplicate_events(graph_dict)
+            remove_place_only_events(graph_dict)
 
             seed_json['support'][idx]['statements'] += add_stmts
             seed_json['support'][idx]['statementWeights'] += add_weights
