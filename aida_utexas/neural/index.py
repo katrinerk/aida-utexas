@@ -163,7 +163,7 @@ def map_subgraph_to_seed(subgraph_dir: Path, seed_dir: Path):
             with open(str(subgraph_file), 'r') as fin:
                 graph_json = json.load(fin)["theGraph"]
             graph_name = f'{sin_name}_{subgraph_file.stem}'
-            seed_subgraph_map[seed_path].append(read_graph(graph_name, graph_json))
+            seed_subgraph_map[seed_path].append(read_graph(graph_name, graph_json, True))
 
     return seed_subgraph_map
 
