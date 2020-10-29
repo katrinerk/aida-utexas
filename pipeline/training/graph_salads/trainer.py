@@ -117,7 +117,7 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
 def train(batch_size, extraction_size, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend,
           attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs, learning_rate, save_path, load_path, load_optim,
           use_highest_ranked_gold, valid_every, print_every, device):
-    model = CoherenceNetWithGCN(indexer_info_dict, False, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
+    model = CoherenceNetWithGCN(False, indexer_info_dict, attention_type, None, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
 
     # If a pretrained model should be used, load its parameters in
     if load_path is not None:
