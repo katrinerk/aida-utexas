@@ -11,6 +11,7 @@ import os
 import json
 import re
 
+
 class Indexer(object):
     """Word to index bidirectional mapping."""
 
@@ -74,6 +75,7 @@ class Indexer(object):
         """Words (strings) -> indices (ints) conversion."""
         return [self.get_index(word, add=False) for word in words]
 
+
 # Ere class (represents EREs)
 class Ere:
     def __init__(self, graph_id, category, ere_id, label):
@@ -95,6 +97,7 @@ class Ere:
     @staticmethod
     def entry_type():
         return "Ere"
+
 
 # Stmt class (represents statements)
 class Stmt:
@@ -123,6 +126,7 @@ class Stmt:
     def entry_type():
         return "Stmt"
 
+
 # Graph class (composed of Ere and Stmt objects)
 class Graph:
     def __init__(self, graph_id):
@@ -146,6 +150,7 @@ class Graph:
     def unique_id(self, entry_id):
         return self.graph_id + '_' + entry_id
 
+
 # Load the EREs from a graph JSON
 def load_eres(graph, graph_js, prepend_ids):
     for entry_id, entry in graph_js.items():
@@ -161,7 +166,7 @@ def load_eres(graph, graph_js, prepend_ids):
                 graph_id=graph.graph_id,
                 category=entry["type"],
                 ere_id=ere_id,
-                label=["Relation"] # Relation nodes have no explicit name
+                label=["Relation"]  # Relation nodes have no explicit name
             )
         # Process event/entity nodes
         else:
@@ -184,6 +189,7 @@ def load_eres(graph, graph_js, prepend_ids):
                 label=keep_labels
             )
 
+
 # Load the statements from a graph JSON
 def load_statements(graph, graph_js, prepend_ids):
     seen_stmts = dict()
@@ -194,6 +200,9 @@ def load_statements(graph, graph_js, prepend_ids):
 
         stmt_id = graph.unique_id(entry_id) if prepend_ids else entry_id
         subj_id = graph.unique_id(entry['subject']) if prepend_ids else entry['subject']
+
+        if subj_id not in graph.eres.keys():
+            continue
 
         # Process typing statements
         if entry["predicate"] == "type":
@@ -247,6 +256,7 @@ def load_statements(graph, graph_js, prepend_ids):
             graph.eres[subj_id].stmt_ids.add(stmt_id)
             graph.eres[obj_id].stmt_ids.add(stmt_id)
 
+
 # Remove singleton nodes (nodes with no neighbors)
 def remove_singletons(graph):
     singleton_ids = [ere_id for ere_id in graph.eres.keys() if len(graph.eres[ere_id].neighbor_ere_ids) == 0]
@@ -255,6 +265,7 @@ def remove_singletons(graph):
         for stmt_id in graph.eres[singleton_id].stmt_ids:
             del graph.stmts[stmt_id]
         del graph.eres[singleton_id]
+
 
 # Compute one- and two-step connectedness scores for all EREs in a graph
 def compute_connectedness(graph):
@@ -274,6 +285,7 @@ def compute_connectedness(graph):
 
         graph.connectedness_two_step[ere_id] = len(two_step_neighbor_ere_ids)
 
+
 # Read in a graph (from a JSON)
 def read_graph(graph_id, graph_js, prepend_ids):
     # Construct Graph object
@@ -290,15 +302,19 @@ def read_graph(graph_id, graph_js, prepend_ids):
 
     return graph
 
+
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--json_dir", type=str, default="/home/cc/js-wiki-new-ontology", help='Input folder (abs path) containing single-doc Wiki json files')
-    parser.add_argument("--out_dir", type=str, default="/home/cc/test_file_gen", help='Output folder (abs path) to contain pickled single-doc Wiki KGs')
+    parser.add_argument("--json_dir", type=str, default="/home/cc/js-wiki-new-ontology",
+                        help='Input folder (abs path) containing single-doc Wiki json files')
+    parser.add_argument("--out_dir", type=str, default="/home/cc/test_file_gen",
+                        help='Output folder (abs path) to contain pickled single-doc Wiki KGs')
 
     args = parser.parse_args()
 
