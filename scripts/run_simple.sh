@@ -12,6 +12,7 @@ print_usage() {
     printf "* --min_num_eres <MIN_NUM_ERES>: minimum number of EREs to  stop subgraph expansion, default = 100\n"
     printf "* --min_num_stmts <MIN_NUM_STMTS>: minimum number of statements to stop subgraph expansion, default = 200\n"
     printf "* --coref_compress: when specified, first compress ERE coreference on the input TA2 KB\n"
+    printf "* --plaus_rerank: when specified, use a plausibility classifier to rerank hypothesis seeds\n"
     printf "* --device: which CUDA device to use for the neural module, default = -1 (CPU)\n"
     printf "* --sin_id_prefix: the prefix of SIN IDs to use in naming the final hypotheses, default = AIDA_M18_TA3\n"
     printf "* --force: if specified, overwrite existing output files without warning\n"
@@ -33,6 +34,7 @@ parse_args() {
     min_num_eres=100
     min_num_stmts=200
     do_coref_compression=false
+    do_plausibility_reranking=false
     device=-1
     sin_id_prefix="AIDA_M36_TA3"
     force_overwrite=false
@@ -57,6 +59,9 @@ parse_args() {
             ;;
         --coref_compress)
             do_coref_compression=true
+            ;;
+        --plaus_rerank)
+            do_plausibility_reranking=True
             ;;
         --device)
             shift
@@ -125,6 +130,7 @@ print_args() {
     printf "+ Minimum number of EREs to stop subgraph expansion: %s\n" "$min_num_eres"
     printf "+ Minimum number of statements to stop subgraph expansion: %s\n" "$min_num_stmts"
     printf "+ Do coref compression?: %s\n" "$do_coref_compression"
+    printf "+ Do plausibility reranking?: %s\n" "$do_plausibility_reranking"
     printf "+ Device for neural module: %s\n" "$device"
     printf "+ Prefix of SIN IDs: %s\n" "$sin_id_prefix"
     printf "+ Force overwrite?: %s\n" "$force_overwrite"
@@ -178,14 +184,23 @@ python -m pipeline.preprocessing.make_hypothesis_seeds \
     $optional_args
 
 echo
-python -m pipeline.preprocessing.rerank_hypothesis_seeds \
-    "${working_dir}/${graph_name}" \
-    "${working_dir}/cluster_seeds_raw" \
-    "${working_dir}/cluster_seeds" \
-    --max_num_seeds "$num_hyps" \
-    --plausibility_model_path "$plaus_model_path" \
-    --indexer_path "$indexer_path" \
-    $optional_args
+if $do_plausibility_reranking; then
+  python -m pipeline.preprocessing.rerank_hypothesis_seeds \
+      "${working_dir}/${graph_name}" \
+      "${working_dir}/cluster_seeds_raw" \
+      "${working_dir}/cluster_seeds" \
+      --max_num_seeds "$num_hyps" \
+      --plausibility_model_path "$plaus_model_path" \
+      --indexer_path "$indexer_path" \
+      $optional_args
+else
+    python -m pipeline.preprocessing.rerank_hypothesis_seeds \
+      "${working_dir}/${graph_name}" \
+      "${working_dir}/cluster_seeds_raw" \
+      "${working_dir}/cluster_seeds" \
+      --max_num_seeds "$num_hyps" \
+      $optional_args
+fi
 
 for seed_file in "${working_dir}"/cluster_seeds/*.json; do
     echo
