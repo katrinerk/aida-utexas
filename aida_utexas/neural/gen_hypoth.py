@@ -134,9 +134,10 @@ def main():
     indexer_info_dict['num_word2vec_stmt'] = num_word2vec_stmt
 
     model = CoherenceNetWithGCN(
-        indexer_info_dict,
         False,
+        indexer_info_dict,
         args.attention_type,
+        None,
         args.num_layers,
         args.hidden_size,
         args.attention_size,
