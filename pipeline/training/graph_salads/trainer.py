@@ -95,6 +95,7 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
 
     # Finish the full inference/extraction sequence, and then remove events that agree in event type and in the IDs of all arguments
     remove_duplicate_events(graph_dict)
+    remove_place_only_events(graph_dict)
 
     loss = multi_correct_nll_loss(predictions, trues, device)
 
@@ -158,7 +159,7 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
                prob_force *= force_decay
 
             # "Artificial" batching; allow gradients to accumulate and only backprop after every <batch_size> graph salads
-            if (step != 0 and step % batch_size == 0) or (step == 0 and current_epoch > 0) or (step == len(train_iter.file_paths) - 1 and current_epoch == num_epochs - 1):
+            if (step != 0 and step % batch_size == 0) or (step == 0 and current_epoch > 0) or (step == train_iter.size - 1 and current_epoch == num_epochs - 1):
                 result = admit_seq(force, prob_force, model, optimizer, train_iter.next_batch(), "Train", use_highest_ranked_gold, extraction_size, True, device)
             else:
                 result = admit_seq(force, prob_force, model, optimizer, train_iter.next_batch(), "Train", use_highest_ranked_gold, extraction_size, False, device)
@@ -170,12 +171,12 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
                 train_accuracies.append(train_accuracy)
 
                 # Print output report after every <print_every> graph salads
-                if (step % print_every == 0) or (step == len(train_iter.file_paths)):
+                if (step % print_every == 0) or (step == train_iter.size):
                     print("At step %d: loss = %.6f | accuracy = %.4f (%.2fs)." % (step, np.mean(train_losses), np.mean(train_accuracies), time.time() - start))
                     start = time.time()
 
                 # Validate the model on the validation set after every <valid_every> salads
-                if (step % valid_every == 0) or (step == len(train_iter.file_paths)):
+                if (step % valid_every == 0) or (step == train_iter.size):
                     print("\nRunning valid ...\n")
                     model.eval()
                     average_valid_loss, average_valid_accuracy = run_no_backprop(valid_path, extraction_size, model)
