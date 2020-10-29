@@ -11,6 +11,7 @@ import os
 import json
 import re
 
+
 class Indexer(object):
     """Word to index bidirectional mapping."""
 
@@ -74,6 +75,7 @@ class Indexer(object):
         """Words (strings) -> indices (ints) conversion."""
         return [self.get_index(word, add=False) for word in words]
 
+
 # Ere class (represents EREs)
 class Ere:
     def __init__(self, graph_id, category, ere_id, label):
@@ -95,6 +97,7 @@ class Ere:
     @staticmethod
     def entry_type():
         return "Ere"
+
 
 # Stmt class (represents statements)
 class Stmt:
@@ -123,6 +126,7 @@ class Stmt:
     def entry_type():
         return "Stmt"
 
+
 # Graph class (composed of Ere and Stmt objects)
 class Graph:
     def __init__(self, graph_id):
@@ -146,14 +150,15 @@ class Graph:
     def unique_id(self, entry_id):
         return self.graph_id + '_' + entry_id
 
+
 # Load the EREs from a graph JSON
-def load_eres(graph, graph_js):
+def load_eres(graph, graph_js, prepend_ids):
     for entry_id, entry in graph_js.items():
         # Ignore all Statements, SameAsClusters, and ClusterMemberships first
         if entry["type"] in ["Statement", "SameAsCluster", "ClusterMembership"]:
             continue
 
-        ere_id = graph.unique_id(entry_id)
+        ere_id = graph.unique_id(entry_id) if prepend_ids else entry_id
 
         # Process relation nodes
         if entry["type"] == "Relation":
@@ -161,7 +166,7 @@ def load_eres(graph, graph_js):
                 graph_id=graph.graph_id,
                 category=entry["type"],
                 ere_id=ere_id,
-                label=["Relation"] # Relation nodes have no explicit name
+                label=["Relation"]  # Relation nodes have no explicit name
             )
         # Process event/entity nodes
         else:
@@ -184,16 +189,20 @@ def load_eres(graph, graph_js):
                 label=keep_labels
             )
 
+
 # Load the statements from a graph JSON
-def load_statements(graph, graph_js):
+def load_statements(graph, graph_js, prepend_ids):
     seen_stmts = dict()
 
     for entry_id, entry in graph_js.items():
         if entry["type"] != "Statement":
             continue
 
-        stmt_id = graph.unique_id(entry_id)
-        subj_id = graph.unique_id(entry['subject'])
+        stmt_id = graph.unique_id(entry_id) if prepend_ids else entry_id
+        subj_id = graph.unique_id(entry['subject']) if prepend_ids else entry['subject']
+
+        if subj_id not in graph.eres.keys():
+            continue
 
         # Process typing statements
         if entry["predicate"] == "type":
@@ -221,7 +230,7 @@ def load_statements(graph, graph_js):
             graph.eres[subj_id].stmt_ids.add(stmt_id)
         # Processing non-typing (event or relation) statements
         else:
-            obj_id = graph.unique_id(entry['object'])
+            obj_id = graph.unique_id(entry['object']) if prepend_ids else entry['object']
 
             split_label = re.sub("[._]", " ", entry["predicate"]).split()
 
@@ -247,6 +256,7 @@ def load_statements(graph, graph_js):
             graph.eres[subj_id].stmt_ids.add(stmt_id)
             graph.eres[obj_id].stmt_ids.add(stmt_id)
 
+
 # Remove singleton nodes (nodes with no neighbors)
 def remove_singletons(graph):
     singleton_ids = [ere_id for ere_id in graph.eres.keys() if len(graph.eres[ere_id].neighbor_ere_ids) == 0]
@@ -255,6 +265,7 @@ def remove_singletons(graph):
         for stmt_id in graph.eres[singleton_id].stmt_ids:
             del graph.stmts[stmt_id]
         del graph.eres[singleton_id]
+
 
 # Compute one- and two-step connectedness scores for all EREs in a graph
 def compute_connectedness(graph):
@@ -274,13 +285,14 @@ def compute_connectedness(graph):
 
         graph.connectedness_two_step[ere_id] = len(two_step_neighbor_ere_ids)
 
+
 # Read in a graph (from a JSON)
-def read_graph(graph_id, graph_js):
+def read_graph(graph_id, graph_js, prepend_ids):
     # Construct Graph object
     graph = Graph(graph_id)
 
-    load_eres(graph, graph_js)
-    load_statements(graph, graph_js)
+    load_eres(graph, graph_js, prepend_ids)
+    load_statements(graph, graph_js, prepend_ids)
 
     # Prune nodes with no neighbors from the graph
     remove_singletons(graph)
@@ -290,15 +302,19 @@ def read_graph(graph_id, graph_js):
 
     return graph
 
+
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--json_dir", type=str, default="/home/cc/js-wiki-new-ontology", help='Input folder (abs path) containing single-doc Wiki json files')
-    parser.add_argument("--out_dir", type=str, default="/home/cc/test_file_gen", help='Output folder (abs path) to contain pickled single-doc Wiki KGs')
+    parser.add_argument("--json_dir", type=str, default="/home/cc/js-wiki-new-ontology",
+                        help='Input folder (abs path) containing single-doc Wiki json files')
+    parser.add_argument("--out_dir", type=str, default="/home/cc/test_file_gen",
+                        help='Output folder (abs path) to contain pickled single-doc Wiki KGs')
 
     args = parser.parse_args()
 
@@ -315,7 +331,7 @@ if __name__ == "__main__":
 
         graph_id = file_name.split('.')[0]
 
-        graph = read_graph(graph_id, json_obj)
+        graph = read_graph(graph_id, json_obj, True)
 
         dill.dump(graph, open(os.path.join(args.out_dir, graph_id + '.p'), 'wb'))
 
