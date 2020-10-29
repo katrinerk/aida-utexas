@@ -26,6 +26,7 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
                 graph_dict = dill.load(fin)
 
             graph_dict['candidates'] = get_candidates(graph_dict)[0]
+            graph_dict['stmt_class_labels'] = []
 
             curr_weight = -1
 
