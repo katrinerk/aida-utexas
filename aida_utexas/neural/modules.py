@@ -39,30 +39,58 @@ class Score(nn.Module):
 # Attention mechanism after Luong et. al, 2015
 # Source: https://github.com/tensorflow/nmt#background-on-the-attention-mechanism
 class Attention(nn.Module):
-    def __init__(self, attention_type, hidden_size, attention_size, attention_dropout):
+    def __init__(self, plaus, attention_type, use_attender_vectors, hidden_size, attention_size, attention_dropout):
         super(Attention, self).__init__()
 
-        self.linear = nn.Linear(hidden_size * 3, attention_size)
-        self.score_stmt_to_stmt = Score(attention_type, hidden_size)
-        self.score_ere_to_stmt = Score(attention_type, hidden_size)
+        if plaus:
+            if use_attender_vectors:
+                self.linear_plaus = nn.Linear(hidden_size * 2, attention_size)
+                torch.nn.init.xavier_uniform_(self.linear_plaus.weight)
+            else:
+                self.linear_plaus = nn.Linear(hidden_size, attention_size)
+                torch.nn.init.xavier_uniform_(self.linear_plaus.weight)
+        else:
+            self.linear = nn.Linear(hidden_size * 3, attention_size)
+            torch.nn.init.xavier_uniform_(self.linear.weight)
+
+        self.plaus = plaus
+        self.use_attender_vectors = use_attender_vectors
+
+        if plaus:
+            self.score_stmt_to_stmt_plaus = Score(attention_type, hidden_size)
+            self.score_ere_to_ere_plaus = Score(attention_type, hidden_size)
+        else:
+            self.score_stmt_to_stmt = Score(attention_type, hidden_size)
+            self.score_ere_to_stmt = Score(attention_type, hidden_size)
 
         self.att_dropout = torch.nn.Dropout(p=attention_dropout, inplace=False)
 
-        torch.nn.init.xavier_uniform_(self.linear.weight)
-
     # Compute attention weights (Eq 1 in source)
-    # We compute (candidate stmt)-to(query stmt) and (candidate stmt)-to-(query ERE) weights separately
+    # We compute (candidate stmt)-to-(query stmt) and (candidate stmt)-to-(query ERE) weights separately
     def get_attention_weights(self, attendee_stmts, attendee_eres, attender):
-        unnorm_attention_weights_stmt_to_stmt = self.score_stmt_to_stmt(attendee_stmts, attender)
-        unnorm_attention_weights_ere_to_stmt = self.score_ere_to_stmt(attendee_eres, attender)
+        if attendee_stmts is None:
+            unnorm_self_attention_weights_eres = self.score_ere_to_ere_plaus(attendee_eres, attender)
+            self_attention_weights_eres = F.softmax(unnorm_self_attention_weights_eres, dim=0)
+            self_attention_weights_eres = self.att_dropout(self_attention_weights_eres)
 
-        attention_weights_stmt_to_stmt = F.softmax(unnorm_attention_weights_stmt_to_stmt, dim=0)
-        attention_weights_ere_to_stmt = F.softmax(unnorm_attention_weights_ere_to_stmt, dim=0)
+            return self_attention_weights_eres
+        elif attendee_eres is None:
+            unnorm_self_attention_weights_stmts = self.score_stmt_to_stmt_plaus(attendee_stmts, attender)
+            self_attention_weights_stmts = F.softmax(unnorm_self_attention_weights_stmts, dim=0)
+            self_attention_weights_stmts = self.att_dropout(self_attention_weights_stmts)
 
-        attention_weights_stmt_to_stmt = self.att_dropout(attention_weights_stmt_to_stmt)
-        attention_weights_ere_to_stmt = self.att_dropout(attention_weights_ere_to_stmt)
+            return self_attention_weights_stmts
+        else:
+            unnorm_attention_weights_stmt_to_stmt = self.score_stmt_to_stmt(attendee_stmts, attender)
+            unnorm_attention_weights_ere_to_stmt = self.score_ere_to_stmt(attendee_eres, attender)
 
-        attention_weights = (attention_weights_stmt_to_stmt, attention_weights_ere_to_stmt)
+            attention_weights_stmt_to_stmt = F.softmax(unnorm_attention_weights_stmt_to_stmt, dim=0)
+            attention_weights_ere_to_stmt = F.softmax(unnorm_attention_weights_ere_to_stmt, dim=0)
+
+            attention_weights_stmt_to_stmt = self.att_dropout(attention_weights_stmt_to_stmt)
+            attention_weights_ere_to_stmt = self.att_dropout(attention_weights_ere_to_stmt)
+
+            attention_weights = (attention_weights_stmt_to_stmt, attention_weights_ere_to_stmt)
 
         return attention_weights
 
@@ -71,18 +99,35 @@ class Attention(nn.Module):
     # stmt_attendees is the matrix of GCN embeddings for query stmts (and ere_attendees for query EREs)
     # Attention weights is a similar tuple for the two sets of attention weights
     def get_context_vectors(self, attendees, attention_weights):
-        context_vectors_stmt_to_stmt = torch.transpose(attention_weights[0], 0, 1).mm(attendees[0])
-        context_vectors_ere_to_stmt = torch.transpose(attention_weights[1], 0, 1).mm(attendees[1])
+        if self.plaus:
+            context_vectors_self = torch.transpose(attention_weights, 0, 1).mm(attendees)
 
-        return (context_vectors_stmt_to_stmt, context_vectors_ere_to_stmt)
+            return context_vectors_self
+        else:
+            context_vectors_stmt_to_stmt = torch.transpose(attention_weights[0], 0, 1).mm(attendees[0])
+            context_vectors_ere_to_stmt = torch.transpose(attention_weights[1], 0, 1).mm(attendees[1])
+
+            return (context_vectors_stmt_to_stmt, context_vectors_ere_to_stmt)
 
     # Calculate attention vectors for candidate statements
     def get_attention_vectors(self, attendee_stmts, attendee_eres, attender):
         attention_weights = self.get_attention_weights(attendee_stmts, attendee_eres, attender)
-        context_vectors = self.get_context_vectors((attendee_stmts, attendee_eres), attention_weights)
 
-        # Concat candidate statements with their context vectors and feed into a tanh layer to produce attention vectors
-        attention_vectors = torch.tanh(self.linear(torch.cat([attender, context_vectors[0], context_vectors[1]], dim=-1)))
+        if self.plaus:
+            if attendee_stmts is None:
+                context_vectors = self.get_context_vectors(attendee_eres, attention_weights)
+            elif attendee_eres is None:
+                context_vectors = self.get_context_vectors(attendee_stmts, attention_weights)
+
+            if self.use_attender_vectors:
+                attention_vectors = torch.tanh(self.linear_plaus(torch.cat([attender, context_vectors], dim=-1)))
+            else:
+                attention_vectors = torch.tanh(self.linear_plaus(context_vectors))
+        else:
+            context_vectors = self.get_context_vectors((attendee_stmts, attendee_eres), attention_weights)
+
+            # Concat candidate statements with their context vectors and feed into a tanh layer to produce attention vectors
+            attention_vectors = torch.tanh(self.linear(torch.cat([attender, context_vectors[0], context_vectors[1]], dim=-1)))
 
         return attention_vectors
 
@@ -93,7 +138,7 @@ def to_tensor(inputs, tensor_type=torch.LongTensor, device=torch.device("cpu")):
 # Class defining the GCN architecture
 # forward() method runs graphs through GCN and attention mechanism
 class CoherenceNetWithGCN(nn.Module):
-    def __init__(self, indexer_info_dict, self_attend, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout):
+    def __init__(self, plaus, indexer_info_dict, attention_type, use_attender_vectors, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout):
         super(CoherenceNetWithGCN, self).__init__()
         ere_emb = indexer_info_dict['ere_emb_mat']
         stmt_emb = indexer_info_dict['stmt_emb_mat']
@@ -117,13 +162,20 @@ class CoherenceNetWithGCN(nn.Module):
         self.linear_ere = nn.Linear(hidden_size, hidden_size)
         self.linear_stmt = nn.Linear(hidden_size, hidden_size)
 
-        self.coherence_attention = Attention(attention_type, hidden_size, attention_size, attention_dropout)
-        self.coherence_linear = nn.Linear(attention_size, 1)
+        self.plaus = plaus
+
+        self.coherence_attention = Attention(plaus, attention_type, use_attender_vectors, hidden_size, attention_size, attention_dropout)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.conv_dropout = torch.nn.Dropout(p=conv_dropout, inplace=False)
-        self.self_attend = self_attend
         self.attention_type = attention_type
+
+        if plaus:
+            self.linear_plaus = nn.Linear((attention_size * 2), 1)
+            torch.nn.init.xavier_uniform_(self.linear_plaus.weight)
+        else:
+            self.coherence_linear = nn.Linear(attention_size, 1)
+            torch.nn.init.xavier_uniform_(self.coherence_linear.weight)
 
         # Only needed if num_layers >= 3
         if self.num_layers >= 3:
@@ -177,7 +229,6 @@ class CoherenceNetWithGCN(nn.Module):
         torch.nn.init.xavier_uniform_(self.linear_stmt_init.weight)
         torch.nn.init.xavier_uniform_(self.linear_ere.weight)
         torch.nn.init.xavier_uniform_(self.linear_stmt.weight)
-        torch.nn.init.xavier_uniform_(self.coherence_linear.weight)
 
     # Runs a graph salad through the GCN network
     def gcn(self, graph_dict, gcn_embeds, device):
@@ -255,11 +306,26 @@ class CoherenceNetWithGCN(nn.Module):
 
         stmt_attendees = gcn_embeds['stmts'][graph_dict['query_stmts']]
         ere_attendees = gcn_embeds['eres'][list(graph_dict['query_eres'])]
-        attenders = gcn_embeds['stmts'][graph_dict['candidates']]
 
-        coherence_attention_vectors = self.coherence_attention.get_attention_vectors(stmt_attendees, ere_attendees, attenders)
+        if self.plaus:
+            self_att_vectors_stmts = self.coherence_attention.get_attention_vectors(stmt_attendees, None, stmt_attendees)
+            self_att_vectors_eres = self.coherence_attention.get_attention_vectors(None, ere_attendees, ere_attendees)
 
-        # Obtain a final set of logits for the candidate statements (softmax later)
-        coherence_out = self.coherence_linear(coherence_attention_vectors).squeeze(-1)
+            stmts_vector = torch.mean(self_att_vectors_stmts, dim=0)
+            eres_vector = torch.mean(self_att_vectors_eres, dim=0)
 
-        return coherence_attention_vectors, coherence_out, gcn_embeds
+            final_vector = torch.cat([stmts_vector, eres_vector], dim=0)
+
+            plaus_out = self.linear_plaus(final_vector)
+
+            return plaus_out, gcn_embeds
+        else:
+            attenders = gcn_embeds['stmts'][graph_dict['candidates']]
+
+            # Get attention vectors for candidate statements
+            coherence_attention_vectors = self.coherence_attention.get_attention_vectors(stmt_attendees, ere_attendees, attenders)
+
+            # Obtain a final set of logits for the candidate statements (softmax later)
+            coherence_out = self.coherence_linear(coherence_attention_vectors).squeeze(-1)
+
+            return coherence_attention_vectors, coherence_out, gcn_embeds
