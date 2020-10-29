@@ -161,10 +161,11 @@ def next_state(graph_dict, selected_index):
                            stmt_neigh not in graph_dict['candidates']]
             graph_dict['candidates'] += stmt_neighs
 
-            graph_dict['stmt_class_labels'] = graph_dict['stmt_class_labels'] + [
-                1 if graph_dict['graph_mix'].stmts[graph_dict['stmt_mat_ind'].get_word(stmt_iter)].graph_id ==
-                     graph_dict['target_graph_id']
-                else 0 for stmt_iter in stmt_neighs]
+            if len(graph_dict['stmt_class_labels']) != 0:
+                graph_dict['stmt_class_labels'] = graph_dict['stmt_class_labels'] + [
+                    1 if graph_dict['graph_mix'].stmts[graph_dict['stmt_mat_ind'].get_word(stmt_iter)].graph_id ==
+                         graph_dict['target_graph_id']
+                    else 0 for stmt_iter in stmt_neighs]
 
     graph_dict['query_eres'] = set.union(graph_dict['query_eres'], set_diff)
 
