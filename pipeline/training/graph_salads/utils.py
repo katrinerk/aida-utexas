@@ -214,9 +214,8 @@ def select_valid_hypothesis(graph_dict, prediction):
     # Filter out EREs which have no 'Killer' or 'Life.Die'/'_Victim' statements in the graph salad
     need_kle_set = {ere_id for ere_id in need_kle_set if ('_Killer' in '.'.join(
         [graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]))}
-    need_vct_set = {ere_id for ere_id in need_vct_set if len(
-        [raw_label for raw_label in [graph_mix.stmts[stmt_id].raw_label for stmt_id in graph_mix.eres[ere_id].stmt_ids]
-         if 'Life.Die' in raw_label and '_Victim' in raw_label]) > 0}
+    need_vct_set = {ere_id for ere_id in need_vct_set if
+                    len([stmt_id for stmt_id in graph_mix.eres[ere_id].stmt_ids if all([x in graph_mix.stmts[stmt_id].raw_label for x in ['Life.Die', '_Victim']])]) > 0}
 
     # Test stmts one after another for their validity
     for index in sorted_pred_indices:
@@ -323,7 +322,7 @@ def remove_place_only_events(graph_dict):
     for ere_id in [item for item in query_eres if graph_mix.eres[item].category == 'Event']:
         ere = graph_mix.eres[ere_id]
 
-        role_stmts = {stmt_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].tail_id}
+        role_stmts = set.intersection(query_stmts, {stmt_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].tail_id})
 
         place_role_stmts = {stmt_id for stmt_id in role_stmts if '_Place' in graph_mix.stmts[stmt_id].raw_label}
 
