@@ -1,5 +1,11 @@
 #!/bin/bash
 
+force=false
+
+if [ "$1" == "--force" ]; then
+    force=true
+fi
+
 echo
 echo
 
@@ -14,15 +20,15 @@ plaus_model_path="resources/plaus_check.ckpt"
 
 gdown_url="https://raw.githubusercontent.com/circulosmeos/gdown.pl/master/gdown.pl"
 
-if [ ! -e "$indexer_path" ]; then
+if $force || [ ! -e "$indexer_path" ]; then
     printf "\n\nDownloading indexer file from Google Drive to %s" "$indexer_path"
     perl <(curl -fSsL "$gdown_url") "$indexer_url" "$indexer_path"
 fi
-if [ ! -e "$gcn_model_path" ]; then
+if $force || [ ! -e "$gcn_model_path" ]; then
     printf "\n\nDownloading GCN model checkpoint from Google Drive to %s" "$gcn_model_path"
     perl <(curl -fSsL "$gdown_url") "$gcn_model_url" "$gcn_model_path"
 fi
-if [ ! -e "$plaus_model_path" ]; then
+if $force || [ ! -e "$plaus_model_path" ]; then
     printf "\n\nDownloading plausibility model checkpoint from Google Drive to %s" "$plaus_model_path"
     perl <(curl -fSsL "$gdown_url") "$plaus_model_url" "$plaus_model_path"
 fi
