@@ -3,8 +3,8 @@ from collections import defaultdict
 
 from rdflib.namespace import Namespace, RDF, XSD
 from rdflib.term import BNode, Literal, URIRef
-from aida_utexas.aif import AIF_NS_PREFIX
 
+from aida_utexas.aif import AIF_NS_PREFIX
 
 # namespaces for AIDA-related prefixes
 AIDA = Namespace(f'{AIF_NS_PREFIX}/InterchangeOntology#')
@@ -368,8 +368,10 @@ def triples_for_ere(kb_graph, ere_id):
 
         if p == AIDA.ldcTime:
             triples.update(triples_for_ldc_time(kb_graph, o))
-        else:
-            triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        if p == AIDA.link:
+            triples.update(triples_for_link_assertion(kb_graph, o))
+
+        triples.update(expand_conf_and_system_node(kb_graph, p, o))
 
     return triples
 
@@ -471,6 +473,20 @@ def triples_for_conf(kb_graph, conf_id):
 
         if p == AIDA.system:
             triples.update(triples_for_subject(kb_graph, o))
+
+    return triples
+
+
+def triples_for_link_assertion(kb_graph, link_assertion_id):
+    """
+    Extracting all triples related to an LinkAssertion node.
+    """
+    triples = set()
+
+    for s, p, o in kb_graph.triples((link_assertion_id, None, None)):
+        triples.add((s, p, o))
+
+        triples.update(expand_conf_and_system_node(kb_graph, p, o))
 
     return triples
 
