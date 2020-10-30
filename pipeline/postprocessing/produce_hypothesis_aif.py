@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from io import BytesIO
 from operator import itemgetter
 
+import rdflib
 from rdflib import Graph
 from rdflib.namespace import Namespace, RDF, XSD, NamespaceManager
 from rdflib.plugins.serializers.turtle import TurtleSerializer
@@ -319,6 +320,15 @@ def main():
 
     hypotheses_file_paths = util.get_file_list(args.hypotheses_path, suffix='.json', sort=True)
 
+    # TODO: there is a known bug in rdflib that
+    #  rdflib.Literal("2008", datatype=rdflib.XSD.gYear) would be parsed into
+    #  rdflib.term.Literal(u'2008-01-01', datatype=rdflib.XSD.gYear) automatically,
+    #  because a `parse_date` function is invoked for all rdflib.XSD.gYear literals.
+    #  This is a temporary workaround to patch the _toPythonMapping locally.
+    #  c.f.: https://github.com/RDFLib/rdflib/issues/806
+    # noinspection PyProtectedMember
+    rdflib.term._toPythonMapping.pop(rdflib.XSD['gYear'])
+
     print('Reading kb from {}'.format(args.kb_path))
     kb_graph = Graph()
     kb_graph.parse(args.kb_path, format='ttl')
@@ -374,7 +384,8 @@ def main():
 
             output_path = output_dir / '{}.{}.{}.H{:0>3d}.ttl'.format(
                 run_id, soin_id, frame_id, top_count)
-            print('Writing hypothesis #{} with prob {} to {}'.format(top_count, prob, output_path))
+            print('Writing hypothesis #{:>2d} with prob {:>6.2f} to {}'.format(
+                top_count, prob, output_path))
             with open(output_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
 
