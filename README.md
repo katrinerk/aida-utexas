@@ -75,4 +75,4 @@ docker run \
     pxch/aida-utexas:0.4.1 \
     <TA2_run_name> <TA3_run_name> [optional_args]
 ```
-* See the [Run Model](#run-model) section for definitions of `<input_dir>`, `<sin_dir>`, `<output_dir>`, `<TA2_run_name>`, `<TA3_run_name>`, and `[optional_args]`.
+* See the [Run Pipeline](#run-pipeline) section for definitions of `<input_dir>`, `<sin_dir>`, `<output_dir>`, `<TA2_run_name>`, `<TA3_run_name>`, and `[optional_args]`.
