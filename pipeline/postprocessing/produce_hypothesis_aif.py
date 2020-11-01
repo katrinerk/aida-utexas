@@ -353,7 +353,7 @@ def main():
         print('Found {} hypotheses with probability {}'.format(
             len(hypotheses_json['probs']), hypotheses_json['probs']))
 
-        soin_id = sin_id_prefix + hypotheses_file_path.stem.split('_')[0]
+        soin_id = sin_id_prefix + '_' + hypotheses_file_path.stem.split('_')[0]
         frame_id = soin_id + '_F1'
 
         top_count = 0
