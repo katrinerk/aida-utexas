@@ -38,6 +38,11 @@ def rerank_seeds_by_plausibility(seeds_by_facet: Dict, graph_path: str,
 
 def select_seeds_by_novelty(seeds_by_facet: Dict, max_num_seeds: int) -> List[HypothesisSeed]:
     logging.info(f'Select top {max_num_seeds} seeds across all facets with maximum novelty ...')
+
+    logging.info('Ranking facets by their top hypothesis seeds ...')
+    seeds_by_facet = {facet: seeds for facet, seeds in seeds_by_facet.items() if len(seeds) > 0}
+    seeds_by_facet = dict(sorted(seeds_by_facet.items(), key=lambda pair: pair[1][0].get_scores()))
+
     # the characterization of query variable fillers for already selected seeds.
     # format: a mapping from each qvar to a counter of fillers
     # we penalize a seed that has the same qvar filler that we have seen before, with a value
