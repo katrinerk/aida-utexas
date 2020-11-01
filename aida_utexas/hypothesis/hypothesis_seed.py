@@ -66,7 +66,7 @@ class HypothesisSeed:
     FAILED_TEMPORAL = -0.1
     FAILED_ONTOLOGY = -0.1
     DUPLICATE_FILLER = -0.01
-    FAILED_OBJ_TYPE = -0.1
+    FAILED_OBJ_TYPE = -0.01
 
     def __init__(self, json_graph: JsonGraph, core_constraints: List, temporal_constraints: Dict,
                  hypothesis: AidaHypothesis, qvar_filler: Dict, unfilled: Set = None,
