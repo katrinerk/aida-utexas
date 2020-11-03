@@ -35,13 +35,16 @@ from aida_utexas.hypothesis.hypothesis_seed import HypothesisSeed
 # class that manages all hypothesis seeds
 class HypothesisSeedManager:
     # initialize with a JsonGraph object and json representation of a query
-    def __init__(self, json_graph: JsonGraph, query_json: dict,
+    def __init__(self, json_graph: JsonGraph, query_json: dict, frame_grouping: bool = False,
                  discard_failed_core_constraints: bool = False, rank_cutoff: int = None):
         self.json_graph = json_graph
         self.query_json = query_json
 
         # convert temporal constraints into AidaIncompleteDate
         self.temporal_constraints = self._pythonize_datetime(self.query_json.get('temporal', {}))
+
+        # whether to group query constraints by frames, or by facets (default = False)
+        self.frame_grouping = frame_grouping
 
         # discard hypothesis seeds with any failed core constraints?
         self.discard_failed_core_constraints = discard_failed_core_constraints
@@ -56,6 +59,14 @@ class HypothesisSeedManager:
     # note that some of the facets might contain no entry point variables, in such case, we merge
     # them into the closes facets with entry point variables.
     def split_facets(self):
+        if self.frame_grouping:
+            frame_to_constraints = defaultdict(list)
+            for frame in self.query_json['frames']:
+                frame_id = frame['frame_id']
+                for constraint in frame['edges']:
+                    frame_to_constraints[frame_id].append(constraint)
+            return frame_to_constraints
+
         # all entry point variables in the SoIN
         all_ep_vars = set(self.query_json['ep_matches_dict'].keys())
 

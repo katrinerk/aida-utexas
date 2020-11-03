@@ -8,6 +8,7 @@ print_usage() {
     printf "* <INPUT_RUN_NAME>: the RUN_NAME of a TA2 KB as the input, i.e., LDC_2.LDC_2\n"
     printf "* <RUN_NAME>: the name of our run, which will be appended to <input_run_name> to get the output RUN_NAME, i.e., UTexas_1\n"
     printf "* --num_hyps <NUM_HYPS>: number of hypotheses to produce for each SIN, default = 50\n"
+    printf "* --frame_grouping: when specified, group query constraints by frames instead of by facets\n"
     printf "* --max_num_hops <MAX_NUM_HOPS>: maximum number of hops to expand from a cluster seed to extract a subgraph, default = 5\n"
     printf "* --min_num_eres <MIN_NUM_ERES>: minimum number of EREs to  stop subgraph expansion, default = 100\n"
     printf "* --min_num_stmts <MIN_NUM_STMTS>: minimum number of statements to stop subgraph expansion, default = 200\n"
@@ -30,6 +31,7 @@ parse_args() {
     shift
 
     num_hyps=50
+    frame_grouping=false
     max_num_hops=5
     min_num_eres=100
     min_num_stmts=200
@@ -44,6 +46,9 @@ parse_args() {
         --num_hyps)
             shift
             num_hyps=$1
+            ;;
+        --frame_grouping)
+            frame_grouping=true
             ;;
         --max_num_hops)
             shift
@@ -126,6 +131,7 @@ print_args() {
 
     printf "\nOptional parameters:\n"
     printf "+ Number of hypotheses per SIN: %s\n" "$num_hyps"
+    printf "+ Grouping query constraints by frame?: %s\n" "$frame_grouping"
     printf "+ Maximum number of hops to extract subgraphs: %s\n" "$max_num_hops"
     printf "+ Minimum number of EREs to stop subgraph expansion: %s\n" "$min_num_eres"
     printf "+ Minimum number of statements to stop subgraph expansion: %s\n" "$min_num_stmts"
@@ -144,12 +150,17 @@ optional_args=()
 $force_overwrite && optional_args+=( "--force" )
 optional_args="${optional_args[@]}"
 
+cluster_seed_optional_args=()
+$frame_grouping && cluster_seed_optional_args+=( "--frame_grouping")
+cluster_seed_optional_args="${cluster_seed_optional_args[@]}"
+
 indexer_path="resources/indexers.p"
 gcn_model_path="resources/gcn2-cuda_best_5000_1.ckpt"
 plaus_model_path="resources/plaus_check.ckpt"
 
 echo
 printf "+ Optional arguments for python scripts: %s\n" "$optional_args"
+printf "+ Optional arguments for creating cluster seeds: %s\n" "$cluster_seed_optional_args"
 
 echo
 echo
@@ -181,6 +192,7 @@ python -m pipeline.preprocessing.make_hypothesis_seeds \
     "${working_dir}/query_jsons" \
     "${working_dir}/cluster_seeds_raw" \
     --max_num_seeds "$num_hyps" \
+    $cluster_seed_optional_args \
     $optional_args
 
 echo

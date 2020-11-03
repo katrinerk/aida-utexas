@@ -31,13 +31,15 @@ def shortest_name(ere_label: str, json_graph: JsonGraph):
 
 
 def make_cluster_seeds(json_graph: JsonGraph, query_json: Dict, max_num_seeds_per_facet: int = None,
-                       discard_failed_core_constraints: bool = False, rank_cutoff: bool = None):
+                       frame_grouping: bool = False, discard_failed_core_constraints: bool = False,
+                       rank_cutoff: bool = None):
     # create hypothesis seeds
     logging.info('Making hypothesis seeds for SoIN {} ...'.format(query_json['soin_id']))
     # logging.info('Creating hypothesis seeds .')
     seed_manager = HypothesisSeedManager(
         json_graph=json_graph,
         query_json=query_json,
+        frame_grouping=frame_grouping,
         discard_failed_core_constraints=discard_failed_core_constraints,
         rank_cutoff=rank_cutoff)
 
@@ -76,6 +78,8 @@ def main():
                              '(default = 3) of their non-entrypoint query variables. We might '
                              'need this in the evaluation if some facets have many variables '
                              'that lead to combinatorial explosion.')
+    parser.add_argument('--frame_grouping', action='store_true',
+                        help='If specified, group query constraints by frames instead of by facets')
     parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
 
@@ -94,6 +98,7 @@ def main():
             json_graph=json_graph,
             query_json=query_json,
             max_num_seeds_per_facet=args.max_num_seeds_per_facet,
+            frame_grouping=args.frame_grouping,
             discard_failed_core_constraints=args.discard_failed_core_constraints,
             rank_cutoff=args.rank_cutoff)
 
