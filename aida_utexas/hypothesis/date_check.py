@@ -50,12 +50,27 @@ class AidaIncompleteDate:
                 date = None
         return date
 
+    # helper method to indicate whether the time construct actually represents a temporal query
+    def is_query(self):
+        if self.year is not None and self.year < 0:
+            return True
+        if self.month is not None and self.month < 0:
+            return True
+        if self.day is not None and self.day < 0:
+            return True
+        return False
+
     # interpret the AidaIncompleteDate to a python datetime.date object, with optional relaxation
     # if time_type is 'AFTER', convert an underspecified date to its earliest possible date
     # if time_type is 'BEFORE', convert an underspecified date to its latest possible date
     # in all other cases, if any of the year, month, or day is unspecified, return None
     def interpret(self, time_type: str = None):
+        # we shouldn't really be calling the interpret() function on temporal queries
+        if self.is_query():
+            return None
+
         year, month, day = self.year, self.month, self.day
+
         # KATRIN QUICK FIX, don't know why we sometimes get year = 9999, month =12, day= 31
         if year == 9999:
             year = 9000
@@ -174,6 +189,12 @@ def time_range_match(ldc_time_after: AidaIncompleteDate, ldc_time_before: AidaIn
                      constraint_time: AidaIncompleteDate, leeway: int = 0):
     if constraint_time is None:
         return True
+
+    # if the temporal info is a query, and there is no ldcTime associated with the ERE, treat it
+    # as a no match, which will lead to a penalty
+    if constraint_time.is_query():
+        if ldc_time_after is None and ldc_time_before is None:
+            return False
 
     # whether to allow add_a_day leeway
     add_a_day = leeway > 0

@@ -80,11 +80,11 @@ class Time:
             if elem.tag in ['year', 'month', 'day', 'hour', 'minute']:
                 if elem.text is None:
                     time_dict[elem.tag] = None
-                # TODO: new SIN specs say that the field can be a variable name starting with ?,
+                # NOBUG: if the field is a variable name starting with ?,
                 #  that indicates the analyst is requesting temporal information for the event or
-                #  relation. We are not handling it here, as there is no example given.
+                #  relation. We return a negative number to indicate that.
                 elif elem.text.strip().startswith('?'):
-                    time_dict[elem.tag] = None
+                    time_dict[elem.tag] = -999
                 else:
                     time_dict[elem.tag] = int(elem.text.strip())
             else:
