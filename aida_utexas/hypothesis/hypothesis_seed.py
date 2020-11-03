@@ -575,7 +575,7 @@ class HypothesisSeed:
             # found a constraint involving this variable as object and another variable that
             # has already been filled as subject
             elif obj == variable and subj in self.qvar_filler:
-                candidates = self._statement_candidates(filler, pred, 'object')
+                candidates, _ = self._statement_candidates(filler, pred, 'object')
                 # there is not statement with pred as predicate and filler as object
                 if candidates is None:
                     return True
