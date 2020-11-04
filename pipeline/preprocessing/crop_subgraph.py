@@ -49,8 +49,8 @@ def stmts_to_eres(graph, hop_idx, this_hop_stmts, nodes_so_far, verbose=False):
             if stmt_obj not in nodes_so_far['eres']:
                 _process_stmt_arg(stmt_obj)
 
-        else:
-            assert stmt_node.get('predicate', None) == 'type', stmt_node
+        elif stmt_node.get('predicate', None) == 'type':
+            # assert stmt_node.get('predicate', None) == 'type', stmt_node
             this_hop_typing_stmts.add(stmt_label)
 
     nodes_so_far['stmts'].update(this_hop_stmts)

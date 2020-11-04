@@ -66,7 +66,7 @@ parse_args() {
             do_coref_compression=true
             ;;
         --plaus_rerank)
-            do_plausibility_reranking=True
+            do_plausibility_reranking=true
             ;;
         --device)
             shift

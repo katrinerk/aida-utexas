@@ -502,6 +502,8 @@ def triples_for_ldc_time(kb_graph, time_id):
         if p in [AIDA.start, AIDA.end]:
             triples.update(triples_for_subject(kb_graph, o))
 
+        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+
     return triples
 
 
