@@ -61,10 +61,10 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
             remove_place_only_events(graph_dict)
 
             # graph_mix = graph_dict['graph_mix']
-            query_stmt_ids = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
+            # query_stmt_ids = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
             # query_ere_ids = {graph_dict['ere_mat_ind'].get_word(item) for item in graph_dict['query_eres']}
 
-            add_stmts = [stmt_id for stmt_id in add_stmts if stmt_id in query_stmt_ids]
+            #add_stmts = [stmt_id for stmt_id in add_stmts if stmt_id in query_stmt_ids]
 
             # stmts_to_dis = set()
             #
@@ -102,7 +102,7 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
             #                     target_set.add(stmt_id)
             #
             # add_stmts = [stmt_id for stmt_id in add_stmts if stmt_id not in stmts_to_dis]
-            add_weights = list(range(-1, (-1 * (len(add_stmts) + 1)), -1))
+            # add_weights = list(range(-1, (-1 * (len(add_stmts) + 1)), -1))
 
             seed_json['support'][idx]['statements'] += add_stmts
             seed_json['support'][idx]['statementWeights'] += add_weights
