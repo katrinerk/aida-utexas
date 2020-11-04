@@ -57,8 +57,52 @@ def evaluate(seed_dir, indexed_data_dir, output_dir, model, device):
 
                 next_state(graph_dict, predicted_index)
 
-            remove_duplicate_events(graph_dict)
-            remove_place_only_events(graph_dict)
+            remove_duplicate_events(graph_dict, set(add_stmts))
+            remove_place_only_events(graph_dict, set(add_stmts))
+
+            graph_mix = graph_dict['graph_mix']
+            query_stmt_ids = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
+            query_ere_ids = {graph_dict['ere_mat_ind'].get_word(item) for item in graph_dict['query_eres']}
+
+            add_stmts = [stmt_id for stmt_id in add_stmts if stmt_id in query_stmt_ids]
+
+            stmts_to_dis = set()
+
+            for ere_id in query_ere_ids:
+                if graph_mix.eres[ere_id].category == 'Event':
+                    killer_set = {graph_mix.stmts[stmt_id].tail_id for stmt_id in set.intersection(graph_mix.eres[ere_id].stmt_ids, (query_stmt_ids - set(add_stmts))) if '_Killer' in graph_mix.stmts[stmt_id].raw_label}
+                    victim_set = {graph_mix.stmts[stmt_id].tail_id for stmt_id in set.intersection(graph_mix.eres[ere_id].stmt_ids, (query_stmt_ids - set(add_stmts))) if all([x in graph_mix.stmts[stmt_id].raw_label for x in ['Life.Die', '_Victim']])}
+
+                    attacker_set = {graph_mix.stmts[stmt_id].tail_id for stmt_id in set.intersection(graph_mix.eres[ere_id].stmt_ids, (query_stmt_ids - set(add_stmts))) if '_Attacker' in graph_mix.stmts[stmt_id].raw_label}
+                    target_set = {graph_mix.stmts[stmt_id].tail_id for stmt_id in set.intersection(graph_mix.eres[ere_id].stmt_ids, (query_stmt_ids - set(add_stmts))) if '_Target' in graph_mix.stmts[stmt_id].raw_label}
+
+                    for stmt_id in set.intersection(graph_mix.eres[ere_id].stmt_ids, set(add_stmts)):
+                        stmt = graph_mix.stmts[stmt_id]
+
+                        if '_Killer' in stmt.raw_label:
+                            if stmt.tail_id in victim_set:
+                                stmts_to_dis.add(stmt_id)
+                            else:
+                                killer_set.add(stmt_id)
+                        elif all([x in stmt.raw_label for x in ['Life.Die', '_Victim']]):
+                            if stmt.tail_id in killer_set:
+                                stmts_to_dis.add(stmt_id)
+                            else:
+                                victim_set.add(stmt_id)
+
+                        if '_Attacker' in stmt.raw_label:
+                            if stmt.tail_id in target_set:
+                                stmts_to_dis.add(stmt_id)
+                            else:
+                                attacker_set.add(stmt_id)
+                        elif '_Target' in stmt.raw_label:
+                            if stmt.tail_id in attacker_set:
+                                stmts_to_dis.add(stmt_id)
+                            else:
+                                target_set.add(stmt_id)
+
+            add_stmts = [stmt_id for stmt_id in add_stmts if stmt_id not in stmts_to_dis]
+            add_weights = list(range(-1, (-1 * (len(add_stmts) + 1)), -1))
 
             seed_json['support'][idx]['statements'] += add_stmts
             seed_json['support'][idx]['statementWeights'] += add_weights

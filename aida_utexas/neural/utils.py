@@ -273,7 +273,7 @@ def select_valid_hypothesis(graph_dict, prediction):
     return sorted_pred_indices[0]
 
 
-def remove_duplicate_events(graph_dict):
+def remove_duplicate_events(graph_dict, add_stmts):
     """Remove events that agree in event type and in the IDs of all arguments"""
     graph_mix = graph_dict['graph_mix']
     query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
@@ -296,30 +296,38 @@ def remove_duplicate_events(graph_dict):
         # Find all non-typing (or "role") statements for the current ERE (a second time); record their label, head ERE, and tail ERE
         for stmt in [graph_mix.stmts[stmt_id] for stmt_id in ere_query_stmt_ids]:
             role_stmt_tups.add((stmt.raw_label, stmt.head_id, stmt.tail_id))
-        tup = (event_type_labels, role_stmt_tups)
+        tup = (ere_id, event_type_labels, role_stmt_tups)
         # Remove any query statements that belong to an offending/duplicate ERE
         dup = False
+        dup_ere_id = None
 
         for item in tups:
-            if set.intersection(tup[0], item[0]) and tup[1] == item[1]:
+            if set.intersection(tup[1], item[1]) and tup[2] == item[2]:
                 dup = True
+                dup_ere_id = item[0]
                 break
 
         if dup:
-            query_stmts -= ere.stmt_ids
-            query_eres.discard(ere_id)
+            if not set.intersection(ere.stmt_ids, (query_stmts - add_stmts)):
+                query_stmts -= ere.stmt_ids
+            else:
+                if not set.intersection(graph_mix.eres[dup_ere_id].stmt_ids, (query_stmts - add_stmts)):
+                    query_stmts -= graph_mix.eres[dup_ere_id].stmt_ids
+                else:
+                    query_stmts -= ere.stmt_ids
         else:
             tups.append(tup)
 
     graph_dict['query_stmts'] = np.asarray([graph_dict['stmt_mat_ind'].get_index(item, add=False) for item in query_stmts])
-    graph_dict['query_eres'] = np.asarray([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in query_eres])
+    new_query_ere_ids = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query_stmts if graph_mix.stmts[stmt_id].tail_id])
+    graph_dict['query_eres'] = np.asarray([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in new_query_ere_ids])
 
-def remove_place_only_events(graph_dict):
+def remove_place_only_events(graph_dict, add_stmts):
     graph_mix = graph_dict['graph_mix']
     query_stmts = {graph_dict['stmt_mat_ind'].get_word(item) for item in graph_dict['query_stmts']}
     query_eres = {graph_dict['ere_mat_ind'].get_word(item) for item in graph_dict['query_eres']}
 
-    for ere_id in [item for item in query_eres if graph_mix.eres[item].category == 'Event']:
+    for ere_id in [item for item in query_eres if graph_mix.eres[item].category == 'Event' and not set.intersection(graph_mix.eres[item].stmt_ids, (query_stmts - add_stmts))]:
         ere = graph_mix.eres[ere_id]
 
         role_stmts = set.intersection(query_stmts, {stmt_id for stmt_id in ere.stmt_ids if graph_mix.stmts[stmt_id].tail_id})
@@ -329,7 +337,7 @@ def remove_place_only_events(graph_dict):
         # Even if both of these are 0, we should still delete the event; we don't want events with no arguments
         if len(place_role_stmts) == len(role_stmts):
             query_stmts -= ere.stmt_ids
-            query_eres.discard(ere_id)
 
     graph_dict['query_stmts'] = np.asarray([graph_dict['stmt_mat_ind'].get_index(item, add=False) for item in query_stmts])
-    graph_dict['query_eres'] = np.asarray([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in query_eres])
+    new_query_ere_ids = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query_stmts if graph_mix.stmts[stmt_id].tail_id])
+    graph_dict['query_eres'] = np.asarray([graph_dict['ere_mat_ind'].get_index(item, add=False) for item in new_query_ere_ids])
