@@ -226,6 +226,10 @@ def load_statements(graph, graph_js, prepend_ids):
         else:
             obj_id = graph.unique_id(entry['object']) if prepend_ids else entry['object']
 
+            # Added to make sure obj_id exists as graph.eres.keys()
+            if obj_id not in graph.eres.keys():
+                continue
+
             split_label = re.sub("[._]", " ", entry["predicate"]).split()
 
             tup = (' '.join(split_label), subj_id, obj_id)
