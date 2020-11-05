@@ -1,9 +1,6 @@
-graphviz
 rdflib
 tqdm
 dill
 pandas
 dill
-dash
-dash-cytoscape
 gensim

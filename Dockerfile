@@ -12,7 +12,7 @@ COPY scripts /aida-utexas/scripts
 COPY resources /aida-utexas/resources
 
 # For visualizer
-COPY visualizer /aida_utexas/visualizer
-RUN pip install -r /aida_utexas/visualizer/requirements.txt
+#COPY visualizer /aida_utexas/visualizer
+#RUN pip install -r /aida_utexas/visualizer/requirements.txt
 
 ENTRYPOINT ["/aida-utexas/scripts/run_simple.sh"]
