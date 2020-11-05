@@ -200,17 +200,17 @@ def load_statements(graph, graph_js, prepend_ids):
 
         # Process typing statements
         if entry["predicate"] == "type":
-            type_id = entry["object"]
+            # type_id = entry["object"]
             type_label = entry["object"].split("#")[-1]
 
-            tup = ('Type', subj_id, type_id)
-
-            # Check if this statement already exists as another statement ID in the graph
-            if tup in seen_stmts.keys():
-                graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
-                continue
-
-            seen_stmts[tup] = stmt_id
+            # tup = ('Type', subj_id, type_id)
+            #
+            # # Check if this statement already exists as another statement ID in the graph
+            # if tup in seen_stmts.keys():
+            #     graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
+            #     continue
+            #
+            # seen_stmts[tup] = stmt_id
 
             graph.stmts[stmt_id] = Stmt(
                 graph_id=graph.graph_id,
@@ -232,13 +232,13 @@ def load_statements(graph, graph_js, prepend_ids):
 
             split_label = re.sub("[._]", " ", entry["predicate"]).split()
 
-            tup = (' '.join(split_label), subj_id, obj_id)
-
-            if tup in seen_stmts.keys():
-                graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
-                continue
-
-            seen_stmts[tup] = stmt_id
+            # tup = (' '.join(split_label), subj_id, obj_id)
+            #
+            # if tup in seen_stmts.keys():
+            #     graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
+            #     continue
+            #
+            # seen_stmts[tup] = stmt_id
 
             graph.stmts[stmt_id] = Stmt(
                 graph_id=graph.graph_id,
