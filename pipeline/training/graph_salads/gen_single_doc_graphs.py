@@ -103,7 +103,7 @@ class Stmt:
         self.graph_id = graph_id
         self.id = stmt_id
         # <dup_ids> to hold statements which are identical in label/name/connections
-        self.dup_ids = set()
+        # self.dup_ids = set()
         # <raw_label> is the unprocessed statement ontology label (e.g., "Movement.TransportPerson_Destination")
         self.raw_label = raw_label
         # <label> is a list containing the elements of the statement ontology label, split by . and _, e.g. ['Movement', 'TransportPerson', 'Destination']
