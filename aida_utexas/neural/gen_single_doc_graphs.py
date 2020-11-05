@@ -106,7 +106,7 @@ class Stmt:
         self.graph_id = graph_id
         self.id = stmt_id
         # <dup_ids> to hold statements which are identical in label/name/connections
-        self.dup_ids = set()
+        # self.dup_ids = set()
         # <raw_label> is the unprocessed statement ontology label (e.g., "Movement.TransportPerson_Destination")
         self.raw_label = raw_label
         # <label> is a list containing the elements of the statement ontology label, split by . and _, e.g. ['Movement', 'TransportPerson', 'Destination']
@@ -192,7 +192,7 @@ def load_eres(graph, graph_js, prepend_ids):
 
 # Load the statements from a graph JSON
 def load_statements(graph, graph_js, prepend_ids):
-    seen_stmts = dict()
+    # seen_stmts = dict()
 
     for entry_id, entry in graph_js.items():
         if entry["type"] != "Statement":
@@ -206,17 +206,17 @@ def load_statements(graph, graph_js, prepend_ids):
 
         # Process typing statements
         if entry["predicate"] == "type":
-            type_id = entry["object"]
+            # type_id = entry["object"]
             type_label = entry["object"].split("#")[-1]
 
-            tup = ('Type', subj_id, type_id)
-
-            # Check if this statement already exists as another statement ID in the graph
-            if tup in seen_stmts.keys():
-                graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
-                continue
-
-            seen_stmts[tup] = stmt_id
+            # tup = ('Type', subj_id, type_id)
+            #
+            # # Check if this statement already exists as another statement ID in the graph
+            # if tup in seen_stmts.keys():
+            #     graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
+            #     continue
+            #
+            # seen_stmts[tup] = stmt_id
 
             graph.stmts[stmt_id] = Stmt(
                 graph_id=graph.graph_id,
@@ -232,15 +232,19 @@ def load_statements(graph, graph_js, prepend_ids):
         else:
             obj_id = graph.unique_id(entry['object']) if prepend_ids else entry['object']
 
-            split_label = re.sub("[._]", " ", entry["predicate"]).split()
-
-            tup = (' '.join(split_label), subj_id, obj_id)
-
-            if tup in seen_stmts.keys():
-                graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
+            # Added to make sure obj_id exists as graph.eres.keys()
+            if obj_id not in graph.eres.keys():
                 continue
 
-            seen_stmts[tup] = stmt_id
+            split_label = re.sub("[._]", " ", entry["predicate"]).split()
+
+            # tup = (' '.join(split_label), subj_id, obj_id)
+            #
+            # if tup in seen_stmts.keys():
+            #     graph.stmts[seen_stmts[tup]].dup_ids.add(stmt_id)
+            #     continue
+            #
+            # seen_stmts[tup] = stmt_id
 
             graph.stmts[stmt_id] = Stmt(
                 graph_id=graph.graph_id,
