@@ -186,7 +186,7 @@ def load_eres(graph, graph_js, prepend_ids):
 
 # Load the statements from a graph JSON
 def load_statements(graph, graph_js, prepend_ids):
-    seen_stmts = dict()
+    # seen_stmts = dict()
 
     for entry_id, entry in graph_js.items():
         if entry["type"] != "Statement":
