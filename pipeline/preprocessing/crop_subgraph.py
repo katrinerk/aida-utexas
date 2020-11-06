@@ -103,9 +103,11 @@ def nodes_to_subgraph(graph, nodes_dict):
         stmt_entry = deepcopy(graph['theGraph'][stmt_label])
 
         assert stmt_entry['type'] == 'Statement'
-        assert stmt_entry['subject'] in subgraph['theGraph']
+        if stmt_entry['subject'] not in subgraph['theGraph']:
+            continue
         if stmt_entry['predicate'] != 'type':
-            assert stmt_entry['object'] in subgraph['theGraph']
+            if stmt_entry['object'] not in subgraph['theGraph']:
+                continue
 
         subgraph['theGraph'][stmt_label] = stmt_entry
         subgraph['statements'].append(stmt_label)
