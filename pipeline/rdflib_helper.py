@@ -509,8 +509,9 @@ def triples_for_time(kb_graph, time_id, p):
     """
     Extracting all triples containing LDCTimeComponent nodes related to an LDCTime node.
     """
-    before_time_component_id, after_time_component_id = None, None
     triples = set()
+
+    before_time_component_id, after_time_component_id = None, None
     for _, _, time_component_id in kb_graph.triples((time_id, p, None)):
         for s, p, o in kb_graph.triples((time_component_id, None, None)):
             if p in [AIDA.year, AIDA.month, AIDA.day]:
