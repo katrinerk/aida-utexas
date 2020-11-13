@@ -5,6 +5,7 @@ from rdflib.namespace import Namespace, RDF, XSD
 from rdflib.term import BNode, Literal, URIRef
 
 from aida_utexas.aif import AIF_NS_PREFIX
+from aida_utexas.hypothesis.date_check import AidaIncompleteDate
 
 # namespaces for AIDA-related prefixes
 AIDA = Namespace(f'{AIF_NS_PREFIX}/InterchangeOntology#')
@@ -329,7 +330,7 @@ def triples_for_type_stmt(kb_graph, stmt_id):
 
 def triples_for_ere(kb_graph, ere_id):
     """
-    Extracting all triples related to an ERR node. Will also check whether there are informative
+    Extracting all triples related to an ERE node. Will also check whether there are informative
     justifications sharing the same source document id. If so, will apply a patch.
     """
     triples = set()
@@ -490,7 +491,6 @@ def triples_for_link_assertion(kb_graph, link_assertion_id):
 
     return triples
 
-
 def triples_for_ldc_time(kb_graph, time_id):
     """
     Extracting all triples related to an LDCTime node.
@@ -500,12 +500,73 @@ def triples_for_ldc_time(kb_graph, time_id):
     for s, p, o in kb_graph.triples((time_id, None, None)):
         triples.add((s, p, o))
         if p in [AIDA.start, AIDA.end]:
-            triples.update(triples_for_subject(kb_graph, o))
-
+            triples.update(triples_for_time(kb_graph, s, p))
         triples.update(expand_conf_and_system_node(kb_graph, p, o))
 
     return triples
 
+def triples_for_time(kb_graph, time_id, p):
+    """
+    Extracting all triples containing LDCTimeComponent nodes related to an LDCTime node.
+    """
+    before_time_component_id, after_time_component_id = None, None
+    triples = set()
+    for _, _, time_component_id in kb_graph.triples((time_id, p, None)):
+        for s, p, o in kb_graph.triples((time_component_id, None, None)):
+            if p in [AIDA.year, AIDA.month, AIDA.day]:
+                continue
+            triples.add((s, p, o))
+            if p == AIDA.timeType and o == Literal("BEFORE"):
+                before_time_component_id = s
+            elif p == AIDA.timeType and o == Literal("AFTER"):
+                after_time_component_id = s
+
+    before_year, before_month, before_day = None, None, None
+    for s, p, o in kb_graph.triples((before_time_component_id, AIDA.year, None)):
+        before_year = o
+    for s, p, o in kb_graph.triples((before_time_component_id, AIDA.month, None)):
+        before_month = o
+    for s, p, o in kb_graph.triples((before_time_component_id, AIDA.day, None)):
+        before_day = o
+
+    after_year, after_month, after_day = None, None, None
+    for s, p, o in kb_graph.triples((after_time_component_id, AIDA.year, None)):
+        after_year = o
+    for s, p, o in kb_graph.triples((after_time_component_id, AIDA.month, None)):
+        after_month = o
+    for s, p, o in kb_graph.triples((after_time_component_id, AIDA.day, None)):
+        after_day = o
+
+    before_year_value = int(''.join(filter(lambda i: i.isdigit(), str(before_year)))) if before_year else None
+    before_month_value = int(''.join(filter(lambda i: i.isdigit(), str(before_month)))) if before_month else None
+    before_day_value = int(''.join(filter(lambda i: i.isdigit(), str(before_day)))) if before_day else None
+    after_year_value = int(''.join(filter(lambda i: i.isdigit(), str(after_year)))) if after_year else None
+    after_month_value = int(''.join(filter(lambda i: i.isdigit(), str(after_month)))) if after_month else None
+    after_day_value = int(''.join(filter(lambda i: i.isdigit(), str(after_day)))) if after_day else None
+    
+    # after_date should be no later than before_date
+    before_date = AidaIncompleteDate(before_year_value, before_month_value, before_day_value)
+    after_date = AidaIncompleteDate(after_year_value, after_month_value, after_day_value)
+
+    if before_date.is_before(after_date):
+        before_year = after_year
+        before_month = after_month
+        before_day = after_day
+
+    if before_year:
+        triples.add((before_time_component_id, AIDA.year, before_year))
+    if before_month:
+        triples.add((before_time_component_id, AIDA.month, before_month))
+    if before_day:
+        triples.add((before_time_component_id, AIDA.day, before_day))
+    if after_year:
+        triples.add((after_time_component_id, AIDA.year, after_year))
+    if after_month:
+        triples.add((after_time_component_id, AIDA.month, after_month))
+    if after_day:
+        triples.add((after_time_component_id, AIDA.day, after_day))
+    
+    return triples
 
 def expand_conf_and_system_node(kb_graph, p, o):
     """
