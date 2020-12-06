@@ -39,7 +39,7 @@ class Edge:
         return cls(**edge_dict)
 
     def to_json(self):
-        return [self.subject, self.predicate, self.object, self.objectType]
+        return [self.id, self.subject, self.predicate, self.object, self.objectType]
 
 
 @dataclass

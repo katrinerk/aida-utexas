@@ -218,8 +218,9 @@ class AidaHypothesisFilter:
                 stmt: stmt_weight for stmt, stmt_weight in hypothesis.stmt_weights.items()
                 if stmt in hypothesis.core_stmts
             },
-            weight=hypothesis.weight
-        )
+            weight=hypothesis.weight,
+            questionIDs=hypothesis.questionIDs
+        ) # questionIDs added
 
         new_hypothesis.add_failed_queries(hypothesis.failed_queries)
         new_hypothesis.add_qvar_filler(hypothesis.qvar_filler)

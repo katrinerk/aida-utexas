@@ -23,7 +23,7 @@ from aida_utexas.aif import JsonGraph
 
 class AidaHypothesis:
     def __init__(self, json_graph: JsonGraph, stmts: Iterable = None, stmt_weights: Dict = None,
-                 core_stmts: Iterable = None, weight: float = 0.0):
+                 core_stmts: Iterable = None, weight: float = 0.0, questionIDs: list = []): # added questionIDs
         self.json_graph = json_graph
 
         # list of all statements in the hypothesis
@@ -46,6 +46,9 @@ class AidaHypothesis:
 
         # default weight for non-core statements
         self.default_stmt_weight = -100.0
+
+        # question ID
+        self.questionIDs = questionIDs # added questionIDs
 
     # extending a hypothesis: adding a statement in place
     def add_stmt(self, stmt_label: str, core: bool = False, weight: float = None):
@@ -82,8 +85,9 @@ class AidaHypothesis:
             stmts=self.stmts.copy(),
             core_stmts=self.core_stmts.copy(),
             stmt_weights=self.stmt_weights.copy(),
-            weight=self.weight
-        )
+            weight=self.weight,
+            questionIDs=self.questionIDs
+        ) # added questionIDs
         new_hypothesis.add_failed_queries(self.failed_queries)
         return new_hypothesis
 
@@ -223,17 +227,23 @@ class AidaHypothesis:
             'statements': stmt_list,
             'statementWeights': stmt_weight_list,
             'failedQueries': self.failed_queries,
-            'queryStatements': list(self.core_stmts)
+            'queryStatements': list(self.core_stmts),
+            'questionIDs': list(self.questionIDs)
         }
 
     @classmethod
-    def from_json(cls, json_obj: Dict, json_graph: JsonGraph, weight: float = 0.0):
+    def from_json(cls, json_obj: Dict, json_graph: JsonGraph, weight: float = 0.0, questionIDs: list = []):
+        if len(questionIDs) == 0:
+            questionIDs = json_obj['questionIDs']
+
         hypothesis = cls(
             json_graph=json_graph,
             stmts=json_obj['statements'],
             core_stmts=json_obj['queryStatements'],
             stmt_weights=dict(zip(json_obj['statements'], json_obj['statementWeights'])),
-            weight=weight)
+            weight=weight,
+            questionIDs=questionIDs
+            ) # added questionIDs here
 
         hypothesis.add_failed_queries(json_obj['failedQueries'])
         return hypothesis

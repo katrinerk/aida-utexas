@@ -77,7 +77,7 @@ class HypothesisSeedManager:
 
         for frame in self.query_json['frames']:
             for constraint in frame['edges']:
-                facet_label = constraint[0]
+                facet_label = constraint[1]
                 facet_to_constraints[facet_label].append(constraint)
                 facet_to_variables[facet_label].add(facet_label)
                 facet_to_variables[facet_label].add(constraint[2])
@@ -127,7 +127,7 @@ class HypothesisSeedManager:
 
         # entry point variables occurring in the core constraints: each core constraint has the form
         # [subj, pred, obj, obj_type], where only obj can be potentially entry point variables
-        ep_var_list = sorted([obj for _, _, obj, _ in core_constraints if obj in ep_matches_dict])
+        ep_var_list = sorted([obj for _, _, _, obj, _ in core_constraints if obj in ep_matches_dict])
 
         # entry point fillers and weights filtered and reranked by both ep match scores and
         # role match scores
@@ -305,7 +305,7 @@ class HypothesisSeedManager:
     def _entrypoint_filler_role_score(self, ep_var: str, ep_filler: str, core_constraints: List):
         score = 0
 
-        for subj, pred, obj, _ in core_constraints:
+        for _, subj, pred, obj, _ in core_constraints:
             if subj == ep_var:
                 # statements adjacent to ep_filler with predicate pred and ep_filler as the subject
                 if list(self.json_graph.each_ere_adjacent_stmt(ep_filler, pred, 'subject')):

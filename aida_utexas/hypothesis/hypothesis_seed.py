@@ -76,7 +76,7 @@ class HypothesisSeed:
         # the following data will not not updated, and is kept just for info.
         # the AIDA graph in json format
         self.json_graph = json_graph
-        # a list of edge constraints, each being a tuple of (subj, pred, obj, obj_type)
+        # a list of edge constraints, each being a tuple of (questionID, subj, pred, obj, obj_type)
         self.core_constraints = core_constraints
         # temporal constraints: mapping from query variables to {start_time: ..., end_time:...}
         self.temporal_constraints = temporal_constraints
@@ -142,8 +142,11 @@ class HypothesisSeed:
                 temporal_constraints[qvar] = {
                     key: AidaIncompleteDate.from_json(val) for key, val in constraint_json.items()}
 
+        questionIDs_with_eventIDs = seed_json['core_constraints']
+        questionIDs = list(set(['_'.join(x[0].split('_')[:-1]) for x in questionIDs_with_eventIDs]))
+
         hypothesis = AidaHypothesis.from_json(
-            json_obj=seed_json.get('hypothesis', {}), json_graph=json_graph, weight=0.0)
+            json_obj=seed_json.get('hypothesis', {}), json_graph=json_graph, weight=0.0, questionIDs=questionIDs) # added questionIDs
 
         return cls(
             json_graph=json_graph,
@@ -280,7 +283,7 @@ class HypothesisSeed:
     def _next_fillable_constraint(self) -> Optional[NextFillableConstraint]:
         # iterate over unfilled core constraints to see if we can find one that can be filled
         for constraint_index in self.unfilled:
-            subj, pred, obj, _ = self.core_constraints[constraint_index]
+            _, subj, pred, obj, _ = self.core_constraints[constraint_index]
 
             # if either subj or obj is known (is an ERE or has an entry in qvar_filler,
             # then we should be able to fill this constraint now, or it is unfillable
@@ -557,7 +560,7 @@ class HypothesisSeed:
                 # this was the constraint we were just going to fill, don't re-check it
                 continue
 
-            subj, pred, obj, _ = self.core_constraints[constraint_index]
+            _, subj, pred, obj, _ = self.core_constraints[constraint_index]
 
             if subj == variable and obj in self.qvar_filler:
                 candidates, _ = self._statement_candidates(filler, pred, 'subject')
