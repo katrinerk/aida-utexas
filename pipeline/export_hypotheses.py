@@ -56,7 +56,7 @@ def main():
                     res = ','.join(tmp_res_list2)
                     output_list.append((sin_info_list, res))
  
-    output_list.sort()
+    output_list.sort(key=lambda x : (x[0][0], x[0][2], x[0][1], x[0][3], x[0][4]))
     csv_output_path = output_dir / args.hypothesis_path.split('/')[-1].replace('json', 'csv')
     with open(csv_output_path, 'w', encoding="utf-8") as csv_file:
         csv_file.write('SIN,Event or Relation type,time,arg1,arg2,arg3,arg4,arg5,comments,ID\n')   
