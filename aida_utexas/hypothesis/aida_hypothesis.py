@@ -379,6 +379,7 @@ class AidaHypothesis:
                 ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
                 ldc_time = self.json_graph.node_dict[ere_label].ldcTime
                 ldc_time_list = []
+                ldc_time_set = set()
                 if ldc_time:
                     for time in ldc_time:
                         time_list = ['' for _ in range(4)]
@@ -399,7 +400,9 @@ class AidaHypothesis:
 
                         time_str = ' '.join(time_list)
                         if time_str:
-                            ldc_time_list.append(time_str)
+                            if time_str not in ldc_time_set:
+                                ldc_time_list.append(time_str)
+                                ldc_time_set.add(time_str)
                 
                 ldc_time_str = '; '.join(ldc_time_list)
                 if ldc_time_str:
@@ -417,6 +420,7 @@ class AidaHypothesis:
                 ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
                 ldc_time = self.json_graph.node_dict[ere_label].ldcTime
                 ldc_time_list = []
+                ldc_time_set = set()
                 if ldc_time:
                     for time in ldc_time:
                         time_list = ['' for _ in range(4)]
@@ -437,7 +441,9 @@ class AidaHypothesis:
 
                         time_str = ' '.join(time_list)
                         if time_str:
-                            ldc_time_list.append(time_str)
+                            if time_str not in ldc_time_set:
+                                ldc_time_list.append(time_str)
+                                ldc_time_set.add(time_str)
                 
                 ldc_time_str = '; '.join(ldc_time_list)
                 if ldc_time_str:
