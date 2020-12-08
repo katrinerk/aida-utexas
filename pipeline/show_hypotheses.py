@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
-
+import sys
+sys.path.append('D:/aida-utexas')
 from aida_utexas import util
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesisCollection
@@ -25,7 +26,7 @@ def main():
 
     for idx, hypothesis in enumerate(hypothesis_collection.hypotheses):
         output_path = output_dir / 'hypothesis-{:0>3d}.txt'.format(idx)
-        with open(str(output_path), "w") as fout:
+        with open(str(output_path), "w", encoding="utf-8") as fout:
             print(hypothesis.to_str(roles_ontology), file=fout)
 
 

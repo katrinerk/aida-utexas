@@ -325,6 +325,131 @@ class AidaHypothesis:
 
         return result
 
+    def to_str_for_csv(self, roles_ontology: Dict):
+        result = ''
+
+        core_eres = self.core_eres()
+
+        # start with core EREs
+        for ere_label in core_eres:
+            if self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label):
+                ere_str = self.ere_to_str(ere_label, roles_ontology)
+                ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
+                ldc_time = self.json_graph.node_dict[ere_label].ldcTime
+                ldc_time_list = []
+                ldc_time_set = set()
+                if ldc_time:
+                    for time in ldc_time:
+                        time_list = ['' for _ in range(4)]
+                        if 'start' in time:
+                            for t in time['start']:
+                                if t['timeType'] == 'AFTER' and 'year' in t:
+                                    time_list[0] = 'T1: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                                elif 'year' in t:
+                                    assert t['timeType'] == 'BEFORE'
+                                    time_list[1] = 'T2: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                        if 'end' in time:
+                            for t in time['end']:  
+                                if t['timeType'] == 'AFTER' and 'year' in t:
+                                    time_list[2] = 'T3: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                                elif 'year' in t:
+                                    assert t['timeType'] == 'BEFORE'
+                                    time_list[3] = 'T4: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+
+                        time_str = ' '.join(time_list)
+                        if time_str:
+                            if time_str not in ldc_time_set:
+                                ldc_time_list.append(time_str)
+                                ldc_time_set.add(time_str)
+                            
+                
+                ldc_time_str = '; '.join(ldc_time_list)
+                if ldc_time_str:
+                    tmp_list = ere_str.split('\n    ')
+                    tmp_list.insert(1, ldc_time_str)
+                    ere_str = '\n    '.join(tmp_list)
+
+                if ere_str != '':
+                    result += ere_str + '\n\n'
+
+        # make output for each non-core event in the hypothesis
+        for ere_label in self.eres():
+            if ere_label not in core_eres and self.json_graph.is_event(ere_label):
+                ere_str = self.ere_to_str(ere_label, roles_ontology)
+                ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
+                ldc_time = self.json_graph.node_dict[ere_label].ldcTime
+                ldc_time_list = []
+                if ldc_time:
+                    for time in ldc_time:
+                        time_list = ['' for _ in range(4)]
+                        if 'start' in time:
+                            for t in time['start']:
+                                if t['timeType'] == 'AFTER' and 'year' in t:
+                                    time_list[0] = 'T1: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                                elif 'year' in t:
+                                    assert t['timeType'] == 'BEFORE'
+                                    time_list[1] = 'T2: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                        if 'end' in time:
+                            for t in time['end']:  
+                                if t['timeType'] == 'AFTER' and 'year' in t:
+                                    time_list[2] = 'T3: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                                elif 'year' in t:
+                                    assert t['timeType'] == 'BEFORE'
+                                    time_list[3] = 'T4: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+
+                        time_str = ' '.join(time_list)
+                        if time_str:
+                            ldc_time_list.append(time_str)
+                
+                ldc_time_str = '; '.join(ldc_time_list)
+                if ldc_time_str:
+                    tmp_list = ere_str.split('\n    ')
+                    tmp_list.insert(1, ldc_time_str)
+                    ere_str = '\n    '.join(tmp_list)
+                    
+                if ere_str != '':
+                    result += ere_str + '\n\n'
+
+        # make output for each non-core relation in the hypothesis
+        for ere_label in self.eres():
+            if ere_label not in core_eres and self.json_graph.is_relation(ere_label):
+                ere_str = self.ere_to_str(ere_label, roles_ontology)
+                ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
+                ldc_time = self.json_graph.node_dict[ere_label].ldcTime
+                ldc_time_list = []
+                if ldc_time:
+                    for time in ldc_time:
+                        time_list = ['' for _ in range(4)]
+                        if 'start' in time:
+                            for t in time['start']:
+                                if t['timeType'] == 'AFTER' and 'year' in t:
+                                    time_list[0] = 'T1: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                                elif 'year' in t:
+                                    assert t['timeType'] == 'BEFORE'
+                                    time_list[1] = 'T2: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                        if 'end' in time:
+                            for t in time['end']:  
+                                if t['timeType'] == 'AFTER' and 'year' in t:
+                                    time_list[2] = 'T3: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+                                elif 'year' in t:
+                                    assert t['timeType'] == 'BEFORE'
+                                    time_list[3] = 'T4: ' + "{}-{}-{}".format(t['year'], t['month'], t['day'])
+
+                        time_str = ' '.join(time_list)
+                        if time_str:
+                            ldc_time_list.append(time_str)
+                
+                ldc_time_str = '; '.join(ldc_time_list)
+                if ldc_time_str:
+                    tmp_list = ere_str.split('\n    ')
+                    tmp_list.insert(1, ldc_time_str)
+                    ere_str = '\n    '.join(tmp_list)
+
+                if ere_str != '':
+                    result += ere_str + '\n\n'
+
+        return result
+
     # helper functions
 
     # list of EREs adjacent to the statements in this hypothesis
