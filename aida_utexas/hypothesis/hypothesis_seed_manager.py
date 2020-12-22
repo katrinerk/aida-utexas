@@ -30,6 +30,7 @@ from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesis
 from aida_utexas.hypothesis.date_check import AidaIncompleteDate
 from aida_utexas.hypothesis.hypothesis_seed import HypothesisSeed
+from aida_utexas.hypothesis.seed_expansion import HypothesisSeedExpansion
 
 
 # class that manages all hypothesis seeds
@@ -58,7 +59,12 @@ class HypothesisSeedManager:
     # split the core constraints of the query into a list of facets.
     # note that some of the facets might contain no entry point variables, in such case, we merge
     # them into the closes facets with entry point variables.
+    # Katrin December 2020:
+    # if a facet ends up containing a variable that is further constrained in
+    # another facet, merge the two facets
     def split_facets(self):
+        # if grouping is supposed to be by frames (that is, more coarse-grained)
+        # then make this grouping
         if self.frame_grouping:
             frame_to_constraints = defaultdict(list)
             for frame in self.query_json['frames']:
@@ -67,6 +73,7 @@ class HypothesisSeedManager:
                     frame_to_constraints[frame_id].append(constraint)
             return frame_to_constraints
 
+        # grouping is more fine-grained, one event at a time
         # all entry point variables in the SoIN
         all_ep_vars = set(self.query_json['ep_matches_dict'].keys())
 
@@ -74,13 +81,18 @@ class HypothesisSeedManager:
         facet_to_constraints = defaultdict(list)
         # a mapping from each facet label to a set of variables occurred in the facet
         facet_to_variables = defaultdict(set)
+        # a mapping from each facet label to subject variables (typically, events and relations)
+        facet_to_eventrel = defaultdict(set)
+        # all subject variables
+        all_eventrel = set()
 
         for frame in self.query_json['frames']:
             for constraint in frame['edges']:
                 facet_label = constraint[1]
                 facet_to_constraints[facet_label].append(constraint)
                 facet_to_variables[facet_label].add(facet_label)
-                facet_to_variables[facet_label].add(constraint[2])
+                facet_to_variables[facet_label].add(constraint[3])
+                all_eventrel.add(constraint[1])
 
         # determine the facets that do / do not contain entry point variables
         facets_with_ep, facets_without_ep = [], []
@@ -99,6 +111,21 @@ class HypothesisSeedManager:
                     del facet_to_constraints[f1]
                     break
 
+        # determine facets that contain object variables that are subject variables elsewhere
+        facets_depending_on_other_events = [ ]
+        for facet_label, variables in facet_to_variables.items():
+            if any(var in all_eventrel and var != facet_label for var in variables):
+                facets_depending_on_other_events.append(facet_label)
+
+        # merge each facet that has an event as an object
+        # to the first face that has this event as a subject
+        for f1 in facets_depending_on_other_events:
+            for f2, f2_eventvariables in facet_to_eventrel.items():
+                if any(var in f2_eventvariables and var not in facet_to_eventrel[f1] for var in variables):
+                    facet_to_constraints[f2] += facet_to_constraints[f1]
+                    del facet_to_constraints[f1]
+                    break
+
         return facet_to_constraints
 
     # create initial hypothesis seeds
@@ -107,9 +134,20 @@ class HypothesisSeedManager:
 
         seeds_by_facet = {}
 
+        seed_expansion_obj = HypothesisSeedExpansion()
+
         for facet_label, core_constraints in facet_to_constraints.items():
+            
             logging.info(f'Creating hypothesis seeds for facet {facet_label} ...')
             seeds = self._create_seeds(core_constraints)
+            # Katrin December 2020: adding query expansion here
+            additional_coreconstraint_lists = seed_expansion_obj.expand(core_constraints)
+            query_expansion_count = 0
+            for cc in additional_coreconstraint_lists:
+                additional = self._create_seeds(cc)
+                query_expansion_count += len(additional)
+                seeds += additional
+            logging.info(f'Query expansion added {query_expansion_count} seeds.')
 
             seeds_by_facet[facet_label] = sorted(
                 seeds, key=lambda s: s.get_scores(), reverse=True)
@@ -145,6 +183,8 @@ class HypothesisSeedManager:
             fillers_filtered_both = []
             fillers_filtered_role_score = []
 
+            # Katrin December 2020: possibly reduce the number of entry points we keep
+            # (not done yet, but consider doing it)
             for ep_filler, ep_weight in ep_matches:
                 ep_role_score = self._entrypoint_filler_role_score(
                     ep_var, ep_filler, core_constraints)
