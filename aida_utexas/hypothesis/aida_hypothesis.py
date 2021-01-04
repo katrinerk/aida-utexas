@@ -249,9 +249,9 @@ class AidaHypothesis:
         return hypothesis
 
     # human-readable output for an ERE
-    def ere_to_str(self, ere_label, roles_ontology: Dict):
+    def ere_to_str(self, ere_label, roles_ontology: Dict, for_csv: bool = False):
         if self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label):
-            return self.event_rel_to_str(ere_label, roles_ontology)
+            return self.event_rel_to_str(ere_label, roles_ontology, for_csv=for_csv)
         elif self.json_graph.is_entity(ere_label):
             return self.entity_to_str(ere_label)
         else:
@@ -267,7 +267,7 @@ class AidaHypothesis:
         return result
 
     # human-readable output for an event or relation
-    def event_rel_to_str(self, ere_label, roles_ontology: Dict):
+    def event_rel_to_str(self, ere_label, roles_ontology: Dict, for_csv: bool = False):
         if not (self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label)):
             return ''
 
@@ -291,8 +291,12 @@ class AidaHypothesis:
             result += '\n    ' + role_label + ': '
             pred_label = event_rel_type + '_' + role_label
             if pred_label in event_rel_roles:
-                result += ', '.join(self.entity_to_str(arg_label)
-                                    for arg_label in event_rel_roles[pred_label])
+                if not for_csv:
+                    result += ', '.join(self.entity_to_str(arg_label)
+                                        for arg_label in event_rel_roles[pred_label])
+                else:
+                    arg_str = self.entity_to_str(arg_label) + " ({})".format(arg_label.split('/')[-1])
+                    result += ', '.join(arg_str for arg_label in event_rel_roles[pred_label])
 
         return result
 
@@ -331,9 +335,10 @@ class AidaHypothesis:
         core_eres = self.core_eres()
 
         # start with core EREs
+        num_core_eres = 0
         for ere_label in core_eres:
             if self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label):
-                ere_str = self.ere_to_str(ere_label, roles_ontology)
+                ere_str = self.ere_to_str(ere_label, roles_ontology, for_csv=True)
                 ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
                 ldc_time = self.json_graph.node_dict[ere_label].ldcTime
                 ldc_time_list = []
@@ -370,12 +375,13 @@ class AidaHypothesis:
                     ere_str = '\n    '.join(tmp_list)
 
                 if ere_str != '':
+                    num_core_eres += 1
                     result += ere_str + '\n\n'
 
         # make output for each non-core event in the hypothesis
         for ere_label in self.eres():
             if ere_label not in core_eres and self.json_graph.is_event(ere_label):
-                ere_str = self.ere_to_str(ere_label, roles_ontology)
+                ere_str = self.ere_to_str(ere_label, roles_ontology, for_csv=True)
                 ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
                 ldc_time = self.json_graph.node_dict[ere_label].ldcTime
                 ldc_time_list = []
@@ -416,7 +422,7 @@ class AidaHypothesis:
         # make output for each non-core relation in the hypothesis
         for ere_label in self.eres():
             if ere_label not in core_eres and self.json_graph.is_relation(ere_label):
-                ere_str = self.ere_to_str(ere_label, roles_ontology)
+                ere_str = self.ere_to_str(ere_label, roles_ontology, for_csv=True)
                 ere_str = ere_str + '\n    ' + 'ID: ' + ere_label.split('/')[-1]
                 ldc_time = self.json_graph.node_dict[ere_label].ldcTime
                 ldc_time_list = []
@@ -454,7 +460,7 @@ class AidaHypothesis:
                 if ere_str != '':
                     result += ere_str + '\n\n'
 
-        return result
+        return result, num_core_eres
 
     # helper functions
 

@@ -30,7 +30,7 @@ def main():
     output_list = []
     for hypo_idx, hypothesis in enumerate(hypothesis_collection.hypotheses):
         output_path = output_dir / 'hypothesis-{:0>3d}.txt'.format(hypo_idx)
-        result = hypothesis.to_str_for_csv(roles_ontology)
+        result, _ = hypothesis.to_str_for_csv(roles_ontology)
         with open(str(output_path), "w", encoding="utf-8") as fout:
             print(result, file=fout)
         result = result.replace(',', ' &').replace('ID: ', '')
