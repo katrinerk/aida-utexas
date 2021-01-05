@@ -281,6 +281,24 @@ class AidaGraph(RDFGraph):
             for name in self.get_node_objs(just_label, 'prefLabel'):
                 yield name.strip()
 
+    def get_sent_mention_str(self, node_label):
+        node = self.get_node(node_label)
+        justifications = node.get('justifiedBy')
+        justify_private_data = list(set.union(*[self.get_node(j).get('privateData') for j in justifications]))
+        json_contents_set = set.union(*[self.get_node_objs(x, 'jsonContent') for x in justify_private_data])
+        json_contents_dict = dict()
+        for i in [json.loads(j) for j in json_contents_set]:
+            json_contents_dict.update(i)
+
+        sentence = ''
+        mention_string = ''
+        if 'sentence' in json_contents_dict.keys():
+            sentence = json_contents_dict['sentence']
+        if 'mention_string' in json_contents_dict.keys():
+            mention_string = json_contents_dict['mention_string']
+
+        return sentence, mention_string
+
     # iterator over mentions associated with the statement node
     def mentions_associated_with(self, node_label):
         node = self.get_node(node_label)

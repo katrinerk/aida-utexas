@@ -174,7 +174,11 @@ def load_eres(graph, graph_js, prepend_ids):
 
             if "name" in entry.keys():
                 for label in entry["name"]:
-                    match = re.search('[_ ]+', label)
+                    try:
+                        match = re.search('[_ ]+', label)
+                    except TypeError:
+                        print('TypeError:', label)
+                        break
 
                     # Ensure that the name is not composed entirely of underscores and/or whitespace
                     if match and match.span()[1] - match.span()[0] == len(label):
