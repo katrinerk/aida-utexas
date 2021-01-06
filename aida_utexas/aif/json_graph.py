@@ -4,6 +4,7 @@ Author: Pengxiang Cheng, Aug 2020
 - Json representation for an AIDA graph, with methods to reason over it.
 """
 
+import json
 import logging
 import re
 from collections import Counter, defaultdict
@@ -155,11 +156,17 @@ class JsonGraph:
 
                 adjacent_stmts = list(map(str, aida_graph.adjacent_stmts_of_ere(node_label)))
 
+                # Retrieve sentence and mention_string
+                sentence, mention_string = aida_graph.get_sent_mention_str(node_label)
+                node_hasName = list(aida_graph.names_of_ere(node_label))
+                if not node_hasName:
+                    node_hasName = ['']
+
                 self.node_dict[str(node_label)] = ERENode(
                     type=node_type,
                     index=ere_counter,
                     adjacent=adjacent_stmts,
-                    name=list(aida_graph.names_of_ere(node_label)),
+                    name=node_hasName + [sentence, mention_string],
                     ldcTime=list(aida_graph.times_associated_with(node_label))
                 )
 
