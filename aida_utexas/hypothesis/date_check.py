@@ -71,6 +71,15 @@ class AidaIncompleteDate:
 
         year, month, day = self.year, self.month, self.day
 
+        # YEJIN QUICK FIX, if we get 8-digit year value, only take the year and discard the others
+        if year is not None and len(str(year)) > 4:
+            logging.warning(f'Invalid year value {year}')
+            if len(str(year)) == 8:
+                if month is None and day is None:
+                    month = int(str(year)[4:6])
+                    day = int(str(year)[6:])
+            year = int(str(year)[:4])
+
         # KATRIN QUICK FIX, don't know why we sometimes get year = 9999, month =12, day= 31
         if year == 9999:
             year = 9000
