@@ -137,11 +137,20 @@ class HypothesisSeedManager:
         seed_expansion_obj = HypothesisSeedExpansion()
 
         for facet_label, core_constraints in facet_to_constraints.items():
-            
+
             logging.info(f'Creating hypothesis seeds for facet {facet_label} ...')
             seeds = self._create_seeds(core_constraints)
-            # Katrin December 2020: adding query expansion here
-            additional_coreconstraint_lists = seed_expansion_obj.expand(core_constraints)
+            
+            # testing
+            #  for fc, subj, pred, obj, objtype in core_constraints:
+            #      logging.info(f'HIER0 original cc {fc} {subj} {pred} {obj}')
+            # Katrin December 2020: adding query expansion here.
+            # arguments: core constraints, temporal constraints, entry points
+            additional_coreconstraint_lists, additional_temporal = seed_expansion_obj.expand(core_constraints, self.temporal_constraints, \
+                                                                                             list(self.query_json['ep_matches_dict'].keys()))
+            self.temporal_constraints.update(additional_temporal)
+
+            
             query_expansion_count = 0
             for cc in additional_coreconstraint_lists:
                 additional = self._create_seeds(cc)
@@ -196,6 +205,11 @@ class HypothesisSeedManager:
                     if ep_weight > 50.0:
                         fillers_filtered_both.append(ep_filler)
 
+            # Katrin December 2020: sample down the 20 Caracases
+            if len(fillers_filtered_both) > 3:
+                logging.info(f'Too many good fillers: sampling down.')
+                fillers_filtered_both = fillers_filtered_both[:2]
+                
             if len(fillers_filtered_both) > 0:
                 logging.info(f'Entry point {ep_var}: kept {len(fillers_filtered_both)} fillers '
                              f'with both SoIN weight > 50 and role score > 0')
