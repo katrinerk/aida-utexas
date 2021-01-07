@@ -295,7 +295,7 @@ class AidaHypothesis:
                     result += ', '.join(self.entity_to_str(arg_label)
                                         for arg_label in event_rel_roles[pred_label])
                 else:
-                    arg_str = self.entity_to_str(arg_label) + " ({})".format(arg_label.split('/')[-1])
+                    arg_str = self.entity_to_str(arg_label) + " ({})".format(arg_label.split('/')[-1][-15:])
                     result += ', '.join(arg_str for arg_label in event_rel_roles[pred_label])
 
         return result

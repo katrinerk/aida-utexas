@@ -1,7 +1,7 @@
 from collections import defaultdict
 from argparse import ArgumentParser
 import re
-import sys
+import sys 
 import copy
 from aida_utexas import util
 from aida_utexas.soin import SOIN
