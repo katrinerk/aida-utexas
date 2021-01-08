@@ -126,7 +126,29 @@ class HypothesisSeedManager:
                     del facet_to_constraints[f1]
                     break
 
-        return facet_to_constraints
+        # Katrin Jan 2021
+        # remove duplicate constraints
+        # that only differ in their SoIN edge label
+        new_facet_to_constraints = defaultdict(list)
+        for facetlabel, constraints in facet_to_constraints.items():
+            for constraint in constraints:
+                # take the constraint apart into its pieces
+                edgelabel, subj1, pred1, obj1, objtype1 = constraint
+
+                # check if it is a duplicate
+                if any(subj1 == subj2 and pred1 == pred2 and obj1 == obj2 and objtype1 == objtype2 for el2, subj2, pred2, obj2, objtype2 in new_facet_to_constraints[facetlabel]):
+                    # duplicate: ditch this constraint
+                    pass
+                else:
+                    # not a duplicate
+                    new_facet_to_constraints[facetlabel].append(constraint)
+
+            # testing: did we remove any duplicates?
+            # if len(new_facet_to_constraints[facetlabel]) < len(facet_to_constraints[facetlabel]):
+            #     logging.info(f'HIER removed duplicate constraints reduced from {len(facet_to_constraints[facetlabel])} to {len(new_facet_to_constraints[facetlabel])}')
+
+        
+        return new_facet_to_constraints
 
     # create initial hypothesis seeds
     def make_seeds(self):
@@ -142,8 +164,9 @@ class HypothesisSeedManager:
             seeds = self._create_seeds(core_constraints)
             
             # testing
-            #  for fc, subj, pred, obj, objtype in core_constraints:
-            #      logging.info(f'HIER0 original cc {fc} {subj} {pred} {obj}')
+            # for fc, subj, pred, obj, objtype in core_constraints:
+            #     logging.info(f'HIER0 original cc {fc} {subj} {pred} {obj} {objtype}')
+                
             # Katrin December 2020: adding query expansion here.
             # arguments: core constraints, temporal constraints, entry points
             additional_coreconstraint_lists, additional_temporal = seed_expansion_obj.expand(core_constraints, self.temporal_constraints, \
