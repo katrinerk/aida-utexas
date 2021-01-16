@@ -11,6 +11,9 @@ from aida_utexas import util
 from aida_utexas.aif import JsonGraph
 from aida_utexas.hypothesis.aida_hypothesis import AidaHypothesisCollection
 
+##########################################################3
+#######################3
+# collecting and joining information across hypotheses
 
 ###########
 # make a dictionary
@@ -50,6 +53,72 @@ def make_core_rolefiller_dict(hypothesis_collection, json_graph):
                         
     return retv
 
+##############3
+def collect_entity_info(json_graph, hypotheses, input_ere, roles_ontology):
+    retv = { }
+
+    if not json_graph.is_entity(input_ere):
+        return retv
+    
+    for hyp in hypotheses:
+        for ere in hyp.eres():
+            if json_graph.is_event(ere) or json_graph.is_relation(ere):
+                roles_filled = set(pred for stmt, pred, object_ere in hyp.event_rel_each_arg_stmt(ere) if input_ere == object_ere)
+                if len(roles_filled) > 0:
+                    this_event_dict = collect_even_rel(ere, hyp, json_graph, roles_ontology)
+
+                    if ere in retv:
+                        retv[ere]["type"] = retv[ere]["type"].union(this_event_dict.get("type", set()))
+
+                        for role in this_event_dict:
+                            if role == "type":
+                                continue
+                            if role in retv[ere]:
+                                retv[ere][role] = retv[ere][role].union(this_event_dict[role])
+                            else:
+                                retv[ere][role] = this_event_dict[role]
+
+
+                        retv[ere]["EntityRole"] = retv[ere]["EntityRole"].union(roles_filled)
+                    else:
+                        retv[ ere] = this_event_dict
+                        retv[ere]["EntityRole"] = roles_filled
+    return retv
+            
+##
+# collect output for an event or relation
+def collect_even_rel(ere_label, hyp, json_graph, roles_ontology):
+    retv = { }
+    
+    if not (json_graph.is_event(ere_label) or json_graph.is_relation(ere_label)):
+        return retv
+
+    event_rel_type = set(hyp.ere_types(ere_label))
+
+    event_rel_roles = defaultdict(set)
+    for pred_label, arg_label in hyp.event_rel_each_arg(ere_label):
+        event_rel_roles[pred_label].add(arg_label)
+
+    if not event_rel_roles:
+        return {}
+
+    if len(event_rel_type) == 0:
+        event_rel_type = set([list(event_rel_roles.keys())[0].rsplit('_', maxsplit=1)[0]])
+
+    retv["type"] = event_rel_type
+    for onetype in event_rel_type:
+        for role_label in roles_ontology[onetype].values():
+            pred_label = onetype  + '_' + role_label
+            if pred_label in event_rel_roles:
+                retv[role_label] = set(entity_to_str(json_graph, arg_label) for arg_label in event_rel_roles[pred_label])
+
+    return retv
+
+    
+
+#######################################################3
+#######################3
+# Hypothesis filtering for the purpose of analysis in this tool
 
 ####
 # filter hypotheses by question IDs:
@@ -77,6 +146,10 @@ def filter_hypotheses_by_entrypoints(hypothesis_collection, json_graph, core_rol
             retain_hyp.append(hyp)
 
     return AidaHypothesisCollection(retain_hyp)
+
+#######################################################
+#######################3
+# Turning hypothesis-specific info into output strings
 
 ###############
 # print out info about an ERE in a hypothesis:
@@ -149,6 +222,7 @@ def event_rel_to_str(ere_label, hyp, json_graph, roles_ontology):
 
     return result
 
+
 ########
 def ere_to_str(ere_label, hyp, json_graph, roles_ontology):
     if json_graph.is_event(ere_label) or json_graph.is_relation(ere_label):
@@ -157,6 +231,51 @@ def ere_to_str(ere_label, hyp, json_graph, roles_ontology):
         return entity_to_str(json_graph, ere_label)
     else:
         return ''
+
+#########
+# hypothesis to string
+def hyp_to_str(hyp, json_graph, roles_ontology):
+    result = ''
+
+    core_eres = hyp.core_eres()
+
+    # start with core EREs
+    result += "========= Core events and relations =======\n\n"
+    for ere_label in core_eres:
+        if json_graph.is_event(ere_label) or json_graph.is_relation(ere_label):
+            ere_str = ere_to_str(ere_label, hyp, json_graph, roles_ontology)
+            if ere_str != '':
+                result += ere_str + '\n\n'
+
+    # for each entity in the hypothesis, print out all related
+    # events and relations
+    result += "\n\n============= Dramatis personae =============\n\n"
+    for ere_label in hyp.eres():
+        if json_graph.is_entity(ere_label):
+            result += "\n-------------- entity " + ere_label[-15:] + "-------\n"
+            result += str_ere_info(json_graph, hyp, ere_label, roles_ontology)
+    
+    return result
+
+#######################################################
+#######################3
+# print information collected across multiple hypotheses
+def print_collected_entity_info(input_ere, json_graph, collected_entity_info):
+  for eid, entry in collected_entity_info.items():
+    print("\nEntity is " + ",".join(entry["EntityRole"]) + " in:")
+    print(",".join(entry["type"]), eid[-15:])
+    for role_label in entry.keys():
+        if role_label == "type" or role_label == "EntityRole": continue
+        print(role_label, ":")
+        for arg_label in entry[role_label]:
+            print("\t", arg_label)
+    print()
+
+
+#######################################################
+#######################3
+# stringify and print informatoin for the whole graph,
+# not a single hypothesis
 
 #######3
 # print out info about an event/relation in the whole graph:
@@ -208,33 +327,11 @@ def print_entity_info_wholegraph(json_graph, ere_label, roles_ontology):
             print("\nERE is", pred_label, "in:")
             print_eventrel_info_wholegraph(json_graph, ev_label, roles_ontology)
 
-#########
-# hypothesis to string
-def hyp_to_str(hyp, json_graph, roles_ontology):
-    result = ''
 
-    core_eres = hyp.core_eres()
+#######################################################
+#######################3
+# main functions matching the main options in the menu
 
-    # start with core EREs
-    result += "========= Core events and relations =======\n\n"
-    for ere_label in core_eres:
-        if json_graph.is_event(ere_label) or json_graph.is_relation(ere_label):
-            ere_str = ere_to_str(ere_label, hyp, json_graph, roles_ontology)
-            if ere_str != '':
-                result += ere_str + '\n\n'
-
-    # for each entity in the hypothesis, print out all related
-    # events and relations
-    result += "\n\n============= Dramatis personae =============\n\n"
-    for ere_label in hyp.eres():
-        if json_graph.is_entity(ere_label):
-            result += "\n-------------- entity " + ere_label[-15:] + "-------\n"
-            result += str_ere_info(json_graph, hyp, ere_label, roles_ontology)
-    
-    return result
-
-######################################
-# main inspection functions
 #####3
 # print the core of a hypothesis:
 # roles of core events and relations, with all fillers given in
@@ -255,10 +352,14 @@ def show_core(json_graph, hypothesis_collection):
 # for an ERE, show all info that a given hypothesis collection has about it
 def show_ere(json_graph, hypothesis_collection, roles_ontology):
     input_ere = input("ERE ID to inspect: ")
+
+    collected_entity_info = collect_entity_info(json_graph, hypothesis_collection, input_ere, roles_ontology)
+    print_collected_entity_info(input_ere, json_graph, collected_entity_info)
     
-    # iterate through hypotheses, say what they say about this entity
-    for hyp in hypothesis_collection:
-        print(str_ere_info(json_graph, hyp, input_ere, roles_ontology))
+    # # iterate through hypotheses, say what they say about this entity
+    
+    # for hyp in hypothesis_collection:
+    #     print(str_ere_info(json_graph, hyp, input_ere, roles_ontology))
 
 #####3
 # for a core role, show all info that a hypothesis collection
@@ -271,8 +372,10 @@ def show_rolefiller(json_graph, hypothesis_collection, roles_ontology):
         for name, eres in core_rolefillers[input_role].items():
             for ere in eres:
                 print("-------------- ERE named", name, "-------")
-                for hyp in hypothesis_collection:
-                    print(str_ere_info(json_graph, hyp, ere, roles_ontology))
+                collected_entity_info = collect_entity_info(json_graph, hypothesis_collection, input_ere, roles_ontology)
+                print_collected_entity_info(input_ere, json_graph, collected_entity_info)
+                #  for hyp in hypothesis_collection:
+                #      print(str_ere_info(json_graph, hyp, ere, roles_ontology))
             
             
 # for an ere, show its surroundings in the json graph,
