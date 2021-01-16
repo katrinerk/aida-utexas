@@ -98,7 +98,7 @@ class StringDescriptor(Descriptor):
 
     def edit_dist_string_similarity(str1, str2):
         total_length = len(str1) + len(str2)
-        return (total_length - Levenshtein.distance(str1, str2)) / total_length
+        return (total_length - Levenshtein.distance(str1, str2)) / total_length * 100
 
     def match_score(self, node_label: str, graph: AidaGraph):
         string_match_rates = []
