@@ -372,8 +372,8 @@ def show_rolefiller(json_graph, hypothesis_collection, roles_ontology):
         for name, eres in core_rolefillers[input_role].items():
             for ere in eres:
                 print("-------------- ERE named", name, "-------")
-                collected_entity_info = collect_entity_info(json_graph, hypothesis_collection, input_ere, roles_ontology)
-                print_collected_entity_info(input_ere, json_graph, collected_entity_info)
+                collected_entity_info = collect_entity_info(json_graph, hypothesis_collection, ere, roles_ontology)
+                print_collected_entity_info(ere, json_graph, collected_entity_info)
                 #  for hyp in hypothesis_collection:
                 #      print(str_ere_info(json_graph, hyp, ere, roles_ontology))
             
