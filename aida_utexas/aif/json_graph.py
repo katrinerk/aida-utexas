@@ -166,9 +166,9 @@ class JsonGraph:
                     type=node_type,
                     index=ere_counter,
                     adjacent=adjacent_stmts,
-                    name=node_hasName + [sentence, mention_string],
+                    name=node_hasName + [mention_string],
                     ldcTime=list(aida_graph.times_associated_with(node_label))
-                )
+                ) # Update: Removed 'sentence' in 'name' field and only added 'mention_string' (as we did not observe much effect from using sentence)
 
                 self.eres.append(str(node_label))
                 ere_counter += 1
