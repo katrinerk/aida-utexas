@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from operator import itemgetter
 from typing import Dict, List, Tuple
 from xml.etree.ElementTree import Element
-import Levenshtein
+import edit_distance
 
 from aida_utexas.aif import AidaGraph
 
@@ -98,7 +98,9 @@ class StringDescriptor(Descriptor):
 
     def edit_dist_string_similarity(self, str1, str2):
         total_length = len(str1) + len(str2)
-        return (total_length - Levenshtein.distance(str1, str2)) / total_length * 100
+        sm = edit_distance.SequenceMatcher(a=str1, b=str2)
+        dist = sm.distance()
+        return round((total_length - dist) / total_length * 100, 2)
 
     def match_score(self, node_label: str, graph: AidaGraph):
         string_match_rates = []

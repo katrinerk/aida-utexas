@@ -4,4 +4,4 @@ dill
 pandas
 dill
 gensim
-python-Levenshtein
+edit_distance
