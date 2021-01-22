@@ -96,15 +96,17 @@ class StringDescriptor(Descriptor):
 
         return cls(**string_descriptor_dict)
 
-    def edit_dist_string_similarity(str1, str2):
+    def edit_dist_string_similarity(self, str1, str2):
         total_length = len(str1) + len(str2)
         return (total_length - Levenshtein.distance(str1, str2)) / total_length * 100
 
     def match_score(self, node_label: str, graph: AidaGraph):
         string_match_rates = []
         for ere_name in graph.names_of_ere(node_label):
-            edit_dist_ratio = edit_dist_string_similarity(ere_name, self.name_string)
+            edit_dist_ratio = self.edit_dist_string_similarity(ere_name, self.name_string)
             string_match_rates.append(edit_dist_ratio)
+        if len(string_match_rates) == 0:
+            return 0
         return max(string_match_rates)
 
 

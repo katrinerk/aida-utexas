@@ -284,11 +284,15 @@ class AidaGraph(RDFGraph):
     def get_sent_mention_str(self, node_label):
         node = self.get_node(node_label)
         justifications = node.get('justifiedBy')
-        justify_private_data = list(set.union(*[self.get_node(j).get('privateData') for j in justifications]))
+        try:
+            justify_private_data = list(set.union(*[self.get_node(j).get('privateData') for j in justifications]))
+        except TypeError: # added (a TypeError arises whenever the list within set.union() is empty)
+            justify_private_data = []
         try:
             json_contents_set = set.union(*[self.get_node_objs(x, 'jsonContent') for x in justify_private_data])
-        except TypeError: # added
+        except TypeError: # added (a TypeError arises whenever the list within set.union() is empty)
             json_contents_set = set()
+
         json_contents_dict = dict()
         for i in [json.loads(j) for j in json_contents_set]:
             json_contents_dict.update(i)
