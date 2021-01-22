@@ -4,3 +4,4 @@ dill
 pandas
 dill
 gensim
+python-Levenshtein
