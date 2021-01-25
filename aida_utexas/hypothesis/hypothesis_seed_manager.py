@@ -167,19 +167,19 @@ class HypothesisSeedManager:
             # for fc, subj, pred, obj, objtype in core_constraints:
             #     logging.info(f'HIER0 original cc {fc} {subj} {pred} {obj} {objtype}')
                 
-            # Katrin December 2020: adding query expansion here.
-            # arguments: core constraints, temporal constraints, entry points
-            additional_coreconstraint_lists, additional_temporal = seed_expansion_obj.expand(core_constraints, self.temporal_constraints, \
-                                                                                             list(self.query_json['ep_matches_dict'].keys()))
-            self.temporal_constraints.update(additional_temporal)
+            # # Katrin December 2020: adding query expansion here.
+            # # arguments: core constraints, temporal constraints, entry points
+            # additional_coreconstraint_lists, additional_temporal = seed_expansion_obj.expand(core_constraints, self.temporal_constraints, \
+            #                                                                                  list(self.query_json['ep_matches_dict'].keys()))
+            # self.temporal_constraints.update(additional_temporal)
 
             
-            query_expansion_count = 0
-            for cc in additional_coreconstraint_lists:
-                additional = self._create_seeds(cc)
-                query_expansion_count += len(additional)
-                seeds += additional
-            logging.info(f'Query expansion added {query_expansion_count} seeds.')
+            # query_expansion_count = 0
+            # for cc in additional_coreconstraint_lists:
+            #     additional = self._create_seeds(cc)
+            #     query_expansion_count += len(additional)
+            #     seeds += additional
+            # logging.info(f'Query expansion added {query_expansion_count} seeds.')
 
             seeds_by_facet[facet_label] = sorted(
                 seeds, key=lambda s: s.get_scores(), reverse=True)
