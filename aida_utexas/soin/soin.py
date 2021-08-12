@@ -136,7 +136,11 @@ class SOIN:
     entrypoints: List[EntryPoint] = field(default_factory=list)
     # a dictionary of ERE matches and weights for each entry point variable
     ep_matches_dict: Dict = None
-
+    # Katrin Erk August 2021: a dictionary mapping each entry point variable
+    # to its string and KB descriptors, where we have a dictionary for each entry point variable
+    # with entries "KB" and "String", each a list of strings
+    ep_description_dict: Dict = None
+    
     def to_json(self):
         temporal_dict = {}
         for temporal_info in self.temporal_info_list:
@@ -145,6 +149,7 @@ class SOIN:
         return {
             'soin_id': self.id,
             'ep_matches_dict': self.ep_matches_dict,
+            'ep_description_dict': self.ep_description_dict,
             'frames': [frame.to_json() for frame in self.frames],
             'temporal': temporal_dict
         }
@@ -194,7 +199,10 @@ class SOIN:
 
     def resolve(self, aida_graph: AidaGraph, ere_to_prototypes: Dict, max_matches: int):
         self.ep_matches_dict = {}
+        self.ep_description_dict = {}
 
         for entrypoint in self.entrypoints:
             self.ep_matches_dict[entrypoint.node] = entrypoint.resolve(
                 aida_graph, ere_to_prototypes, max_matches)
+            # Katrin August 2021: self-descriptoin added
+            self.ep_description_dict[ entrypoint.node] = entrypoint.describe()

@@ -411,3 +411,24 @@ class EntryPoint:
                         results[prototype] = avg_score
 
         return sorted(results.items(), key=itemgetter(1), reverse=True)[:max_matches]
+
+    def describe(self):
+        """ This function returns a dictionary with entries KB and String,
+        each a list of strings, characterizing all descriptors of this entry point.
+        """
+
+        strings = [ ]
+        kbs = [ ]
+
+        for typed_descriptor in self.typed_descriptors:
+            if typed_descriptor.descriptor:
+                if typed_descriptor.descriptor_type() == "String":
+                    strings.append(typed_descriptor.descriptor.name_string)
+                elif typed_descriptor.descriptor_type() == "KB":
+                    kbs.append(typed_descriptor.descriptor.kbid)
+
+        return { "String": strings, "KB": kbs }
+        
+
+        
+    
