@@ -59,7 +59,7 @@ class ExtensionCandidate:
     obj_type_penalty: float = 0.0
 
 
-# The class that holds a single hypothesis seed: just a data structure, doesn't do much.
+# The class that holds a single hypothesis seed
 class HypothesisSeed:
     # some penalty constants for things that might go wrong during seed creation and extension
     FAILED_CORE = -0.1
@@ -70,7 +70,7 @@ class HypothesisSeed:
 
     def __init__(self, json_graph: JsonGraph, core_constraints: List, temporal_constraints: Dict,
                  hypothesis: AidaHypothesis, qvar_filler: Dict, unfilled: Set = None,
-                 unfillable: Set = None, entrypoints: List = None, entrypoint_score: float = 0.0,
+                 unfillable: Set = None, entrypoints: List = None, entrypoint_info:Dict = None, entrypoint_score: float = 0.0,
                  penalty_score: float = 0.0, connectedness_score: float = None,
                  plausibility_score: float = None):
         # the following data will not not updated, and is kept just for info.
@@ -98,8 +98,10 @@ class HypothesisSeed:
         # mapping from query variables to fillers in json_graph
         self.qvar_filler = qvar_filler
 
-        # entry point variables, which will not be used to rank this hypothesis by novelty later
+        # entry point variables, which will not be used to rank this hypothesis by novelty later.
+        # along with information about the entry points: names and named entity KB entries
         self.entrypoints = entrypoints
+        self.entrypoint_info = entrypoint_info
 
         # weight from matching the entry points and their corresponding roles in core constraints
         self.entrypoint_score = entrypoint_score
@@ -127,6 +129,7 @@ class HypothesisSeed:
             'unfillable': list(self.unfillable),
             'qvar_filler': self.qvar_filler,
             'entrypoints': self.entrypoints,
+            'entrypoint_info':self.entrypoint_info,
             'entrypoint_score': self.entrypoint_score,
             'penalty_score': self.penalty_score,
             'connectedness_score': self.connectedness_score,
@@ -157,6 +160,7 @@ class HypothesisSeed:
             unfillable=set(seed_json.get('unfillable', [])),
             qvar_filler=seed_json.get('qvar_filler', {}),
             entrypoints=seed_json.get('entrypoints', []),
+            entrypoint_info=seed_json.get('entrypoint_info', {}),
             entrypoint_score=seed_json.get('entrypoint_score', 0.0),
             penalty_score=seed_json.get('penalty_score', 0.0),
             connectedness_score=seed_json.get('connectedness_score', None),
@@ -164,9 +168,11 @@ class HypothesisSeed:
         )
 
     # report failed queries of the underlying AidaHypothesis object
+    # and pass it information about query variables, their names,
+    # whether they are entry points, and if so, what we know about them
     def finalize(self):
         self.hypothesis.add_failed_queries([self.core_constraints[idx] for idx in self.unfillable])
-        self.hypothesis.add_qvar_filler(self.qvar_filler)
+        self.hypothesis.add_qvar_filler(self.qvar_filler, self.entrypoint_info)
 
         return self.hypothesis
 
@@ -254,6 +260,7 @@ class HypothesisSeed:
                         unfilled=new_unfilled,
                         unfillable=new_unfillable,
                         entrypoints=self.entrypoints,
+                        entrypoint_info=self.entrypoint_info,
                         entrypoint_score=self.entrypoint_score,
                         penalty_score=self.penalty_score + add_weight))
 

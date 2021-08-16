@@ -156,6 +156,7 @@ class HypothesisSeedManager:
 
         seeds_by_facet = {}
 
+        # hypothesis seed expansion: this is query expansion through paraphrasing
         seed_expansion_obj = HypothesisSeedExpansion()
 
         for facet_label, core_constraints in facet_to_constraints.items():
@@ -167,19 +168,19 @@ class HypothesisSeedManager:
             # for fc, subj, pred, obj, objtype in core_constraints:
             #     logging.info(f'HIER0 original cc {fc} {subj} {pred} {obj} {objtype}')
                 
-            # # Katrin December 2020: adding query expansion here.
-            # # arguments: core constraints, temporal constraints, entry points
-            # additional_coreconstraint_lists, additional_temporal = seed_expansion_obj.expand(core_constraints, self.temporal_constraints, \
-            #                                                                                  list(self.query_json['ep_matches_dict'].keys()))
-            # self.temporal_constraints.update(additional_temporal)
+            # Katrin December 2020: adding query expansion here.
+            # arguments: core constraints, temporal constraints, entry points
+            additional_coreconstraint_lists, additional_temporal = seed_expansion_obj.expand(core_constraints, self.temporal_constraints, \
+                                                                                             list(self.query_json['ep_matches_dict'].keys()))
+            self.temporal_constraints.update(additional_temporal)
 
             
-            # query_expansion_count = 0
-            # for cc in additional_coreconstraint_lists:
-            #     additional = self._create_seeds(cc)
-            #     query_expansion_count += len(additional)
-            #     seeds += additional
-            # logging.info(f'Query expansion added {query_expansion_count} seeds.')
+            query_expansion_count = 0
+            for cc in additional_coreconstraint_lists:
+                additional = self._create_seeds(cc)
+                query_expansion_count += len(additional)
+                seeds += additional
+            logging.info(f'Query expansion added {query_expansion_count} seeds.')
 
             seeds_by_facet[facet_label] = sorted(
                 seeds, key=lambda s: s.get_scores(), reverse=True)
@@ -193,20 +194,22 @@ class HypothesisSeedManager:
         # the list of finished seeds
         seeds_done = []
 
+        ###
+        # for each entry point,
+        # re-rank matches by their previous "ep match" scores
+        # and by their role match scores.
         ep_matches_dict = self.query_json['ep_matches_dict']
 
         # entry point variables occurring in the core constraints: each core constraint has the form
-        # [subj, pred, obj, obj_type], where only obj can be potentially entry point variables
-        ep_var_list = sorted([obj for _, _, _, obj, _ in core_constraints if obj in ep_matches_dict])
+        # [facet, subj, pred, obj, obj_type], where only obj can be potentially entry point variables
+        ep_var_list = sorted(list(set([obj for _, _, _, obj, _ in core_constraints if obj in ep_matches_dict])))
 
-        # entry point fillers and weights filtered and reranked by both ep match scores and
-        # role match scores
+        # This will keep the result of the re-ranking:
+        # for each entry point variable,
+        # a ranked list of its possible fillers
         reranked_ep_matches_dict = {}
 
-        # have we found any hypothesis without failed core constraints yet?
-        # if so, we can eliminate all hypotheses with failed core constraints
-        found_hypothesis_wo_failed = False
-
+        
         for ep_var in ep_var_list:
             ep_matches = ep_matches_dict[ep_var]
 
@@ -215,8 +218,6 @@ class HypothesisSeedManager:
             fillers_filtered_both = []
             fillers_filtered_role_score = []
 
-            # Katrin December 2020: possibly reduce the number of entry points we keep
-            # (not done yet, but consider doing it)
             for ep_filler, ep_weight in ep_matches:
                 ep_role_score = self._entrypoint_filler_role_score(
                     ep_var, ep_filler, core_constraints)
@@ -228,7 +229,7 @@ class HypothesisSeedManager:
                     if ep_weight > 50.0:
                         fillers_filtered_both.append(ep_filler)
 
-            # Katrin December 2020: sample down the 20 Caracases
+            # Katrin December 2020: sample down the "20 Caracases"
             if len(fillers_filtered_both) > 3:
                 logging.info(f'Too many good fillers: sampling down.')
                 fillers_filtered_both = fillers_filtered_both[:2]
@@ -251,6 +252,10 @@ class HypothesisSeedManager:
             reranked_ep_matches_dict[ep_var] = \
                 sorted(fillers_to_keep, key=itemgetter(1), reverse=True)
 
+        ###
+        # For each combination of fillers for all of the entry points:
+        # start a new hypothesis seed
+
         for qvar_filler, ep_comb_weight in self._ep_match_combination(reranked_ep_matches_dict):
             # start a new hypothesis
             seed = HypothesisSeed(
@@ -260,10 +265,19 @@ class HypothesisSeedManager:
                 hypothesis=AidaHypothesis(self.json_graph),
                 qvar_filler=qvar_filler,
                 entrypoints=ep_var_list,
+                entrypoint_info = self.query_json["ep_description_dict"],
                 entrypoint_score=ep_comb_weight)
             seeds_todo.append(seed)
 
+        ###
+        # extending all the initial hypothesis seeds
+        # by finding fillers for the query variables that
+        # are not entry points
         logging.info(f'Extending {len(seeds_todo)} hypothesis seeds')
+
+        # have we found any hypothesis without failed core constraints yet?
+        # if so, we can eliminate all hypotheses with failed core constraints
+        found_hypothesis_wo_failed = False
 
         # counter of signatures of query variables, for rank_cutoff
         qs_counter = Counter()

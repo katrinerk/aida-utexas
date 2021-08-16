@@ -1,5 +1,6 @@
 # Katrin Erk December 2020
-# first rought stab at query expansion for hypothesis seeds
+# first rought stab at query expansion for hypothesis seeds:
+# the idea is to paraphrase queries using the AIDA ontology
 
 import json
 import logging

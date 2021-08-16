@@ -44,6 +44,11 @@ class AidaHypothesis:
         # query variables and fillers, for quick access to the core answer that this query gives
         self.qvar_filler = {}
 
+        # among the query variables are entry points,
+        # which refer to a single named entity.
+        # store information about them
+        self.qvar_entrypoints = {}
+
         # default weight for non-core statements
         self.default_stmt_weight = -100.0
 
@@ -212,12 +217,23 @@ class AidaHypothesis:
     def update_weight(self, added_weight):
         self.weight += added_weight
 
+    # record the list of query statements that this hypothesis should have had
+    # an answer to but did not
     def add_failed_queries(self, failed_queries):
         self.failed_queries = failed_queries
 
-    def add_qvar_filler(self, qvar_filler):
+    # record names of query variables and their fillers within this hypothesis,
+    # also record which query variables are entry points, and what we know about them
+    def add_qvar_filler(self, qvar_filler, entrypoint_info):
         self.qvar_filler = qvar_filler
-
+        self.qvar_entrypoints = { }
+        
+        for qvar in self.qvar_filler.keys():
+            if qvar in entrypoint_info:
+                # this query variable is an entry point.
+                # retain list of names, and list of named-entity-KB entries, as a dictionary
+                self.qvar_entrypoints[ qvar ] = entrypoint_info[qvar]
+                
     # json output of the hypothesis
     def to_json(self):
         stmt_list = list(self.stmts)
@@ -228,7 +244,9 @@ class AidaHypothesis:
             'statementWeights': stmt_weight_list,
             'failedQueries': self.failed_queries,
             'queryStatements': list(self.core_stmts),
-            'questionIDs': list(self.questionIDs)
+            'questionIDs': list(self.questionIDs),
+            'queryVars': self.qvar_filler,
+            'queryVarEntryPoints': self.qvar_entrypoints
         }
 
     @classmethod
@@ -246,6 +264,8 @@ class AidaHypothesis:
             ) # added questionIDs here
 
         hypothesis.add_failed_queries(json_obj['failedQueries'])
+        hypothesis.add_qvar_filler(json_obj['queryVars'], json_obj['queryVarEntryPoints'])
+        
         return hypothesis
 
     # human-readable output for an ERE
@@ -304,9 +324,24 @@ class AidaHypothesis:
     def to_str(self, roles_ontology: Dict):
         result = ''
 
-        core_eres = self.core_eres()
+        core_eres = self.qvar_filler.values()
 
-        # start with core EREs
+        # start with core EREs:
+        # print fillers of entry points
+        for qvar_name in self.qvar_entrypoints.keys():
+            result += "Entry point " + qvar_name
+            if len(self.qvar_entrypoints[qvar_name]["String"]) > 0:
+                result += ", " + self.qvar_entrypoints[qvar_name]["String"][0]
+            result += " : " + self.qvar_filler[qvar_name] + "\n"
+
+        # print fillers of non-entry-point query variables
+        for qvar_name in self.qvar_filler.keys():
+            if qvar_name not in self.qvar_entrypoints:
+                result += "Query variable " + qvar_name + " : " + self.qvar_filler[qvar_name] + "\n"
+
+        result += "\n"
+
+        # print all statements involving core EREs
         for ere_label in core_eres:
             if self.json_graph.is_event(ere_label) or self.json_graph.is_relation(ere_label):
                 ere_str = self.ere_to_str(ere_label, roles_ontology)
