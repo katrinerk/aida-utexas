@@ -223,7 +223,6 @@ class AidaHypothesisFilter:
         ) # questionIDs added
 
         new_hypothesis.add_failed_queries(hypothesis.failed_queries)
-        new_hypothesis.add_qvar_filler(hypothesis.qvar_filler, hypothesis.qvar_entrypoints)
 
         new_hypothesis_eres = set(new_hypothesis.eres())
 
@@ -268,6 +267,8 @@ class AidaHypothesisFilter:
                 new_hypothesis, new_eres = self._test_and_insert_candidate(
                     stmt, prev_hypothesis=new_hypothesis, full_hypothesis=hypothesis)
                 new_hypothesis_eres.update(new_eres)
+
+        new_hypothesis.add_qvar_filler(hypothesis.qvar_filler, hypothesis.qvar_entrypoints)
 
         return new_hypothesis
 

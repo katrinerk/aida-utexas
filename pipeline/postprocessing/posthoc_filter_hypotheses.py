@@ -129,8 +129,15 @@ def main():
         # create the filter
         hypothesis_filter = AidaHypothesisFilter(json_graph)
 
+        # for hypothesis in hypothesis_collection:
+        #     logging.info(f'HIER1 {hypothesis.qvar_filler} AND {hypothesis.qvar_entrypoints}')
+
         filtered_hyplist = [hypothesis_filter.filtered(hypothesis) for hypothesis in hypothesis_collection\
                  if not hypothesis_too_short(hypothesis, json_graph)]
+
+        # for hypothesis in filtered_hyplist:
+        #     logging.info(f'HIER2 {hypothesis.qvar_filler} AND {hypothesis.qvar_entrypoints}')
+
 
         filtered_hypothesis_collection = AidaHypothesisCollection(compactify(filtered_hyplist, json_graph))
 
