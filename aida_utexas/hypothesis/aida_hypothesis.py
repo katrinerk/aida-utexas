@@ -14,7 +14,7 @@ Update: Pengxiang Cheng, Aug 2020
 Update: Pengxiang Cheng, Sep 2019
 - Merge methods in ClusterExpansion
 """
-
+import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List
 
@@ -233,7 +233,81 @@ class AidaHypothesis:
                 # this query variable is an entry point.
                 # retain list of names, and list of named-entity-KB entries, as a dictionary
                 self.qvar_entrypoints[ qvar ] = entrypoint_info[qvar]
+
+    ###
+    # for each event/relation in the hypothesis,
+    # make a characterization that includes
+    # strings for event and arguments,
+    # and additional information attached to the arguments
+    def each_eventrelation_characterization(self):
+        for evrel_label in self.eres():
+            if self.json_graph.is_event(evrel_label) or self.json_graph.is_relation(evrel_label):
+                result = { }
                 
+                # characterize the event or relation node itself: names, and node label
+                result["event_relation"] = { "node" : evrel_label,
+                                             "names" : [s for s in self.json_graph.ere_names(evrel_label) if len(s) > 0],
+                                             "type" : ""}
+
+                # add the first event/relation type
+                for type_label in self.ere_types(evrel_label):
+                    result["event_relation"]["type"] = type_label
+                    break
+        
+                # is this a query variable filler?
+                if evrel_label in self.qvar_filler.values():
+                    for qvar, filler in self.qvar_filler.items():
+                        if filler == evrel_label:
+                            result["event_relation"]["queryvar"] = qvar
+                
+                # list all adjacent statements in which the event/relation is the subject
+                result["statements"] = list(s for s in self.json_graph.each_ere_adjacent_stmt(evrel_label, ere_role='subject') if s in self.stmts)
+
+                # characterize each argument
+                result["arguments"] = [ ]
+                for thiseventrel_stmt, arglabel, ent_label in self.event_rel_each_arg_stmt(evrel_label):
+                    thisresult = { "arglabel" : arglabel,
+                                   "node" : ent_label,
+                                   "names" : [s for s in self.json_graph.ere_names(ent_label) if len(s) > 0],
+                                   "otherinfo" : [ ] }
+
+                    # is this a query variable filler?
+                    if ent_label in self.qvar_filler.values():
+                        for qvar, filler in self.qvar_filler.items():
+                            if filler == ent_label:
+                                thisresult["queryvar"] = qvar
+                                                
+                    # add information about other adjacent information
+                    # stored about this node:
+                    # iterate over adjacent statements of this entity
+                    for stmt in self.json_graph.each_ere_adjacent_stmt(ent_label):
+                        if stmt not in self.stmts:
+                            # only keep statements that are part of this hypothesis
+                            continue
+                        if stmt == thiseventrel_stmt:
+                            # we already know this statement, it's the one
+                            # that connects this entity to our main event/relation
+                            continue
+                        
+                        # this is a statement we need to consider
+                        # is it a type statement, or is it another event/relation in which this entity participated?
+                        if self.json_graph.is_type_stmt(stmt):
+                            # type statement: we want the object, which is the type
+                            thisresult["otherinfo"].append( self.json_graph.shorten_label(self.json_graph.stmt_object(stmt)))
+                        else:
+                            # not a type statement: then we want the predicate
+                            thisresult["otherinfo"].append(self.json_graph.stmt_predicate(stmt))
+
+                    # store this argument characterization within the overall event/relation characterization
+                    result["arguments"].append(thisresult)
+
+                yield result
+                
+                
+
+    ###########################################
+    # output formats
+    ########
     # json output of the hypothesis
     def to_json(self):
         stmt_list = list(self.stmts)
@@ -265,6 +339,8 @@ class AidaHypothesis:
 
         hypothesis.add_failed_queries(json_obj['failedQueries'])
         hypothesis.add_qvar_filler(json_obj['queryVars'], json_obj['queryVarEntryPoints'])
+
+        # logging.info(f'HIER1 {hypothesis.qvar_filler} AND {hypothesis.qvar_entrypoints}')
         
         return hypothesis
 
@@ -497,7 +573,8 @@ class AidaHypothesis:
 
         return result, num_core_eres
 
-    # helper functions
+    ##################3
+    # access functions
 
     # list of EREs adjacent to the statements in this hypothesis
     def eres(self):

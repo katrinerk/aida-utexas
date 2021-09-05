@@ -138,6 +138,11 @@ def main():
         # for hypothesis in filtered_hyplist:
         #     logging.info(f'HIER2 {hypothesis.qvar_filler} AND {hypothesis.qvar_entrypoints}')
 
+        # for h in filtered_hyplist:
+        #     logging.info(f'---NEW HYPO--')
+        #     for thing in h.each_eventrelation_characterization():
+        #         thing_s = json.dumps(thing, indent = 4)
+        #         logging.info(f'\t{thing_s}')
 
         filtered_hypothesis_collection = AidaHypothesisCollection(compactify(filtered_hyplist, json_graph))
 
