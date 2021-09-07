@@ -102,6 +102,141 @@ def compactify(hypotheses, json_graph):
         
     return list(h for idx, h in enumerate(hypotheses) if idx not in toeliminate)
 
+
+# Yejin Cho (September 2021)
+# remove redundancies within a single hypothesis
+###########
+def is_same_name(names1, names2):
+    # if two name sets have any shared name, decide as having 'same' names
+    if names1.intersection(names2):
+        return True
+    else:
+        return False
+
+def is_same_verbalization(er1, er2):
+    # 1. Events with the exact same verbalization
+    # Remove redundant events that have the exact same verbalization, even if they are about different nodes.
+    # So, if we have 'Oscar attacked" and "Oscar attacked", even if the attack events are different nodes in the graph,
+    # we can ditch one of them.
+    verb1 = er1['event_relation']['type'].split('.')[-1]
+    verb2 = er2['event_relation']['type'].split('.')[-1]
+    arglabels1 = [arg['arglabel'].split('_')[-1] for arg in er1['arguments']]
+    arglabels2 = [arg['arglabel'].split('_')[-1] for arg in er2['arguments']]
+
+    if verb1 == verb2:
+        if set(arglabels1) == set(arglabels2) and len(arglabels1) == len(arglabels2):
+            is_samename_record = set()
+            for arg_i in range(len(er1['arguments'])):
+                arg_i_names1 = er1['arguments'][arg_i]['names']
+                arg_i_names2 = er2['arguments'][arg_i]['names']
+
+                if is_same_name(set(arg_i_names1), set(arg_i_names2)):
+                    is_samename_record.add(True)
+                else:
+                    is_samename_record.add(False)
+
+            if all(is_samename_record):
+                # print(verb1, arglabels1, arg_i_names1)
+                # print(verb2, arglabels2, arg_i_names2)
+                return True
+
+    # if not judged as having same verbalizations
+    return False
+
+def has_uninformative_entities(er):
+    # 2. Uninformative entities
+    # Entities that are called only "he" or "she" or "something", AND with no additional information attached.
+    # (We ignore pronouns in other languages for now.)
+    # What "additional information attached" means:
+    #   a node that is only called "he", but for which we have additional types and events, like:
+    #   this "he" is a government official, and this "he" was involved in protests earlier.
+    args = er['arguments']
+    uninformative_pronouns = ['he', 'she', 'something', 'him', 'her', 'his', 'hers', 'himself', 'herself',
+                              'it', 'they', 'them', 'their', 'themselves', 'itself'] # [TODO] Check with Katrin if this extended list makes sense to her.
+    for arg in args:
+        if len(arg['names']) == 0:  # no name at all
+            return True, arg['node']
+        elif len(arg['otherinfo']) == 0:  # no additional information attached
+            arg_names = [name.lower() for name in arg['names']]
+            if all(n in uninformative_pronouns for n in arg_names):  # and called only "he" or "she" or "something"
+                return True, arg['node']
+
+    # if not judged as having uninformative entities
+    return False, None
+
+def has_uninformative_events(er):
+    # 3. Uninformative events
+    # Some events are unhelpful when they only have a single participant, such as: "Oscar communicated" or "Oscar moved".
+    # Other events are helpful even when they only have a single participant, such as 'Oscar died".
+    # We'd need a list of events that are uninformative when they only have one participant
+    # (as a first attempt: "communicate" and "move"). We can ditch uninformative events.
+    verb = er['event_relation']['type'].split('.')[-1].lower()
+    less_informative_verbs = ["communicate", "move"]
+    if verb in less_informative_verbs and len(er['arguments']) == 1:
+        # print(verb, er['arguments'])
+        return True
+
+
+def compactify_within_hypothesis(hypothesis):
+    # counters for each redundancy type
+    cnts_type = [0, 0, 0]
+
+    # characterize all the ERs in a given hypothesis
+    eventrelations_list = list(hypothesis.each_eventrelation_characterization())
+
+    # determine redundancies and remove them
+    toeliminate = set()
+
+    # downrank (instead of eliminate) when judged as only having some uninformative "core" entities
+    todownrank = False
+
+    # [type 1] redundant events with identical verbalizations
+    for idx1 in range(len(eventrelations_list) - 1):
+        for idx2 in range(idx1 + 1, len(eventrelations_list)):
+            if is_same_verbalization(eventrelations_list[idx1], eventrelations_list[idx2]):
+                toeliminate.add(idx2)  # remove the second event/relation in comparison
+                cnts_type[0] += 1
+
+    # [type 2] uninformative entities (too generic; called only "he", "she", or "something")
+    # retrieve core EREs first
+    core_eres = hypothesis.core_eres()
+    for idx in range(len(eventrelations_list)):
+        tf, entity_node = has_uninformative_entities(eventrelations_list[idx])
+        if tf and entity_node:
+            # If an uninformative entity is not "core" (not one of the query entities that the Statement of
+            # Information Need asked about), we ditch it. If it is "core", we downrank the hypothesis.
+            if entity_node in core_eres:
+                todownrank = True
+            else:
+                toeliminate.add(idx)
+                cnts_type[1] += 1
+
+    # [type 3] uninformative events
+    # (as a first attempt: when a "communicate" or "move" event only has a single participant, consider it uninformative.)
+    for idx in range(len(eventrelations_list)):
+        if has_uninformative_events(eventrelations_list[idx]):
+            toeliminate.add(idx)
+            cnts_type[2] += 1
+
+    if len(toeliminate) > 0:
+        logging.info(f'Redundancy removal within a hypothesis: Eliminating {len(toeliminate)} of {len(eventrelations_list)} events/relations.')
+        logging.info(f'Counts per redundancy types: {cnts_type[0]} identical verbalizations, {cnts_type[1]} uninformative entities, {cnts_type[2]} uninformative events')
+
+    for idx in toeliminate:
+        stmts_to_eliminate = eventrelations_list[idx]['statements']
+        for stmt in stmts_to_eliminate:
+            try:
+                # [TODO] Yejin> Verify with Katrin whether the removal here is correct.
+                # hypothesis.json_graph.eres.remove(x)
+                hypothesis.stmts.remove(stmt)
+                hypothesis.stmt_weights.pop(stmt)
+                logging.info('Removed:', stmt)
+            except ValueError:  # this arises when the stmt was previously removed
+                continue
+
+    return hypothesis, todownrank
+
+
 def main():
     parser = ArgumentParser()
 
@@ -121,6 +256,7 @@ def main():
     hypotheses_file_paths = util.get_file_list(args.hypotheses_path, suffix='.json', sort=True)
 
     for hypotheses_file_path in hypotheses_file_paths:
+        # print(f'\n>>> SoIN #{hypotheses_file_path}')
         hypotheses_json = util.read_json_file(hypotheses_file_path, 'hypotheses')
         hypothesis_collection = AidaHypothesisCollection.from_json(hypotheses_json, json_graph)
 
@@ -129,22 +265,21 @@ def main():
         # create the filter
         hypothesis_filter = AidaHypothesisFilter(json_graph)
 
-        # for hypothesis in hypothesis_collection:
-        #     logging.info(f'HIER1 {hypothesis.qvar_filler} AND {hypothesis.qvar_entrypoints}')
-
+        # filter hypotheses list
         filtered_hyplist = [hypothesis_filter.filtered(hypothesis) for hypothesis in hypothesis_collection\
                  if not hypothesis_too_short(hypothesis, json_graph)]
 
-        # for hypothesis in filtered_hyplist:
-        #     logging.info(f'HIER2 {hypothesis.qvar_filler} AND {hypothesis.qvar_entrypoints}')
+        # filter again to reduce redundancies within each hypothesis
+        double_filtered_hyplist = []
 
-        # for h in filtered_hyplist:
-        #     logging.info(f'---NEW HYPO--')
-        #     for thing in h.each_eventrelation_characterization():
-        #         thing_s = json.dumps(thing, indent = 4)
-        #         logging.info(f'\t{thing_s}')
+        for hyp_i, h in enumerate(filtered_hyplist):
+            logging.info(f'---NEW HYPO #{hyp_i}--')
+            filtered_h, downrank = compactify_within_hypothesis(h)
+            double_filtered_hyplist.append(filtered_h)
+            if downrank:
+                h.update_weight(-1) # [TODO] Yejin> Check with Katrin. Not exactly sure if -1 will work fine.
 
-        filtered_hypothesis_collection = AidaHypothesisCollection(compactify(filtered_hyplist, json_graph))
+        filtered_hypothesis_collection = AidaHypothesisCollection(compactify(double_filtered_hyplist, json_graph))
 
         filtered_hypotheses_json = filtered_hypothesis_collection.to_json()
 
