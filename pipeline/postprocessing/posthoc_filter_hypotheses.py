@@ -111,10 +111,19 @@ def is_same_name(names1, names2):
     else:
         return False
 
-def is_same_verbalization(er1, er2):
+def collect_argnames_by_labels(er):
+    argnames_by_labels = collections.defaultdict(list)
+
+    for arg in er['arguments']:
+        arglabel = arg['arglabel'].split('_')[-1]
+        argnames_by_labels[arglabel].append(set(arg['names']))
+    return argnames_by_labels
+
+
+def is_same_verbalization(er1, er2, hypothesis):
     # 1. Events with the exact same verbalization
     # Remove redundant events that have the exact same verbalization, even if they are about different nodes.
-    # So, if we have 'Oscar attacked" and "Oscar attacked", even if the attack events are different nodes in the graph,
+    # So, if we have "Oscar attacked" and "Oscar attacked", even if the attack events are different nodes in the graph,
     # we can ditch one of them.
     verb1 = er1['event_relation']['type'].split('.')[-1]
     verb2 = er2['event_relation']['type'].split('.')[-1]
@@ -122,24 +131,69 @@ def is_same_verbalization(er1, er2):
     arglabels2 = [arg['arglabel'].split('_')[-1] for arg in er2['arguments']]
 
     if verb1 == verb2:
-        if set(arglabels1) == set(arglabels2) and len(arglabels1) == len(arglabels2):
-            is_samename_record = set()
-            for arg_i in range(len(er1['arguments'])):
-                arg_i_names1 = er1['arguments'][arg_i]['names']
-                arg_i_names2 = er2['arguments'][arg_i]['names']
+        if set(arglabels1) == set(arglabels2):
+            arg_names1 = collect_argnames_by_labels(er1)
+            arg_names2 = collect_argnames_by_labels(er2)
 
-                if is_same_name(set(arg_i_names1), set(arg_i_names2)):
-                    is_samename_record.add(True)
+            is_samename_record = []
+            for lb in arg_names1:
+                namesets1 = arg_names1[lb]
+                namesets2 = arg_names2[lb]
+
+                namesets1_copy = copy.deepcopy(namesets1)
+                for n1 in namesets1:
+                    for n2 in namesets2:
+                        if is_same_name(n1, n2):
+                            try:
+                                namesets1_copy.remove(n1)
+                            except ValueError:  # this arises when the name is already matched and removed
+                                continue
+                        else:
+                            continue
+
+                namesets2_copy = copy.deepcopy(namesets2)
+                for n2 in namesets2:
+                    for n1 in namesets1:
+                        if is_same_name(n2, n1):
+                            try:
+                                namesets2_copy.remove(n2)
+                            except ValueError:  # this arises when the name is already matched and removed
+                                continue
+                        else:
+                            continue
+
+                if len(namesets1_copy) == 0 and len(namesets2_copy) == 0:
+                    is_samename_record.append(True)
                 else:
-                    is_samename_record.add(False)
+                    is_samename_record.append(False)
 
             if all(is_samename_record):
-                # print(verb1, arglabels1, arg_i_names1)
-                # print(verb2, arglabels2, arg_i_names2)
+                # print('>>> Same')
+                # er_printer(er1, hypothesis)
+                # er_printer(er2, hypothesis)
                 return True
 
-    # if not judged as having same verbalizations
+            else:
+                # print('>>> Not same')
+                # er_printer(er1, hypothesis)
+                # er_printer(er2, hypothesis)
+                return False
+
+    # if not judged as having the same verbalization
     return False
+
+def er_printer(er, hypothesis):
+    arg_info = defaultdict(dict)
+    arg_info['type'] = er['event_relation']['type'].split('.')[-1]
+    for m, x in enumerate(er['arguments']):
+        key = x['arglabel'].split('_')[-1]
+        value = hypothesis.entity_best_name(x['node'])
+        cnt = 0
+        if arg_info[key + str(cnt)]:
+            cnt += 1
+        arg_info[key + str(cnt)] = value
+    print(json.dumps(arg_info, sort_keys=True, indent=4))
+    return True
 
 # test if er1's verbalization is a subset of that of er2, and the other way round.
 # returns:
@@ -191,9 +245,13 @@ def has_uninformative_entities(er):
     #   this "he" is a government official, and this "he" was involved in protests earlier.
     args = er['arguments']
     uninformative_pronouns = ['he', 'she', 'something', 'him', 'her', 'his', 'hers', 'himself', 'herself',
-                              'it', 'they', 'them', 'their', 'themselves', 'itself'] # [TODO] Check with Katrin if this extended list makes sense to her.
+                              'it', 'they', 'them', 'their', 'themselves', 'itself', 'its', 'someone', 'we', 'our',
+                              'who', 'which', 'what', 'whom', 'where', 'how', 'some person', 'some people',
+                              'I', 'my', 'you', 'your', 'yours', 'mine']
     for arg in args:
         if len(arg['names']) == 0:  # no name at all
+            return True, arg['node']
+        elif len(arg['names']) == 1 and arg['names'][0].isspace():  # consider whitespace as an uninformative name
             return True, arg['node']
         elif len(arg['otherinfo']) == 0:  # no additional information attached
             arg_names = [name.lower() for name in arg['names']]
@@ -212,7 +270,6 @@ def has_uninformative_events(er):
     verb = er['event_relation']['type'].split('.')[-1].lower()
     less_informative_verbs = ["communicate", "move"]
     if verb in less_informative_verbs and len(er['arguments']) == 1:
-        # print(verb, er['arguments'])
         return True
 
 
@@ -232,7 +289,9 @@ def compactify_within_hypothesis(hypothesis):
     # [type 1] redundant events with identical verbalizations
     for idx1 in range(len(eventrelations_list) - 1):
         for idx2 in range(idx1 + 1, len(eventrelations_list)):
-            if is_same_verbalization(eventrelations_list[idx1], eventrelations_list[idx2]):
+            er1 = eventrelations_list[idx1]
+            er2 = eventrelations_list[idx2]
+            if is_same_verbalization(er1, er2, hypothesis):
                 toeliminate.add(idx2)  # remove the second event/relation in comparison
                 cnts_type[0] += 1
 
@@ -280,12 +339,10 @@ def compactify_within_hypothesis(hypothesis):
         stmts_to_eliminate = eventrelations_list[idx]['statements']
         for stmt in stmts_to_eliminate:
             try:
-                # [TODO] Yejin> Verify with Katrin whether the removal here is correct.
-                # hypothesis.json_graph.eres.remove(x)
                 hypothesis.stmts.remove(stmt)
                 hypothesis.stmt_weights.pop(stmt)
                 logging.info('Removed:', stmt)
-            except ValueError:  # this arises when the stmt was previously removed
+            except (KeyError, ValueError) as e:  # this arises when the stmt was previously removed
                 continue
 
     return hypothesis, todownrank
@@ -333,7 +390,7 @@ def main():
             filtered_h, downrank = compactify_within_hypothesis(h)
             double_filtered_hyplist.append(filtered_h)
             if downrank:
-                h.update_weight(-1) # [TODO] Yejin> Check with Katrin. Not exactly sure if -1 will work fine.
+                h.update_weight(-1)
 
         filtered_hypothesis_collection = AidaHypothesisCollection(compactify(double_filtered_hyplist, json_graph))
 
