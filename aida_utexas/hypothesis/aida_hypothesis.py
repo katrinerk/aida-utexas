@@ -235,6 +235,35 @@ class AidaHypothesis:
                 self.qvar_entrypoints[ qvar ] = entrypoint_info[qvar]
 
     ###
+    # entity characterization
+    def entity_characterization(self, ent_label, exclude_this_stmt = None):
+        retv = { "names" : [s for s in self.json_graph.ere_names(ent_label) if len(s) > 0],
+                  "otherinfo" : [ ] }
+
+        # add information about other adjacent information
+        # stored about this node:
+        # iterate over adjacent statements of this entity
+        for stmt in self.json_graph.each_ere_adjacent_stmt(ent_label):
+            if stmt not in self.stmts:
+                # only keep statements that are part of this hypothesis
+                continue
+            if exclude_this_stmt is not None and stmt == exclude_this_stmt:
+                # we already know this statement, it's the one
+                # that connects this entity to our main event/relation
+                continue
+                        
+            # this is a statement we need to consider
+            # is it a type statement, or is it another event/relation in which this entity participated?
+            if self.json_graph.is_type_stmt(stmt):
+                # type statement: we want the object, which is the type
+                retv["otherinfo"].append( self.json_graph.shorten_label(self.json_graph.stmt_object(stmt)))
+            else:
+                # not a type statement: then we want the predicate
+                retv["otherinfo"].append(self.json_graph.stmt_predicate(stmt))
+
+        return retv
+        
+    ###
     # for each event/relation in the hypothesis,
     # make a characterization that includes
     # strings for event and arguments,

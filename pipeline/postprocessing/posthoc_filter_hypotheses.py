@@ -8,6 +8,8 @@ Update: Pengxiang Cheng, May 2020
 Update: Pengxiang Cheng, Aug 2020
 - Use the new JsonGraph API
 """
+import sys
+sys.path.insert(0, "/Users/kee252/Documents/Projects/AIDA/scripts/aida-utexas")
 
 import json
 import logging
@@ -100,6 +102,72 @@ def compactify(hypotheses, json_graph):
         logging.info(f'Duplicate removal: Eliminating {len(toeliminate)} of {len(hypotheses)} hypotheses.')
         
     return list(h for idx, h in enumerate(hypotheses) if idx not in toeliminate)
+
+def make_core_rolefiller_dict_forhyp_2(hyp, json_graph):
+    retv = {}
+
+    for qvar, filler in hyp.qvar_filler.items():
+        # don't report on events and relations, just entities
+        if json_graph.is_event(filler) or json_graph.is_relation(filler):
+            continue
+
+        # also don't report on entry points
+        if qvar in hyp.qvar_entrypoints:
+            continue
+        
+        ent_dict = hyp.entity_characterization(filler)
+        retv[qvar] = { "names" : ent_dict["names"]}
+        if "otherinfo" in ent_dict:
+            retv[qvar]["otherinfo"] = "#".join(sorted(ent_dict["otherinfo"]))
+        else:
+            retv[qvar]["otherinfo"] = None
+
+    return retv
+
+#####3
+# test whether hypothesis "lower" is subsumed by "upper"
+def hyp_subsumed(idxlower, idxupper, lower, upper):
+    # all query variables appearing in lower must also be in upper
+    if any(qvar not in upper for qvar in lower):
+        # print(idxlower, "not subsumed by", idxupper, "qvar mismatch:", ", ".join([q for q in lower if q not in upper]))
+        return False
+
+    # for all query variables in lower, we must have a matching name and
+    # otherinfo in upper
+    for qvar in lower:
+        if not(is_same_name(set(lower[qvar]["names"]), set(upper[qvar]["names"]))):
+            # print(idxlower, "not subsumed by", idxupper, "name mismatch:", lower[qvar]["names"][:2], upper[qvar]["names"][:2])
+            return False
+        # for now, don't look at other info when computing subsumption
+        # if lower[qvar]["otherinfo"] is not None and lower[qvar]["otherinfo"] != upper[qvar]["otherinfo"]:
+        #     print(idxlower, "not subsumed by", idxupper, "otherinfo mismatch:", "\n\t", lower[qvar]["otherinfo"], "\n\t", upper[qvar]["otherinfo"])
+        #     return False
+
+    return True
+    
+def compactify2(hypotheses, json_graph):
+    hyp_profile = { }
+    for idx, hyp in enumerate(hypotheses):
+        hyp_profile[ idx ] = make_core_rolefiller_dict_forhyp_2(hyp, json_graph)
+ 
+    # remove hypotheses whose core fillers are a subset of a previous one
+    toeliminate = set()
+    
+    for idx1 in range(1, len(hyp_profile)):
+        for idx2 in range(idx1 - 1):
+            if hyp_subsumed(idx1, idx2, hyp_profile[idx1], hyp_profile[idx2]):
+                # print("===================")
+                # print("Eliminating hypothesis", idx1)
+                # print("\tProfile:\n", json.dumps(hyp_profile[idx1], indent = 4))
+                # print("\tSubsumed by:\n", json.dumps(hyp_profile[idx2], indent = 4))
+                toeliminate.add(idx1)
+                break
+
+    if len(toeliminate) > 0:
+        logging.info(f'Duplicate removal: Eliminating {len(toeliminate)} of {len(hypotheses)} hypotheses.')
+        
+    return list(h for idx, h in enumerate(hypotheses) if idx not in toeliminate)
+    
 
 
 # Yejin Cho (September 2021)
@@ -392,7 +460,7 @@ def main():
             if downrank:
                 h.update_weight(-1)
 
-        filtered_hypothesis_collection = AidaHypothesisCollection(compactify(double_filtered_hyplist, json_graph))
+        filtered_hypothesis_collection = AidaHypothesisCollection(compactify2(double_filtered_hyplist, json_graph))
 
         filtered_hypotheses_json = filtered_hypothesis_collection.to_json()
 
