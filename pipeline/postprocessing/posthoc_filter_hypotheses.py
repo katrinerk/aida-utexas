@@ -12,6 +12,7 @@ Update: Pengxiang Cheng, Aug 2020
 import json
 import logging
 import sys
+import copy
 from argparse import ArgumentParser
 from collections import defaultdict
 
@@ -112,7 +113,7 @@ def is_same_name(names1, names2):
         return False
 
 def collect_argnames_by_labels(er):
-    argnames_by_labels = collections.defaultdict(list)
+    argnames_by_labels = defaultdict(list)
 
     for arg in er['arguments']:
         arglabel = arg['arglabel'].split('_')[-1]
