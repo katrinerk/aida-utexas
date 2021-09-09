@@ -342,7 +342,6 @@ def compactify_within_hypothesis(hypothesis):
             try:
                 hypothesis.stmts.remove(stmt)
                 hypothesis.stmt_weights.pop(stmt)
-                logging.info('Removed:', stmt)
             except (KeyError, ValueError) as e:  # this arises when the stmt was previously removed
                 continue
 
