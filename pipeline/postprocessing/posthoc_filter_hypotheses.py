@@ -27,8 +27,6 @@ from aida_utexas.hypothesis import AidaHypothesisCollection, AidaHypothesisFilte
 # also, not just a place role and nothing else
 def hypothesis_too_short(hypothesis, json_graph):
     eretypes = [str(hypothesis.node_type(e)) for e in hypothesis.eres()]
-    # if eretypes.count("Event") < 2:
-    #     logging.info("KATRIN FILTERED AWAY HYPOTHESIS")
     if eretypes.count("Event") < 2:
         return True
 
@@ -143,6 +141,47 @@ def is_same_verbalization(er1, er2):
     # if not judged as having same verbalizations
     return False
 
+# test if er1's verbalization is a subset of that of er2, and the other way round.
+# returns:
+#  0 if no inclusion either way.
+#  1 if er1 is included in er2
+#  -1 if er2 is included in er1
+
+def test_subset_verbalization(er1, er2):
+    #extract event types
+    verb1 = er1['event_relation']['type'].split('.')[-1]
+    verb2 = er2['event_relation']['type'].split('.')[-1]
+
+    if verb1 != verb2:
+        # not the same verbalization of the verb, so this won't be a subset case
+        return 0
+
+    # make a set that characterizes the verbalization of each argument set
+    arg1set = _arg_characterization_as_set(er1)
+    arg2set = _arg_characterization_as_set(er2)
+
+    if arg1set.issubset(arg2set):
+        return 1
+    elif arg2set.issubset(arg1set):
+        return -1
+    else:
+        return 0
+
+def _arg_characterization_as_set(er):
+    retv = set()
+
+    for arg in er["arguments"]:
+        piece1 = arg["arglabel"]
+        piece2 = "@".join(sorted(arg["names"]))
+        if "otherinfo" in arg:
+            piece3 = "#".join(sorted(arg["otherinfo"]))
+        else:
+            pieces3 = ""
+            
+        retv.add("|".join([piece1, piece2, piece3]))
+
+    return retv
+    
 def has_uninformative_entities(er):
     # 2. Uninformative entities
     # Entities that are called only "he" or "she" or "something", AND with no additional information attached.
@@ -158,7 +197,7 @@ def has_uninformative_entities(er):
             return True, arg['node']
         elif len(arg['otherinfo']) == 0:  # no additional information attached
             arg_names = [name.lower() for name in arg['names']]
-            if all(n in uninformative_pronouns for n in arg_names):  # and called only "he" or "she" or "something"
+            if all((n in uninformative_pronouns or n == "") for n in arg_names):  # and called only "he" or "she" or "something"
                 return True, arg['node']
 
     # if not judged as having uninformative entities
@@ -196,6 +235,21 @@ def compactify_within_hypothesis(hypothesis):
             if is_same_verbalization(eventrelations_list[idx1], eventrelations_list[idx2]):
                 toeliminate.add(idx2)  # remove the second event/relation in comparison
                 cnts_type[0] += 1
+
+    # also type 1: subset verbalization
+    for idx1 in range(len(eventrelations_list) - 1):
+        for idx2 in range(idx1 + 1, len(eventrelations_list)):
+            classif = test_subset_verbalization(eventrelations_list[idx1], eventrelations_list[idx2])
+            if classif == -1:
+                # ER2 is subset of ER1
+                toeliminate.add(idx2)
+                cnts_type[0] += 1
+            elif classif == 1:
+                # ER1 is subset of ER2
+                toeliminate.add(idx1)
+                cnts_type[0] += 1
+                # we just lost ER1, so we can skip the rest of the ER2's
+                break
 
     # [type 2] uninformative entities (too generic; called only "he", "she", or "something")
     # retrieve core EREs first
@@ -255,7 +309,9 @@ def main():
     json_graph = JsonGraph.from_dict(util.read_json_file(args.graph_path, 'JSON graph'))
     hypotheses_file_paths = util.get_file_list(args.hypotheses_path, suffix='.json', sort=True)
 
+
     for hypotheses_file_path in hypotheses_file_paths:
+    
         # print(f'\n>>> SoIN #{hypotheses_file_path}')
         hypotheses_json = util.read_json_file(hypotheses_file_path, 'hypotheses')
         hypothesis_collection = AidaHypothesisCollection.from_json(hypotheses_json, json_graph)
