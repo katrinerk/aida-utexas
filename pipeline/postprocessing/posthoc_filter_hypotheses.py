@@ -9,8 +9,6 @@ Update: Pengxiang Cheng, Aug 2020
 - Use the new JsonGraph API
 """
 import sys
-sys.path.insert(0, "/Users/kee252/Documents/Projects/AIDA/scripts/aida-utexas")
-
 import json
 import logging
 import sys
