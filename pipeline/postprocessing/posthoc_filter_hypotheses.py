@@ -152,7 +152,12 @@ def compactify2(hypotheses, json_graph):
     toeliminate = set()
     
     for idx1 in range(1, len(hyp_profile)):
-        for idx2 in range(idx1 - 1):
+        if len(hyp_profile[idx1]) == 0:
+            # hypothesis explaining nothing beyond entry points? ditch it.
+            toeliminate.add(idx1)
+            continue
+        
+        for idx2 in range(idx1):
             if hyp_subsumed(idx1, idx2, hyp_profile[idx1], hyp_profile[idx2]):
                 # print("===================")
                 # print("Eliminating hypothesis", idx1)
