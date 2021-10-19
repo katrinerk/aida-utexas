@@ -65,6 +65,12 @@ class AidaNode(RDFNode):
     def is_cluster_membership(self):
         return self.has_type('ClusterMembership', shorten=True)
 
+    def is_claim(self):
+        return self.has_type('Claim', shorten=True)
+
+    def is_claimcomponent(self):
+        return self.has_type('ClaimComponent', shorten=True)
+
     # if the node has a predicate relation to a node with label pred
     def has_predicate(self, pred, shorten=False):
         return pred in self.get('predicate', shorten=shorten)

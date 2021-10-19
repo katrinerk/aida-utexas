@@ -80,6 +80,7 @@ class ERENode:
     adjacent: List[str] = field(default_factory=list)
     name: List[str] = field(default_factory=list)
     ldcTime: List[Dict] = field(default_factory=list)
+    kblinks: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -107,10 +108,29 @@ class ClusterMembershipNode:
     clusterMember: str = None
     conf: float = None
 
+@dataclass
+class ClaimComponentNode:
+    type: str
+    index: int
+    text: str
+    
+@dataclass
+class ClaimNode:
+    type: str
+    index: int
+    claim_id: str
+    doc_id: str
+    topic: str
+    text: str
+    xvar_id: str
+    claim_semantics: List[str] = field(default_factory=list)
+    associated_kes: List[str] = field(default_factory=list)
+
 
 node_cls_by_type = {
     'Entity': ERENode, 'Relation': ERENode, 'Event': ERENode, 'Statement': StatementNode,
-    'SameAsCluster': SameAsClusterNode, 'ClusterMembership': ClusterMembershipNode
+    'SameAsCluster': SameAsClusterNode, 'ClusterMembership': ClusterMembershipNode,
+    'Claim' : ClaimNode, 'ClaimComponent' : ClaimComponentNode
 }
 
 
@@ -139,6 +159,7 @@ class JsonGraph:
         ere_counter = 0
         stmt_counter = 0
         coref_counter = 0
+        claim_counter = 0
 
         for node in tqdm(aida_graph.nodes()):
             node_label = node.name
@@ -156,6 +177,9 @@ class JsonGraph:
 
                 adjacent_stmts = list(map(str, aida_graph.adjacent_stmts_of_ere(node_label)))
 
+                # retrieve KB links
+                kblinks = list(link for link, confidence in aida_graph.kb_links_of(node_label))
+                
                 # Retrieve sentence and mention_string
                 sentence, mention_string = aida_graph.get_sent_mention_str(node_label)
                 node_hasName = list(aida_graph.names_of_ere(node_label))
@@ -167,8 +191,10 @@ class JsonGraph:
                     index=ere_counter,
                     adjacent=adjacent_stmts,
                     name=node_hasName + [mention_string],
+                    kblinks=kblinks if len(kblinks) > 0 else None,
                     ldcTime=list(aida_graph.times_associated_with(node_label))
                 ) # Update: Removed 'sentence' in 'name' field and only added 'mention_string' (as we did not observe much effect from using sentence)
+
 
                 self.eres.append(str(node_label))
                 ere_counter += 1
@@ -218,6 +244,44 @@ class JsonGraph:
 
                 coref_counter += 1
 
+            elif node.is_claim():
+
+                # strings
+                claim_id = next(iter(node.get('claimId', shorten=False)), None)
+                doc_id = next(iter(node.get('sourceDocument', shorten=False)), None)
+                topic = next(iter(node.get('topic', shorten=False)), None)                
+                nl_description = next(iter(node.get('naturalLanguageDescription', shorten=False)), None)
+
+                # KB node IDs and node ID lists
+                x_variable = next(iter(node.get('xVariable', shorten=False)), None)
+                claim_semantics = list(iter(node.get('claimSemantics', shorten=False)))
+                associated_kes = list(iter(node.get('associatedKEs', shorten=False)))
+
+                self.node_dict[str(node_label)] = ClaimNode(
+                    type = "Claim",
+                    index = claim_counter,
+                    claim_id = claim_id if claim_id else None,
+                    doc_id = doc_id if doc_id else None,
+                    topic = topic if topic else None,
+                    text = nl_description if nl_description else None,
+                    xvar_id = x_variable if x_variable else None,
+                    claim_semantics = claim_semantics,
+                    associated_kes = associated_kes
+                )
+
+                claim_counter += 1
+                
+            elif node.is_claimcomponent():
+                component_name = next(iter(node.get('componentName', shorten=False)), None)
+
+                self.node_dict[str(node_label)] = ClaimComponentNode(
+                    type='ClaimComponent',
+                    index=claim_counter,
+                    text=str(component_name) if component_name else None
+                )
+
+                claim_counter += 1
+                
         logging.info('Done.')
 
     def validate_graph(self):
