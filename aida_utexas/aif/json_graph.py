@@ -2,6 +2,9 @@
 Author: Pengxiang Cheng, Aug 2020
 - Adapted from the legacy JsonInterface and AidaJson classes by Katrin.
 - Json representation for an AIDA graph, with methods to reason over it.
+
+Updated Katrin Erk Nov 2020, Jan 2021
+- adapting to COVID domain with claim frames
 """
 
 import json
@@ -79,6 +82,7 @@ class ERENode:
     index: int
     adjacent: List[str] = field(default_factory=list)
     name: List[str] = field(default_factory=list)
+    attributes: List[str] = field(default_factory=list)
     ldcTime: List[Dict] = field(default_factory=list)
     kblinks: List[str] = field(default_factory=list)
 
@@ -90,6 +94,7 @@ class StatementNode:
     subject: str = None
     predicate: str = None
     object: str = None
+    attributes: List[str] = field(default_factory=list)
     conf: float = None
 
 
@@ -108,25 +113,45 @@ class ClusterMembershipNode:
     clusterMember: str = None
     conf: float = None
 
+# NEW COVID DOMAIN: claim component
 @dataclass
 class ClaimComponentNode:
     type: str
     index: int
-    text: str
+    name: str
+    identity: str
+    component_ke: str
+    component_provenance: str
+    component_type: List[str] = field(default_factory = list)
     
+    
+# NEW COVID DOMAIN: claim
 @dataclass
 class ClaimNode:
     type: str
     index: int
     claim_id: str
+    query_id: str
     doc_id: str
     topic: str
+    subtopic: str
+    claim_template: str
     text: str
-    xvar_id: str
+    sentiment: str
+    epistemic: str
+    importance: float = None
+    xvar: List[str] = field(default_factory=list)
+    claimer: List[str] = field(default_factory=list)
     claim_semantics: List[str] = field(default_factory=list)
     associated_kes: List[str] = field(default_factory=list)
+    identical_claims: List[str] = field(default_factory=list)
+    related_claims: List[str] = field(default_factory=list)
+    supporting_claims: List[str] = field(default_factory=list)
+    refuting_claims: List[str] = field(default_factory=list)
+    date_time: List[Dict] = field(default_factory=list)
 
-
+    
+# UPDATED LE Jan 2022
 node_cls_by_type = {
     'Entity': ERENode, 'Relation': ERENode, 'Event': ERENode, 'Statement': StatementNode,
     'SameAsCluster': SameAsClusterNode, 'ClusterMembership': ClusterMembershipNode,
@@ -159,11 +184,13 @@ class JsonGraph:
         ere_counter = 0
         stmt_counter = 0
         coref_counter = 0
+        # NEW COVID DOMAIN: count claims
         claim_counter = 0
 
         for node in tqdm(aida_graph.nodes()):
             node_label = node.name
 
+            # formatting for EREs
             if node.is_ere():
                 if node.is_entity():
                     node_type = 'Entity'
@@ -176,6 +203,8 @@ class JsonGraph:
                     # self.events.append(str(node_label))
 
                 adjacent_stmts = list(map(str, aida_graph.adjacent_stmts_of_ere(node_label)))
+                
+                attributes = list(iter(node.get('attributes', shorten=True)))
 
                 # retrieve KB links
                 kblinks = list(link for link, confidence in aida_graph.kb_links_of(node_label))
@@ -191,7 +220,8 @@ class JsonGraph:
                     index=ere_counter,
                     adjacent=adjacent_stmts,
                     name=node_hasName + [mention_string],
-                    kblinks=kblinks if len(kblinks) > 0 else None,
+                    attributes = attributes,
+                    kblinks=kblinks,
                     ldcTime=list(aida_graph.times_associated_with(node_label))
                 ) # Update: Removed 'sentence' in 'name' field and only added 'mention_string' (as we did not observe much effect from using sentence)
 
@@ -199,6 +229,7 @@ class JsonGraph:
                 self.eres.append(str(node_label))
                 ere_counter += 1
 
+            # formatting for statements
             elif node.is_statement():
                 subj = next(iter(node.get('subject', shorten=False)), None)
                 pred = next(iter(node.get('predicate', shorten=True)), None)
@@ -206,18 +237,22 @@ class JsonGraph:
 
                 conf_levels = aida_graph.confidence_of(node_label)
 
+                attributes = list(iter(node.get('attributes', shorten=True)))
+
                 self.node_dict[str(node_label)] = StatementNode(
                     type='Statement',
                     index=stmt_counter,
                     subject=str(subj) if subj else None,
                     predicate=str(pred) if pred else None,
                     object=str(obj) if obj else None,
+                    attributes = attributes,
                     conf=max(conf_levels) if conf_levels else None
                 )
 
                 self.statements.append(str(node_label))
                 stmt_counter += 1
 
+            # formatting for same-as clusters
             elif node.is_same_as_cluster():
                 prototype = next(iter(node.get('prototype', shorten=False)), None)
                 handle = next(iter(node.get('handle', shorten=True)), None)
@@ -228,6 +263,7 @@ class JsonGraph:
                     handle=str(handle) if handle else None
                 )
 
+            # formatting for cluster membership
             elif node.is_cluster_membership():
                 cluster = next(iter(node.get('cluster', shorten=False)), None)
                 member = next(iter(node.get('clusterMember', shorten=False)), None)
@@ -244,40 +280,81 @@ class JsonGraph:
 
                 coref_counter += 1
 
+            # NEW COVID DOMAIN
+            # formatting for claims
             elif node.is_claim():
 
                 # strings
                 claim_id = next(iter(node.get('claimId', shorten=False)), None)
+                query_id = next(iter(node.get('queryId', shorten=False)), None)
                 doc_id = next(iter(node.get('sourceDocument', shorten=False)), None)
                 topic = next(iter(node.get('topic', shorten=False)), None)                
+                subtopic = next(iter(node.get('subtopic', shorten=False)), None)                
                 nl_description = next(iter(node.get('naturalLanguageDescription', shorten=False)), None)
+                importance = next(iter(node.get('importance', shorten=False)), None)
+                if importance is not None: importance = importance.toPython()
+                epistemic = next(iter(node.get('epistemic', shorten=True)), None)
+                sentiment = next(iter(node.get('sentiment', shorten=True)), None)
+
+                logging.info("epistemic is {next(iter(node.get('epistemic', shorten=False)), None)}")
+                logging.info("sentiment is {next(iter(node.get('sentiment', shorten=False)), None)}")
+                
 
                 # KB node IDs and node ID lists
-                x_variable = next(iter(node.get('xVariable', shorten=False)), None)
                 claim_semantics = list(iter(node.get('claimSemantics', shorten=False)))
+                claim_template = list(iter(node.get('claimTemplate', shorten=False)))
                 associated_kes = list(iter(node.get('associatedKEs', shorten=False)))
+                xvar = list(iter(node.get('xVariable', shorten=False)))
+                claimer = list(iter(node.get('claimer', shorten=False)))
+
+                identical_claims = list(iter(node.get('identicalClaims', shorten=False)))
+                related_claims = list(iter(node.get('relatedClaims', shorten=False)))
+                supporting_claims = list(iter(node.get('supportingClaims', shorten=False)))
+                refuting_claims = list(iter(node.get('refutingClaims', shorten=False)))
 
                 self.node_dict[str(node_label)] = ClaimNode(
                     type = "Claim",
                     index = claim_counter,
                     claim_id = claim_id if claim_id else None,
                     doc_id = doc_id if doc_id else None,
+                    query_id = query_id if query_id else None,
                     topic = topic if topic else None,
+                    subtopic = subtopic if subtopic else None,
+                    importance = importance if importance else None,
+                    epistemic = str(epistemic) if epistemic else None,
+                    sentiment = str(sentiment) if sentiment else None,
+                    claim_template = claim_template if claim_template else None,
+                    date_time = list(aida_graph.times_associated_with(node_label)),
                     text = nl_description if nl_description else None,
-                    xvar_id = x_variable if x_variable else None,
                     claim_semantics = claim_semantics,
-                    associated_kes = associated_kes
+                    associated_kes = associated_kes,
+                    xvar = xvar,
+                    claimer = claimer,
+                    identical_claims = identical_claims,
+                    related_claims = related_claims,
+                    supporting_claims = supporting_claims,
+                    refuting_claims = refuting_claims
                 )
 
                 claim_counter += 1
                 
+            # NEW COVID DOMAIN
+            # formatting for claim components
             elif node.is_claimcomponent():
                 component_name = next(iter(node.get('componentName', shorten=False)), None)
+                identity = next(iter(node.get('componentIdentity', shorten = False)), None)
+                component_ke = next(iter(node.get('componentKE', shorten = False)), None)
+                component_provenance = next(iter(node.get('componentProvenance', shorten = False)), None)
+                component_type =  list(iter(node.get('componentType', shorten=False)))
 
                 self.node_dict[str(node_label)] = ClaimComponentNode(
                     type='ClaimComponent',
                     index=claim_counter,
-                    text=str(component_name) if component_name else None
+                    name=str(component_name) if component_name else None,
+                    identity = identity if identity else None,
+                    component_ke = component_ke if component_ke else None,
+                    component_provenance = component_provenance if component_provenance else None,
+                    component_type = component_type
                 )
 
                 claim_counter += 1

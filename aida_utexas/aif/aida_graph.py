@@ -7,6 +7,9 @@ Updated: Pengxiang Cheng, Aug 2019
 
 Updated: Pengxiang Cheng, Aug 2020
 - Cleanup and refactoring
+
+Updated: Katrin Erk Nov 2020/Jan 2021
+- inclusion of claim frames
 """
 
 import json
@@ -55,7 +58,7 @@ class AidaNode(RDFNode):
 
     # if the node is a Statement
     def is_statement(self):
-        return self.has_type('Statement', shorten=True)
+        return self.has_type('Statement', shorten=True) or self.has_type('ArgumentStatement', shorten=True) or self.has_type('TypeStatement', shorten=True)
 
     # if the node is a SameAsCluster
     def is_same_as_cluster(self):
@@ -65,9 +68,11 @@ class AidaNode(RDFNode):
     def is_cluster_membership(self):
         return self.has_type('ClusterMembership', shorten=True)
 
+    # NEW COVID DOMAIN: claim
     def is_claim(self):
         return self.has_type('Claim', shorten=True)
 
+    # NEW COVID DOMAIN: claim component
     def is_claimcomponent(self):
         return self.has_type('ClaimComponent', shorten=True)
 
@@ -422,10 +427,17 @@ class AidaGraph(RDFGraph):
 
     def times_associated_with(self, node_label):
         node = self.get_node(node_label)
-        if not node or not (node.is_event() or node.is_relation()):
+
+        timelabel = "XXX"
+        if node.is_event() or node.is_relation():
+            timelabel = "ldcTime"
+        elif node.is_claim():
+            # NEW KE 2022: claims have a claimDateTime, not an ldcTime
+            timelabel = "claimDateTime"
+        else:
             return
 
-        for time_label in node.get('ldcTime'):
+        for time_label in node.get(timelabel):
             start_times = [
                 self._time_struct(start) for start in self.get_node_objs(time_label, 'start')]
             end_times = [self._time_struct(end) for end in self.get_node_objs(time_label, 'end')]
