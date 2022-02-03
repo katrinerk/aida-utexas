@@ -165,6 +165,7 @@ class JsonGraph:
 
         self.eres = []
         self.statements = []
+        self.claims = [ ]
 
         self.string_constants = None
 
@@ -337,6 +338,7 @@ class JsonGraph:
                 )
 
                 claim_counter += 1
+                self.claims.append(str(node_label))
                 
             # NEW COVID DOMAIN
             # formatting for claim components
@@ -446,6 +448,9 @@ class JsonGraph:
         return self.is_entity(node_label) or self.is_event(node_label) or \
                self.is_relation(node_label)
 
+    def is_claim(self, node_label):
+        return self.is_node_type(node_label, "Claim")
+
     def is_statement(self, node_label):
         return self.is_node_type(node_label, 'Statement')
 
@@ -496,6 +501,11 @@ class JsonGraph:
     # iterate over EREs in the graph
     def each_ere(self):
         for node_label in self.eres:
+            yield node_label, self.node_dict[node_label]
+
+    # iterate over claims in the graph
+    def each_claim(self):
+        for node_label in self.claims:
             yield node_label, self.node_dict[node_label]
 
     # iterate over statements in the graph

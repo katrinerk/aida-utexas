@@ -70,6 +70,7 @@ import logging
 import os
 from collections import defaultdict
 from urllib.parse import urlsplit
+from aida_utexas import util
 
 import rdflib
 
@@ -131,7 +132,40 @@ class RDFGraph:
         self.node_dict = {}
         self.node_cls = node_cls
 
-    # build the RDF graph from a file, default format is ttl (turtle)
+    # # build the RDF graph from a file, default format is ttl (turtle)
+    # def build_graph(self, graph_path, fmt='ttl'):
+    #     # load triples from the file
+    #     logging.info('Loading RDF graph from {} ...'.format(graph_path))
+
+    #     # KE Feb 2022: Changed build_graph so that it can build a graph
+    #     # from multiple ttl files at once
+    #     rdf_filepaths = util.get_file_list(graph_path, suffix=fmt)
+
+    #     for rdf_filepath in rdf_filepaths:
+    #         graph = rdflib.Graph()
+    #         graph.parse(str(rdf_filepath), format=fmt)
+
+    #         logging.info('Done. Found {} triples.'.format(len(graph)))
+
+    #         # for each new triple, record it
+    #         logging.info('Building RDF graph ...')
+
+    #         for subj, pred, obj in graph:
+    #             # get the short label for predicate
+    #             pred = RDFNode.short_label(pred)
+
+    #             if subj not in self.node_dict:
+    #                 self.node_dict[subj] = self.node_cls(subj)
+
+    #             if obj not in self.node_dict:
+    #                 self.node_dict[obj] = self.node_cls(obj)
+
+    #             self.node_dict[subj].add_out_edge(pred, obj)
+    #             self.node_dict[obj].add_in_edge(pred, subj)
+
+    #     logging.info('Done.')
+
+    # Build the RDF graph from a file, default format is ttl (turtle)
     def build_graph(self, graph_path, fmt='ttl'):
         # load triples from the file
         logging.info('Loading RDF graph from {} ...'.format(graph_path))
@@ -158,7 +192,7 @@ class RDFGraph:
             self.node_dict[obj].add_in_edge(pred, subj)
 
         logging.info('Done.')
-
+        
     # printing out the graph in readable form
     def prettyprint(self, max_nodes=None):
         graph_str = ''
