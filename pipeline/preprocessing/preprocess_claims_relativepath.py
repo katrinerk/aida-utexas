@@ -54,19 +54,16 @@ def main():
     # parsing arguments
     parser = ArgumentParser()
     parser.add_argument('aif_path', help='Path to document-level AIF files')
-    parser.add_argument('doc_output_dir', help='Directory to write document-level json files')
-    parser.add_argument('tab_output_dir', help='Directory to write tables with text claims and topics')
+    parser.add_argument('doc_output_dir', help='Directory to write document-level output. tsv will be here, json files in a subdirectory called json')
     parser.add_argument('-q', '--query_path',
                         help='Path to the directory with query claim frames (or empty)', default = None, type = str)
-    parser.add_argument('-Q', '--query_output_dir', help='Directory to write query json files (or empty)', default = None, type = str)
+    parser.add_argument('-Q', '--query_output_dir', help='Directory to write query files. tsv file will be here, json files in a subdirectory called json', default = None, type = str)
     parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
     
     
     args = parser.parse_args()
     
-    tab_output_dir = util.get_output_dir(args.tab_output_dir, overwrite_warning=not args.force)
-
     ####
     
     
@@ -74,10 +71,12 @@ def main():
     # making query jsons, retaining texts and IDs
     if args.query_path is not None:
 
-        query_output_dir = util.get_output_dir(args.query_output_dir, overwrite_warning=not args.force)
-        claims = parse_aifdocs(args.query_path, query_output_dir, "_query")
+        query_out_dir = util.get_output_dir(args.query_output_dir, overwrite_warning=not args.force)
+        query_out_json_dir = util.get_output_dir(query_out_dir / "json/", overwrite_warning=not args.force)
         
-        output_path = tab_output_dir / "queries.tsv"
+        claims = parse_aifdocs(args.query_path, query_out_json_dir, "_query")
+        
+        output_path = query_out_dir / "queries.tsv"
         fout = open(output_path, "w")
         for claimfile, claim_label, claim_text in claims:
             #print(claimfile, claim_label, claim_text)
@@ -86,16 +85,17 @@ def main():
 
     #####
     # making document jsons, retaining texts and IDS
-    doc_output_dir = util.get_output_dir(args.doc_output_dir, overwrite_warning=not args.force)
+    doc_out_dir = util.get_output_dir(args.doc_output_dir, overwrite_warning=not args.force)
+    doc_out_json_dir = util.get_output_dir(doc_out_dir / "json/", overwrite_warning=not args.force)
 
-    output_path = tab_output_dir / "docclaims.tsv"
+    output_path = doc_out_dir / "docclaims.tsv"
     fout = open(output_path, "w")
 
     # possibly run through multiple subdirectories
     for root, dirs, _ in os.walk(args.aif_path):
         for thisdir in dirs:
             fulldir = os.path.join(root, thisdir)
-            claims = parse_aifdocs(fulldir, doc_output_dir)
+            claims = parse_aifdocs(fulldir, doc_out_json_dir)
         
             for claimfile, claim_label, claim_text in claims:
                 #print(claimfile, claim_label, claim_text)
