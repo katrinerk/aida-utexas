@@ -69,7 +69,7 @@ def catalogue_kb_nodes(kb_graph):
     print()
 
     # Count core nodes (EREs, SameAsClusters, and ClusterMemberships)
-    for node_type in ['Entity', 'Relation', 'Event', 'SameAsCluster', 'ClusterMembership']:
+    for node_type in ['Entity', 'Relation', 'Event', 'SameAsCluster', 'ClusterMembership', 'Claim', 'ClaimComponent']:
         node_set = set(kb_graph.subjects(predicate=RDF.type, object=AIDA.term(node_type)))
         node_count, bnode_count = count_nodes(node_set)
         print('# {}:  {}  (# BNode:  {})'.format(node_type, node_count, bnode_count))
