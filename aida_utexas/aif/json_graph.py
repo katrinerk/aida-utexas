@@ -422,6 +422,7 @@ class JsonGraph:
 
         json_graph.eres = json_dict['ere']
         json_graph.statements = json_dict['statements']
+        json_graph.claims = [key for key in json_dict["theGraph"] if json_dict["theGraph"][key]["type"] == "Claim"]
 
         json_graph.string_constants = list(json_graph.each_string_constant_of_graph())
 
