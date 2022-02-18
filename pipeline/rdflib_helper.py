@@ -261,6 +261,16 @@ def match_cluster_membership_bnode(kb_graph, cm_entry, kb_nodes_by_category=None
 
     return kb_cm_id
 
+###
+# KE Feb 2021: catching errors in the triple extraction, namely triples that contain None:
+# warn, and skip faulty triples
+def update_triples_catchnone(triples, added_triples, info):
+    for t in added_triples:
+        if any(component is None for component in t):
+            logging.warning("Error invalid KB triple created: {}\n{}\n{}\n{}".format(info, t[0], t[1], t[2]))
+            
+
+    triples.update([t for t in added_triples if not(any(component is None for component in t))])
 
 def triples_for_subject(kb_graph, query_subj, expanding_preds=None, excluding_preds=None):
     """
@@ -279,10 +289,10 @@ def triples_for_subject(kb_graph, query_subj, expanding_preds=None, excluding_pr
     for s, p, o in kb_graph.triples((query_subj, None, None)):
         if p in excluding_preds:
             continue
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for subject")
         if p in expanding_preds:
-            triples.update(triples_for_subject(
-                kb_graph, o, expanding_preds=expanding_preds, excluding_preds=excluding_preds))
+            update_triples_catchnone(triples, triples_for_subject(
+                kb_graph, o, expanding_preds=expanding_preds, excluding_preds=excluding_preds), "triples for subject loc. 2")
 
     return triples
 
@@ -298,12 +308,12 @@ def triples_for_edge_stmt(kb_graph, stmt_id):
             continue
 
         if p == AIDA.justifiedBy:
-            triples.add((s, p, o))
-            triples.update(triples_for_compound_just(kb_graph, o))
+            update_triples_catchnone(triples, [(s, p, o)], "triples for edge stmt justification")
+            update_triples_catchnone(triples, triples_for_compound_just(kb_graph, o), "triples for edge stmt compound justification")
         else:
-            triples.add((s, p, o))
+            update_triples_catchnone(triples, [(s, p, o)], "triples for edge stmt")
 
-            triples.update(expand_conf_and_system_node(kb_graph, p, o))
+            update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for edge stmt conf and system")
 
     return triples
 
@@ -318,12 +328,12 @@ def triples_for_type_stmt(kb_graph, stmt_id):
         if p == AIDA.privateData:
             continue
 
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for type stmt")
 
         if p == AIDA.justifiedBy:
-            triples.update(triples_for_justification(kb_graph, o))
+            update_triples_catchnone(triples, triples_for_justification(kb_graph, o), "triples for type stmt: justification")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for type stmt: conf and system")
 
     return triples
 
@@ -355,8 +365,7 @@ def triples_for_ere(kb_graph, ere_id):
                 continue
             seen_source_document.add(source_document)
 
-        triples.add((s, p, info_just))
-        triples.update(info_just_triples)
+        update_triples_catchnone(triples, info_just_triples, "for ere: justifications")
 
     for s, p, o in kb_graph.triples((ere_id, None, None)):
         if p in [AIDA.justifiedBy, AIDA.privateData]:
@@ -365,14 +374,14 @@ def triples_for_ere(kb_graph, ere_id):
         if p == AIDA.informativeJustification:
             continue
 
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for ere: graph triple")
 
-        if p == AIDA.ldcTime:
-            triples.update(triples_for_ldc_time(kb_graph, o))
+        if p == AIDA.ldcTime:            
+            update_triples_catchnone(triples, triples_for_ldc_time(kb_graph, o), "for ere: ldc time")
         if p == AIDA.link:
-            triples.update(triples_for_link_assertion(kb_graph, o))
+            update_triples_catchnone(triples, triples_for_link_assertion(kb_graph, o), "for ere: link assertion")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "for ere: conf and system node")
 
     return triples
 
@@ -387,12 +396,12 @@ def triples_for_cluster(kb_graph, cluster_id):
         if p in [AIDA.justifiedBy, AIDA.privateData, AIDA.link, AIDA.ldcTime]:
             continue
 
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for cluster")
 
         if p == AIDA.informativeJustification:
-            triples.update(triples_for_justification(kb_graph, o))
+            update_triples_catchnone(triples, triples_for_justification(kb_graph, o), "triples for cluster: justification")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for cluster: conf and system")
 
     return triples
 
@@ -404,12 +413,65 @@ def triples_for_cluster_membership(kb_graph, cm_id):
     triples = set()
 
     for s, p, o in kb_graph.triples((cm_id, None, None)):
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for cluster membership")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for cluster membership: conf and system")
 
     return triples
 
+
+def triples_for_claim(kb_graph, claim_id):
+    """
+    Extracting all triples related to a claim node.
+    """
+    triples = set()
+
+    for s, p, o in kb_graph.triples((claim_id, None, None)):
+        if p == AIDA.privateData:
+            continue
+
+        if p == AIDA.justifiedBy:
+            update_triples_catchnone(triples, [(s, p, o)], "triples for claim: justification")
+            update_triples_catchnone(triples, triples_for_compound_just(kb_graph, o), "triples for claim: compound justification")
+        else:
+            update_triples_catchnone(triples, [(s, p, o)], "triples for claim")
+
+            update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for claim: conf and system")
+
+
+        if p == AIDA.claimDateTime:            
+            update_triples_catchnone(triples, triples_for_ldc_time(kb_graph, o), "for claim: ldc time")
+        if p == AIDA.link:
+            update_triples_catchnone(triples, triples_for_link_assertion(kb_graph, o), "for claim: link assertion")
+
+        if p == AIDA.claimLocation or p == AIDA.claimer or p == AIDA.xVariable or p == AIDA.claimerAffiliation:
+            update_triples_catchnone(triples, triples_for_claimcomponent(kb_graph, o), "for claim: claim component")
+
+    return triples
+
+def triples_for_claimcomponent(kb_graph, comp_id):
+    """
+    Extracting all triples related to a claim coponent node.
+    """
+    triples = set()
+
+    for s, p, o in kb_graph.triples((comp_id, None, None)):
+        if p == AIDA.privateData:
+            continue
+
+        if p == AIDA.justifiedBy:
+            update_triples_catchnone(triples, [(s, p, o)], "triples for claim component: justification")
+            update_triples_catchnone(triples, triples_for_compound_just(kb_graph, o), "triples for claim component: compound justification")
+        else:
+            update_triples_catchnone(triples, [(s, p, o)], "triples for claim")
+
+            update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for claim component: conf and system")
+
+
+        if p == AIDA.link:
+            update_triples_catchnone(triples, triples_for_link_assertion(kb_graph, o), "for claim component: link assertion")
+
+    return triples
 
 def triples_for_compound_just(kb_graph, comp_just_id):
     """
@@ -421,12 +483,12 @@ def triples_for_compound_just(kb_graph, comp_just_id):
         if p == AIDA.privateData:
             continue
 
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for compound just")
 
         if p == AIDA.containedJustification:
-            triples.update(triples_for_justification(kb_graph, o))
+            update_triples_catchnone(triples, triples_for_justification(kb_graph, o), "triples for compound just: justification")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for compound just: conf and system")
 
     return triples
 
@@ -441,13 +503,13 @@ def triples_for_justification(kb_graph, just_id):
         if p == AIDA.privateData:
             continue
 
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for justification")
 
         # The aida:boundingBox field might also contain aida:system, so need to expand.
         if p == AIDA.boundingBox:
-            triples.update(triples_for_subject(kb_graph, o, expanding_preds=[AIDA.system]))
+            update_triples_catchnone(triples, triples_for_subject(kb_graph, o, expanding_preds=[AIDA.system]), "triples for just: expanded")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for just: conf and system")
 
     return triples
 
@@ -467,13 +529,13 @@ def triples_for_conf(kb_graph, conf_id):
             else:
                 conf_value = o
 
-            triples.add((s, p, conf_value))
+            update_triples_catchnone(triples, [(s, p, conf_value)], "triples for conf")
 
         else:
-            triples.add((s, p, o))
+            update_triples_catchnone(triples, [(s, p, o)], "triples for conf loc 2")
 
         if p == AIDA.system:
-            triples.update(triples_for_subject(kb_graph, o))
+            update_triples_catchnone(triples, triples_for_subject(kb_graph, o), "triples for conf: system")
 
     return triples
 
@@ -485,9 +547,9 @@ def triples_for_link_assertion(kb_graph, link_assertion_id):
     triples = set()
 
     for s, p, o in kb_graph.triples((link_assertion_id, None, None)):
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "triples for link assertion")
 
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for link assertion: conf and system")
 
     return triples
 
@@ -498,10 +560,10 @@ def triples_for_ldc_time(kb_graph, time_id):
     triples = set()
 
     for s, p, o in kb_graph.triples((time_id, None, None)):
-        triples.add((s, p, o))
+        update_triples_catchnone(triples, [(s, p, o)], "for ldc time: graph triples")
         if p in [AIDA.start, AIDA.end]:
-            triples.update(triples_for_time(kb_graph, s, p))
-        triples.update(expand_conf_and_system_node(kb_graph, p, o))
+            update_triples_catchnone(triples, triples_for_time(kb_graph, s, p), "for ldc time; aidastart aidaend")
+        update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "for ldc time: conf and system")
 
     return triples
 
@@ -516,27 +578,29 @@ def triples_for_time(kb_graph, time_id, p):
         for s, p, o in kb_graph.triples((time_component_id, None, None)):
             if p in [AIDA.year, AIDA.month, AIDA.day]:
                 continue
-            triples.add((s, p, o))
+            update_triples_catchnone(triples, [(s, p, o)], "for time")
             if p == AIDA.timeType and o == Literal("BEFORE"):
                 before_time_component_id = s
             elif p == AIDA.timeType and o == Literal("AFTER"):
                 after_time_component_id = s
 
     before_year, before_month, before_day = None, None, None
-    for s, p, o in kb_graph.triples((before_time_component_id, AIDA.year, None)):
-        before_year = o
-    for s, p, o in kb_graph.triples((before_time_component_id, AIDA.month, None)):
-        before_month = o
-    for s, p, o in kb_graph.triples((before_time_component_id, AIDA.day, None)):
-        before_day = o
+    if before_time_component_id:
+        for s, p, o in kb_graph.triples((before_time_component_id, AIDA.year, None)):
+            before_year = o
+        for s, p, o in kb_graph.triples((before_time_component_id, AIDA.month, None)):
+            before_month = o
+        for s, p, o in kb_graph.triples((before_time_component_id, AIDA.day, None)):
+            before_day = o
 
     after_year, after_month, after_day = None, None, None
-    for s, p, o in kb_graph.triples((after_time_component_id, AIDA.year, None)):
-        after_year = o
-    for s, p, o in kb_graph.triples((after_time_component_id, AIDA.month, None)):
-        after_month = o
-    for s, p, o in kb_graph.triples((after_time_component_id, AIDA.day, None)):
-        after_day = o
+    if after_time_component_id:
+        for s, p, o in kb_graph.triples((after_time_component_id, AIDA.year, None)):
+            after_year = o
+        for s, p, o in kb_graph.triples((after_time_component_id, AIDA.month, None)):
+            after_month = o
+        for s, p, o in kb_graph.triples((after_time_component_id, AIDA.day, None)):
+            after_day = o
 
     before_year_value = int(''.join(filter(lambda i: i.isdigit(), str(before_year)))) if before_year else None
     before_month_value = int(''.join(filter(lambda i: i.isdigit(), str(before_month)))) if before_month else None
@@ -555,17 +619,17 @@ def triples_for_time(kb_graph, time_id, p):
         before_day = after_day
 
     if before_year:
-        triples.add((before_time_component_id, AIDA.year, before_year))
+        update_triples_catchnone(triples, [(before_time_component_id, AIDA.year, before_year)], "for time: before year")
     if before_month:
-        triples.add((before_time_component_id, AIDA.month, before_month))
+        update_triples_catchnone(triples, [(before_time_component_id, AIDA.month, before_month)], "for time: before month")
     if before_day:
-        triples.add((before_time_component_id, AIDA.day, before_day))
+        update_triples_catchnone(triples, [(before_time_component_id, AIDA.day, before_day)], "for time: before day")
     if after_year:
-        triples.add((after_time_component_id, AIDA.year, after_year))
+        update_triples_catchnone(triples, [(after_time_component_id, AIDA.year, after_year)], 'for time: after year')
     if after_month:
-        triples.add((after_time_component_id, AIDA.month, after_month))
+        update_triples_catchnone(triples, [(after_time_component_id, AIDA.month, after_month)], "for time: after month")
     if after_day:
-        triples.add((after_time_component_id, AIDA.day, after_day))
+        update_triples_catchnone(triples, [(after_time_component_id, AIDA.day, after_day)], "for time: after day")
     
     return triples
 
@@ -577,9 +641,9 @@ def expand_conf_and_system_node(kb_graph, p, o):
     triples = set()
 
     if p == AIDA.confidence:
-        triples.update(triples_for_conf(kb_graph, o))
+        update_triples_catchnone(triples, triples_for_conf(kb_graph, o), "triples for conf and system: conf")
 
     if p == AIDA.system:
-        triples.update(triples_for_subject(kb_graph, o))
+        update_triples_catchnone(triples, triples_for_subject(kb_graph, o), "triples for conf and system: system")
 
     return triples
