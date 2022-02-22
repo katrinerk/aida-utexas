@@ -126,10 +126,12 @@ def main():
 
     # possibly run through multiple subdirectories
     for root, dirs, _ in os.walk(args.aif_path):
-        for thisdir in dirs:
-            fulldir = os.path.join(root, thisdir)
-            claims = parse_aifdocs(fulldir, doc_out_json_dir)
-            write_claiminfo_to_file(claims, fout)
+        claims = parse_aifdocs(root, doc_out_json_dir)
+        write_claiminfo_to_file(claims, fout)
+        # for thisdir in dirs:
+        #     fulldir = os.path.join(root, thisdir)
+        #     claims = parse_aifdocs(fulldir, doc_out_json_dir)
+        #     write_claiminfo_to_file(claims, fout)
             
     fout.close() 
         
