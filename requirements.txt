@@ -5,3 +5,4 @@ pandas
 dill
 gensim
 edit_distance
+sentence_transformers
