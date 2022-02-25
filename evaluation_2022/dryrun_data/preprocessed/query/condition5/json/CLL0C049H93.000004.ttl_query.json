@@ -1,0 +1,110 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C049H93.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C049H93.000004",
+   "query_id": null,
+   "doc_id": "L0C049H93",
+   "topic": "Contracting the virus",
+   "subtopic": "Who can contract COVID-19",
+   "claim_template": [
+    "X can catch COVID-19"
+   ],
+   "text": "Oh Myoung Don claims people who have recovered from COVID-19 cannot catch COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicFalseCertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub6bL34C20"
+   ],
+   "claimer": [
+    "ub6bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ],
+     "end": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ]
+    }
+   ]
+  },
+  "ub6bL13C18": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "Oh Myoung Don",
+   "identity": "Q43776740",
+   "component_ke": null,
+   "component_provenance": "Oh Myoung Don",
+   "component_type": [
+    "Q1650915"
+   ]
+  },
+  "ub6bL18C29": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Seoul National University College of Medicine",
+   "identity": "Q99298799",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q494230"
+   ]
+  },
+  "ub6bL22C9": {
+   "type": "ClaimComponent",
+   "index": 3,
+   "name": "Seoul National University",
+   "identity": "Q39913",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q15936437"
+   ]
+  },
+  "ub6bL34C20": {
+   "type": "ClaimComponent",
+   "index": 4,
+   "name": "People who have recovered from COVID-19",
+   "identity": "NILQ90004",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q215627"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

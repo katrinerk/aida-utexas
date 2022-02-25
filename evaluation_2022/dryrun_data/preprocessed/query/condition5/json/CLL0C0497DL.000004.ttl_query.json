@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C0497DL.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C0497DL.000004",
+   "query_id": null,
+   "doc_id": "L0C0497DL",
+   "topic": "Transmitting the virus",
+   "subtopic": "What transmits COVID-19",
+   "claim_template": [
+    "X transmits / transfers COVID-19"
+   ],
+   "text": "WHO claims paper money can transmit COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueCertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub2bL26C20"
+   ],
+   "claimer": [
+    "ub2bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      }
+     ],
+     "end": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      }
+     ]
+    }
+   ]
+  },
+  "ub2bL13C18": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "World Health Organization",
+   "identity": "Q7817",
+   "component_ke": null,
+   "component_provenance": "\u0412\u0441\u0435\u043c\u0438\u0440\u043d\u0430\u044f \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u0430\u0446\u0438\u044f \u0437\u0434\u0440\u0430\u0432\u043e\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f",
+   "component_type": [
+    "Q15925165"
+   ]
+  },
+  "ub2bL26C20": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Cash",
+   "identity": "NILQ90030",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q693464"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

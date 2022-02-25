@@ -1,0 +1,99 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04C1AR.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04C1AR.000004",
+   "query_id": null,
+   "doc_id": "L0C04C1AR",
+   "topic": "Origin of the Virus",
+   "subtopic": "Animals associated with the origin of COVID-19",
+   "claim_template": [
+    "Animal-X is associated/involved with the origin of COVID-19"
+   ],
+   "text": "Peter Daszak claims animals sold at the Wuhan Huanan Seafood Market might be involved with the origin of COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueUncertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub23bL30C20"
+   ],
+   "claimer": [
+    "ub23bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      }
+     ],
+     "end": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      }
+     ]
+    }
+   ]
+  },
+  "ub23bL18C29": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "The UK",
+   "identity": "Q145",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q6256"
+   ]
+  },
+  "ub23bL13C18": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Peter Daszak",
+   "identity": "Q66732898",
+   "component_ke": null,
+   "component_provenance": "\u041f\u0438\u0442\u0435\u0440\u0430 \u0414\u0430\u0441\u0437\u0430\u043a\u0430",
+   "component_type": [
+    "Q350979"
+   ]
+  },
+  "ub23bL30C20": {
+   "type": "ClaimComponent",
+   "index": 3,
+   "name": "Animals sold at the Wuhan Huanan Seafood Market",
+   "identity": "NILQ90018",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q729"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

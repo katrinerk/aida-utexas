@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04C0PY.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04C0PY.000004",
+   "query_id": null,
+   "doc_id": "L0C04C0PY",
+   "topic": "Non-Pharmaceutical Interventions (NPIs): Masks",
+   "subtopic": "Harmful effects of wearing masks",
+   "claim_template": [
+    "Wearing masks has X negative effect"
+   ],
+   "text": "WHO claims masks might cause people not to practice social distancing",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueUncertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub21bL26C20"
+   ],
+   "claimer": [
+    "ub21bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 2020,
+       "month": 6,
+       "day": 5
+      }
+     ],
+     "end": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 2020,
+       "month": 6,
+       "day": 5
+      }
+     ]
+    }
+   ]
+  },
+  "ub21bL13C18": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "The WHO",
+   "identity": "Q7817",
+   "component_ke": null,
+   "component_provenance": "World Health Organization",
+   "component_type": [
+    "Q15925165"
+   ]
+  },
+  "ub21bL26C20": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Lack of social distancing",
+   "identity": "NILQ90001",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q9332"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

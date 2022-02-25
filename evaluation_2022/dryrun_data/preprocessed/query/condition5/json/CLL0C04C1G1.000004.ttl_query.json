@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04C1G1.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04C1G1.000004",
+   "query_id": null,
+   "doc_id": "L0C04C1G1",
+   "topic": "Origin of the Virus",
+   "subtopic": "Animals associated with the origin of COVID-19",
+   "claim_template": [
+    "Animal-X is associated/involved with the origin of COVID-19"
+   ],
+   "text": "Author claims bats might be involved with the origin of COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueUncertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub26bL25C20"
+   ],
+   "claimer": [
+    "ub26bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 2020,
+       "month": 12,
+       "day": 1
+      }
+     ],
+     "end": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 2020,
+       "month": 12,
+       "day": 1
+      }
+     ]
+    }
+   ]
+  },
+  "ub26bL13C18": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "author",
+   "identity": "NILQ90023",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q1930187"
+   ]
+  },
+  "ub26bL25C20": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Bats",
+   "identity": "NILQ90022",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q28425"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

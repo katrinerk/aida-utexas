@@ -1,0 +1,99 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04AONX.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04AONX.000004",
+   "query_id": null,
+   "doc_id": "L0C04AONX",
+   "topic": "Origin of the Virus",
+   "subtopic": "Animals associated with the origin of COVID-19",
+   "claim_template": [
+    "Animal-X is associated/involved with the origin of COVID-19"
+   ],
+   "text": "Fernando Sim\u00f3n claims minks might be involved with the origin of COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueUncertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub15bL30C20"
+   ],
+   "claimer": [
+    "ub15bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ],
+     "end": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ]
+    }
+   ]
+  },
+  "ub15bL30C20": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "Mink",
+   "identity": "NILQ90016",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q17700"
+   ]
+  },
+  "ub15bL13C18": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Fernando Sim\u00f3n",
+   "identity": "Q24941815",
+   "component_ke": null,
+   "component_provenance": "Fernando Sim\u00f3n",
+   "component_type": [
+    "Q599151"
+   ]
+  },
+  "ub15bL18C29": {
+   "type": "ClaimComponent",
+   "index": 3,
+   "name": "Coordination Center for Health Alerts and Emergencies",
+   "identity": "Q24941810",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q327333"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

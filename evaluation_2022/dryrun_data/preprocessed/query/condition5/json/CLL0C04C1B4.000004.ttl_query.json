@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04C1B4.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04C1B4.000004",
+   "query_id": null,
+   "doc_id": "L0C04C1B4",
+   "topic": "Origin of the Virus",
+   "subtopic": "Animals associated with the origin of COVID-19",
+   "claim_template": [
+    "Animal-X is associated/involved with the origin of COVID-19"
+   ],
+   "text": "World Health Organization claims snakes are not involved with the origin of COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicFalseCertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub24bL26C20"
+   ],
+   "claimer": [
+    "ub24bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 2019,
+       "month": 12,
+       "day": 1
+      }
+     ],
+     "end": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 2019,
+       "month": 12,
+       "day": 1
+      }
+     ]
+    }
+   ]
+  },
+  "ub24bL26C20": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "Snakes",
+   "identity": "NILQ90019",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q2102"
+   ]
+  },
+  "ub24bL13C18": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "World Health Organization",
+   "identity": "Q7817",
+   "component_ke": null,
+   "component_provenance": "World Health Organization",
+   "component_type": [
+    "Q15925165"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

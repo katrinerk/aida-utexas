@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "ub8bL13C18": {
+   "type": "ClaimComponent",
+   "index": 0,
+   "name": "author",
+   "identity": "NILQ90028",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q1930187"
+   ]
+  },
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C049OUI.000004": {
+   "type": "Claim",
+   "index": 1,
+   "claim_id": "CLL0C049OUI.000004",
+   "query_id": null,
+   "doc_id": "L0C049OUI",
+   "topic": "Transmitting the virus",
+   "subtopic": "What transmits COVID-19",
+   "claim_template": [
+    "X transmits / transfers COVID-19"
+   ],
+   "text": "Author claims Chinese food cannot transmit COVID-19",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicFalseCertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub8bL25C20"
+   ],
+   "claimer": [
+    "ub8bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 2020,
+       "month": 2,
+       "day": 21
+      }
+     ],
+     "end": [
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 2020,
+       "month": 2,
+       "day": 21
+      }
+     ]
+    }
+   ]
+  },
+  "ub8bL25C20": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Chinese food",
+   "identity": "NILQ90027",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q2095"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

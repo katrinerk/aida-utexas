@@ -1,0 +1,132 @@
+{
+ "theGraph": {
+  "ub19bL27C9": {
+   "type": "ClaimComponent",
+   "index": 0,
+   "name": "VA Palo Alto Health Care System",
+   "identity": "Q7906572",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q95984744"
+   ]
+  },
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04C06G.000004": {
+   "type": "Claim",
+   "index": 1,
+   "claim_id": "CLL0C04C06G.000004",
+   "query_id": null,
+   "doc_id": "L0C04C06G",
+   "topic": "Non-Pharmaceutical Interventions (NPIs): Masks",
+   "subtopic": "Harmful effects of wearing masks",
+   "claim_template": [
+    "Wearing masks has X negative effect"
+   ],
+   "text": "Baruch Vainshelboim claims masks cause adverse psychological effects",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueCertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub19bL43C20"
+   ],
+   "claimer": [
+    "ub19bL18C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ],
+     "end": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ]
+    }
+   ]
+  },
+  "ub19bL43C20": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Adverse psychological effects",
+   "identity": "NILQ90040",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q12047512"
+   ]
+  },
+  "ub19bL23C29": {
+   "type": "ClaimComponent",
+   "index": 3,
+   "name": "cardiology division at the Veterans Affairs Palo Alto Health Care System",
+   "identity": "NILQ90041",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q2366457"
+   ]
+  },
+  "ub19bL18C18": {
+   "type": "ClaimComponent",
+   "index": 4,
+   "name": "Baruch Vainshelboim",
+   "identity": "Q89776941",
+   "component_ke": null,
+   "component_provenance": "Baruch Vainshelboim",
+   "component_type": [
+    "Q1650915"
+   ]
+  },
+  "ub19bL31C9": {
+   "type": "ClaimComponent",
+   "index": 5,
+   "name": "Stanford University",
+   "identity": "Q41506",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q15936437"
+   ]
+  },
+  "ub19bL12C22": {
+   "type": "ClaimComponent",
+   "index": 6,
+   "name": "Medical Hypotheses",
+   "identity": "Q5558534",
+   "component_ke": null,
+   "component_provenance": "Medical Hypotheses",
+   "component_type": [
+    "Q5633421"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04C54T.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04C54T.000004",
+   "query_id": null,
+   "doc_id": "L0C04C54T",
+   "topic": "Origin of the Virus",
+   "subtopic": "Where the first case of COVID-19 occurred",
+   "claim_template": [
+    "The first case of COVID-19 occurred in location-X"
+   ],
+   "text": "Chinese state media claims the first cases of COVID-19 might not have occurred in China",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicFalseUncertain",
+   "importance": 1.0,
+   "xvar": [
+    "f8d0045788c55445c939417819fae5e73b3"
+   ],
+   "claimer": [
+    "ub30bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ],
+     "end": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ]
+    }
+   ]
+  },
+  "f8d0045788c55445c939417819fae5e73b3": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "China",
+   "identity": "Q148",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q6256"
+   ]
+  },
+  "ub30bL13C18": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "Chinese state media",
+   "identity": "NILQ90037",
+   "component_ke": null,
+   "component_provenance": "Chinese state media",
+   "component_type": [
+    "Q2324556"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

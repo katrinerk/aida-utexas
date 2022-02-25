@@ -1,0 +1,88 @@
+{
+ "theGraph": {
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04AMLH.000004": {
+   "type": "Claim",
+   "index": 0,
+   "claim_id": "CLL0C04AMLH.000004",
+   "query_id": null,
+   "doc_id": "L0C04AMLH",
+   "topic": "Non-Pharmaceutical Interventions (NPIs): Masks",
+   "subtopic": "Places where there are regulations for wearing masks to prevent the spread of COVID-19",
+   "claim_template": [
+    "Wearing masks is required in location/GPE/facility-x"
+   ],
+   "text": "Author claims wearing masks is not required in Brazil",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicFalseCertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub14bL25C20"
+   ],
+   "claimer": [
+    "ub14bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ],
+     "end": [
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      },
+      {
+       "timeType": "BEFORE",
+       "year": 9999,
+       "month": 12,
+       "day": 31
+      }
+     ]
+    }
+   ]
+  },
+  "ub14bL25C20": {
+   "type": "ClaimComponent",
+   "index": 1,
+   "name": "Brazil",
+   "identity": "Q155",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q6256"
+   ]
+  },
+  "ub14bL13C18": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "author",
+   "identity": "NILQ90015",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q1930187"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}

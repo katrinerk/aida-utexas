@@ -1,0 +1,99 @@
+{
+ "theGraph": {
+  "ub18bL13C18": {
+   "type": "ClaimComponent",
+   "index": 0,
+   "name": "Anthony Fauci",
+   "identity": "Q573246",
+   "component_ke": null,
+   "component_provenance": "\u042d\u043d\u0442\u043e\u043d\u0438 \u0424\u0430\u0443\u0447\u0438",
+   "component_type": [
+    "Q599151"
+   ]
+  },
+  "https://raw.githubusercontent.com/NextCenturyCorporation/AIDA-Interchange-Format/master/java/src/main/resources/com/ncc/aif/ontologies/LdcAnnotations#claim-CLL0C04BZS6.000004": {
+   "type": "Claim",
+   "index": 1,
+   "claim_id": "CLL0C04BZS6.000004",
+   "query_id": null,
+   "doc_id": "L0C04BZS6",
+   "topic": "Non-Pharmaceutical Interventions (NPIs): Masks",
+   "subtopic": "Places where wearing masks is necessary to prevent the spread of COVID-19",
+   "claim_template": [
+    "Wearing masks is necessary in location/GPE/facility-x"
+   ],
+   "text": "Anthony Fauci claims wearing masks might be necessary in the United States",
+   "sentiment": "SentimentNeutralUnknown",
+   "epistemic": "EpistemicTrueUncertain",
+   "importance": 1.0,
+   "xvar": [
+    "ub18bL30C20"
+   ],
+   "claimer": [
+    "ub18bL13C18"
+   ],
+   "claim_semantics": [],
+   "associated_kes": [],
+   "identical_claims": [],
+   "related_claims": [],
+   "supporting_claims": [],
+   "refuting_claims": [],
+   "date_time": [
+    {
+     "start": [
+      {
+       "timeType": "BEFORE",
+       "year": 2022,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      }
+     ],
+     "end": [
+      {
+       "timeType": "BEFORE",
+       "year": 2022,
+       "month": 12,
+       "day": 31
+      },
+      {
+       "timeType": "AFTER",
+       "year": 1,
+       "month": 1,
+       "day": 1
+      }
+     ]
+    }
+   ]
+  },
+  "ub18bL30C20": {
+   "type": "ClaimComponent",
+   "index": 2,
+   "name": "United States",
+   "identity": "Q30",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q6256"
+   ]
+  },
+  "ub18bL18C29": {
+   "type": "ClaimComponent",
+   "index": 3,
+   "name": "The U.S.",
+   "identity": "Q30",
+   "component_ke": null,
+   "component_provenance": null,
+   "component_type": [
+    "Q6256"
+   ]
+  }
+ },
+ "ere": [],
+ "statements": []
+}
