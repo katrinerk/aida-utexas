@@ -4,7 +4,7 @@ The models here are further trained from their Huggingface equivalents on a data
 [over 1 billion pairs](https://huggingface.co/datasets/sentence-transformers/embedding-training-data) 
 trained to detect similarity."""
 
-#python redundency_score.py --doc_input docclaims.tsv --query_input queries.tsv --output_path script_result.csv
+#python redundency_score.py --doc_input docclaims.tsv --query_input queries.tsv --output_path q2d_relatedness.csv
 
 
 import argparse
@@ -96,11 +96,11 @@ def main():
 	# the threshold used to separate redundant from independent sentences.
 	parser.add_argument('--threshold', type=float, required=False, default=0.58)
 	# path to input document claim tsv file
-	parser.add_argument('--doc_input', type=str, required=True)
+	parser.add_argument('--docclaim_input', type=str, required=False, default = "docclaims.tsv")
 	# path to input query claim tsv file
-	parser.add_argument('--query_input', type=str, required=True)
+	parser.add_argument('--query_input', type=str, required=False, default = "queries.tsv")
 	# name and path of output csv file
-	parser.add_argument('--output_path', type=str, required=True)
+	parser.add_argument('--output_path', type=str, required=False, default = "q2d_relatedness.csv")
 	args = parser.parse_args()
 
 	claims_split_by_document, claims_to_id = read_doc(args.doc_input)
