@@ -1,3 +1,9 @@
+'''
+This is a pre-trained RoBERTa-Large NLI model.
+
+The training data is MNLI
+'''
+
 import os
 import logging
 import torch

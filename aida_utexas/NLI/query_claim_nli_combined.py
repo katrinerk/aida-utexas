@@ -1,3 +1,10 @@
+'''
+This is a strong pre-trained RoBERTa-Large NLI model.
+
+The training data is a combination of well-known NLI datasets: 
+SNLI, MNLI, FEVER-NLI, ANLI (R1, R2, R3).
+'''
+
 import os
 import logging
 import torch
@@ -116,7 +123,7 @@ def write_output(data_dir, outputs, dataloader, labels, threshold):
 def main():
     parser = argparse.ArgumentParser()
 
-    #TODO
+    #TODO: allow larger batch size
     parser.add_argument('--batch', type=int, required=False, default=1, 
                         help="currectly only support batch size 1")
 
