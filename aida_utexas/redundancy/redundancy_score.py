@@ -97,7 +97,7 @@ def main():
 	parser.add_argument('--threshold', type=float, required=False, default=0.58, 
 						help="the threshold used to separate redundant from independent sentences.")
 
-	parser.add_argument('--team', type=str, required=True, help="for example: ta2_colorado")
+	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
 
 	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed", 
 						help="path to preprocessed docclaims")
