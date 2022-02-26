@@ -81,12 +81,12 @@ def write_output(output_path, rows, header):
 	    csvwriter.writerows(rows)
 
 
-"""Calculate redundancy/independent 
+"""Calculate redundancy/independent of query_claim pair 
 
 This is a sample model I chose - it's 22M parameters and a distilled version of BERT.
 By default, the model uses a GPU if it is available.
 """
-def calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, threshold):
+def calculate_redundancy_query_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, threshold):
 
 	model = SentenceTransformer('all-MiniLM-L6-v2')
 	rows = []
@@ -112,6 +112,39 @@ def calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_b
 			query_filename, query_claim_id = queries_to_id[query]
 			doc_filename, doc_claim_id = claims_to_id[sentences[i]]
 			rows.append([query_filename, query_claim_id, query, doc_filename, doc_claim_id, sentences[i], label, score]) 
+	return rows
+
+
+"""Calculate redundancy/independent of query_claim pair 
+
+This is a sample model I chose - it's 22M parameters and a distilled version of BERT.
+By default, the model uses a GPU if it is available.
+"""
+def calculate_redundancy_claim_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, threshold):
+
+	model = SentenceTransformer('all-MiniLM-L6-v2')
+	rows = []
+	queries = queries_split_by_document[0]
+	claims = claims_split_by_document[0]
+
+	query_num = -1
+	for i, query in enumerate(queries):
+
+		query_num += 1
+		claim = claims[i]
+		query_embeddings = model.encode([query], convert_to_tensor=True)
+		claim_embeddings = model.encode([claim], convert_to_tensor=True)
+		#Compute cosine-similarities
+		cosine_scores = util.cos_sim(query_embeddings, claim_embeddings)
+
+		score = cosine_scores[0][0].item()
+		label = 'Related' if score > threshold else 'Unrelated'
+		
+		score = round(score, 2)
+
+		query_filename, query_claim_id = queries_to_id[query]
+		doc_filename, doc_claim_id = claims_to_id[claim]
+		rows.append([query_filename, query_claim_id, query, doc_filename, doc_claim_id, claim, label, score]) 
 	return rows
 
 
@@ -143,7 +176,7 @@ def main():
 
 		claims_split_by_document, claims_to_id = read_doc(docclaim_file)
 		queries_split_by_document, queries_to_id = read_query(query_file)
-		rows = calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
+		rows = calculate_redundancy_query_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
 		write_output(output_path, rows, args.type)
 
 	if args.type == "claim_claim":
@@ -152,7 +185,7 @@ def main():
 
 		# claim1 is as query, claim2 is as claim
 		queries_split_by_document, queries_to_id, claims_split_by_document, claims_to_id = read_combined(input_file)
-		rows = calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
+		rows = calculate_redundancy_claim_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
 		write_output(output_path, rows, args.type)
 
 if __name__ == '__main__':
