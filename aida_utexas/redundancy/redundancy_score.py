@@ -4,14 +4,14 @@ The models here are further trained from their Huggingface equivalents on a data
 [over 1 billion pairs](https://huggingface.co/datasets/sentence-transformers/embedding-training-data) 
 trained to detect similarity."""
 
-#python redundancy_score.py --data ta2_colorado --condition condition5
+#python redundancy_score.py --data ta2_colorado
 
 import os
 import argparse
 import csv
 from collections import defaultdict
 import copy
-#from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer, util
 
 # read the docclaims.tsvs
 def read_doc(doc_input):
@@ -97,9 +97,7 @@ def main():
 	parser.add_argument('--threshold', type=float, required=False, default=0.58, 
 						help="the threshold used to separate redundant from independent sentences.")
 
-	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
-	
-	parser.add_argument('--condition', type=str, required=True, help="for example: condition5")
+	parser.add_argument('--team', type=str, required=True, help="for example: ta2_colorado")
 
 	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed", 
 						help="path to preprocessed docclaims")
@@ -112,8 +110,8 @@ def main():
 	args = parser.parse_args()
 
 	docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
-	query_file = os.path.join(args.query_file, args.condition, "queries.tsv")
-	output_path = os.path.join(args.output_path, args.data, args.condition, "step1_query_claim_relatedness/q2d_relatedness.csv")
+	query_file = os.path.join(args.query_file, "condition5/queries.tsv")
+	output_path = os.path.join(args.output_path, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv")
 
 	claims_split_by_document, claims_to_id = read_doc(docclaim_file)
 	queries_split_by_document, queries_to_id = read_query(query_file)
