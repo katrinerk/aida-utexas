@@ -4,7 +4,7 @@ The models here are further trained from their Huggingface equivalents on a data
 [over 1 billion pairs](https://huggingface.co/datasets/sentence-transformers/embedding-training-data) 
 trained to detect similarity."""
 
-#python redundancy_score.py --data ta2_colorado
+#python redundancy_score.py --data ta2_colorado --type claim_claim
 
 import os
 import argparse
@@ -43,10 +43,34 @@ def read_query(query_input):
 	return queries_split_by_document, queries_to_id
 
 
+# read claim_claim.csv for claims pairwise redundancy score calculation
+def read_combined(input_file):
+	queries_split_by_document = defaultdict(list)
+	queries_to_id = dict()
+
+	claims_split_by_document = defaultdict(list)
+	claims_to_id = dict()
+
+	with open(input_file) as file:
+		reader = csv.reader(file)
+		next(reader, None)
+		for line in reader:
+			queries_to_id[line[2]] = (line[0], line[1])
+			queries_split_by_document[0].append(line[2])
+			
+			claims_to_id[line[5]] = (line[3], line[4])
+			claims_split_by_document[0].append(line[5])
+
+	return queries_split_by_document, queries_to_id, claims_split_by_document, claims_to_id
+
+
 """write output to csv"""
-def write_output(output_path, rows):
+def write_output(output_path, rows, header):
 	# field names 
-	fields = ['Query_Filename', 'Query_ID', 'Query_Sentence', 'Claim_Filename', 'Claim_ID', 'Claim_Sentence', 'Redundant_or_Independent', 'Score'] 
+	if header == "query_claim":
+		fields = ['Query_Filename', 'Query_ID', 'Query_Sentence', 'Claim_Filename', 'Claim_ID', 'Claim_Sentence', 'Redundant_or_Independent', 'Score'] 
+	elif header == "claim_claim":
+		fields = ['Claim1_Filename', 'Claim1_ID', 'Claim1_Sentence', 'Claim2_Filename', 'Claim2_ID', 'Claim2_Sentence', 'Redundant_or_Independent', 'Score'] 
 
 	with open(output_path, 'w') as csvfile: 
 
@@ -94,6 +118,8 @@ def calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_b
 def main():
 	parser = argparse.ArgumentParser()
 
+	parser.add_argument('--type', type=str, required=True, help="query_claim or claim_claim")
+
 	parser.add_argument('--threshold', type=float, required=False, default=0.58, 
 						help="the threshold used to separate redundant from independent sentences.")
 
@@ -109,14 +135,25 @@ def main():
 						help="path to working space for output result")
 	args = parser.parse_args()
 
-	docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
-	query_file = os.path.join(args.query_file, "condition5/queries.tsv")
-	output_path = os.path.join(args.output_path, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv")
+	if args.type == "query_claim":
 
-	claims_split_by_document, claims_to_id = read_doc(docclaim_file)
-	queries_split_by_document, queries_to_id = read_query(query_file)
-	rows = calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
-	write_output(output_path , rows)
+		docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
+		query_file = os.path.join(args.query_file, "condition5/queries.tsv")
+		output_path = os.path.join(args.output_path, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv")
+
+		claims_split_by_document, claims_to_id = read_doc(docclaim_file)
+		queries_split_by_document, queries_to_id = read_query(query_file)
+		rows = calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
+		write_output(output_path, rows, args.type)
+
+	if args.type == "claim_claim":
+		input_file = os.path.join(args.output_path, args.data, "condition5/step3_claim_claim_ranking/claim_claim.csv")
+		output_path = os.path.join(args.output_path, args.data, "condition5/step3_claim_claim_ranking/claim_claim_redundancy.csv")
+
+		# claim1 is as query, claim2 is as claim
+		queries_split_by_document, queries_to_id, claims_split_by_document, claims_to_id = read_combined(input_file)
+		rows = calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
+		write_output(output_path, rows, args.type)
 
 if __name__ == '__main__':
     main()
