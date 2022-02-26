@@ -71,8 +71,10 @@ class NLI_predicter():
             for i in range(batch_size):
                 line = []
                 line.append(label[i])
-                for prob in output[i]:
-                    line.append(prob)
+                probs = output[i]
+                line.append(probs[-1])  # contradict probability
+                line.append(probs[1])   # neutral probability
+                line.append(probs[0])   # entail probability
                 outputs.append(line)
 
             num_written_lines += batch_size
