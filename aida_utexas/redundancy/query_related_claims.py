@@ -94,6 +94,7 @@ def main():
     parser.add_argument('query_dir', help='Directory with preprocessed query files (cond5,6,7)')
     parser.add_argument('docclaim_dir', help="Directory with text claims in tsv")
     parser.add_argument('working_dir', help="Working directory with intermediate system results")
+    parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
     parser.add_argument('condition', help="Condition5, Condition6, Condition7")
     parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
@@ -131,9 +132,9 @@ def main():
     
     ########
     # read query/doc relatedness results
-    working_path = util.get_input_path(args.working_dir)
+    working_mainpath = util.get_input_path(args.working_dir)
+    working_path = util.get_input_path(working_mainpath / args.run_id / args.condition)
     
-    working_cond_path = util.get_input_path(working_path / args.condition, check_exist = True)
     querydoc_file = util.get_input_path(working_cond_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
 
     query_rel = claimutil.read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext)
