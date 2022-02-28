@@ -11,6 +11,7 @@ from aida_utexas.hypothesis.date_check import AidaIncompleteDate
 AIDA = Namespace(f'{AIF_NS_PREFIX}/InterchangeOntology#')
 LDC = Namespace(f'{AIF_NS_PREFIX}/LdcAnnotations#')
 LDC_ONT = Namespace(f'{AIF_NS_PREFIX}/LDCOntologyM36#')
+EX = Namespace(f'https://www.caci.com/claim-example#')
 
 
 def count_nodes(node_set):
@@ -370,14 +371,16 @@ def triples_for_ere(kb_graph, ere_id):
         update_triples_catchnone(triples, info_just_triples, "for ere: justifications")
 
     for s, p, o in kb_graph.triples((ere_id, None, None)):
-        if p in [AIDA.justifiedBy, AIDA.privateData]:
+        ### jy
+        #if p in [AIDA.justifiedBy, AIDA.privateData]:
+        if p == AIDA.privateData:
             continue
 
-        if p == AIDA.informativeJustification:
-            continue
+        #if p == AIDA.informativeJustification:
+        #    continue
 
         update_triples_catchnone(triples, [(s, p, o)], "triples for ere: graph triple")
-
+        
         if p == AIDA.ldcTime:            
             update_triples_catchnone(triples, triples_for_ldc_time(kb_graph, o), "for ere: ldc time")
         if p == AIDA.link:
@@ -441,7 +444,7 @@ def triples_for_claim(kb_graph, claim_id):
             update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for claim: conf and system")
 
 
-        if p == AIDA.claimDateTime:            
+        if p == AIDA.claimDateTime: 
             update_triples_catchnone(triples, triples_for_ldc_time(kb_graph, o), "for claim: ldc time")
         if p == AIDA.link:
             update_triples_catchnone(triples, triples_for_link_assertion(kb_graph, o), "for claim: link assertion")
@@ -525,11 +528,16 @@ def triples_for_conf(kb_graph, conf_id):
 
     for s, p, o in kb_graph.triples((conf_id, None, None)):
         # Hot fix to ensure that the confidence value is not too small.
+        ### jy
+        # alter how to present confidence Value
         if p == AIDA.confidenceValue:
+            '''
             if float(o) < 0.0001:
                 conf_value = Literal(0.0001, datatype=XSD.double)
             else:
                 conf_value = o
+            '''
+            conf_value = o
 
             update_triples_catchnone(triples, [(s, p, conf_value)], "triples for conf")
 
@@ -580,54 +588,71 @@ def triples_for_time(kb_graph, time_id, p):
         for s, p, o in kb_graph.triples((time_component_id, None, None)):
             if p in [AIDA.year, AIDA.month, AIDA.day]:
                 continue
-            update_triples_catchnone(triples, [(s, p, o)], "for time")
-            if p == AIDA.timeType and o == Literal("BEFORE"):
+            update_triples_catchnone(triples, [(s, p, o)], "for time")         
+            if p == AIDA.timeType and o == Literal("BEFORE", datatype=XSD.string):# jy correct the datatype of o
                 before_time_component_id = s
-            elif p == AIDA.timeType and o == Literal("AFTER"):
+            elif p == AIDA.timeType and o == Literal("AFTER", datatype=XSD.string):# jy correct the datatype of o
                 after_time_component_id = s
-
+                
     before_year, before_month, before_day = None, None, None
     if before_time_component_id:
         for s, p, o in kb_graph.triples((before_time_component_id, AIDA.year, None)):
-            before_year = o
+            #jy : there is a bug that for gYear 2020 it will be parsed as 2020-01-01
+            #therefore we should remove the month and day, and only maintain the year 02/24/2022
+            #we first treat the year as an intege to avoid it becomes a year-month-day format in the middle of the process
+            #we will transform the year into xsd.gYear at end when adding it to tuples
+            year_parts = str(o).split('-')          
+            before_year =  Literal(year_parts[0], datatype=XSD.int)
+            
         for s, p, o in kb_graph.triples((before_time_component_id, AIDA.month, None)):
             before_month = o
+                       
         for s, p, o in kb_graph.triples((before_time_component_id, AIDA.day, None)):
             before_day = o
 
     after_year, after_month, after_day = None, None, None
     if after_time_component_id:
         for s, p, o in kb_graph.triples((after_time_component_id, AIDA.year, None)):
-            after_year = o
+            #jy : there is a bug that for gYear 2020 it will be parsed as 2020-01-01
+            #therefore we should remove the month and day, and only maintain the year 02/24/2022
+            #we first treat the year as an intege to avoid it becomes a year-month-day format in the middle of the process
+            #we will transform the year into xsd.gYear at end when adding it to tuples
+            year_parts = str(o).split('-')
+            after_year = Literal(year_parts[0], datatype=XSD.int)
+
         for s, p, o in kb_graph.triples((after_time_component_id, AIDA.month, None)):
             after_month = o
+
         for s, p, o in kb_graph.triples((after_time_component_id, AIDA.day, None)):
             after_day = o
-
+    
     before_year_value = int(''.join(filter(lambda i: i.isdigit(), str(before_year)))) if before_year else None
     before_month_value = int(''.join(filter(lambda i: i.isdigit(), str(before_month)))) if before_month else None
     before_day_value = int(''.join(filter(lambda i: i.isdigit(), str(before_day)))) if before_day else None
     after_year_value = int(''.join(filter(lambda i: i.isdigit(), str(after_year)))) if after_year else None
     after_month_value = int(''.join(filter(lambda i: i.isdigit(), str(after_month)))) if after_month else None
     after_day_value = int(''.join(filter(lambda i: i.isdigit(), str(after_day)))) if after_day else None
-    
+     
     # after_date should be no later than before_date
     before_date = AidaIncompleteDate(before_year_value, before_month_value, before_day_value)
     after_date = AidaIncompleteDate(after_year_value, after_month_value, after_day_value)
-
-    if before_date.is_before(after_date):
-        before_year = after_year
-        before_month = after_month
-        before_day = after_day
-
+    
+    # jy
+    # There are before date is before after date in claim files so ignore this date correction
+    
+    #if before_date.is_before(after_date):
+    #    before_year = after_year
+    #    before_month = after_month
+    #    before_day = after_day
+      
     if before_year:
-        update_triples_catchnone(triples, [(before_time_component_id, AIDA.year, before_year)], "for time: before year")
+        update_triples_catchnone(triples, [(before_time_component_id, AIDA.year, Literal(before_year, datatype = XSD.gYear, normalize=False))], "for time: before year") #jy: make sure year is xsd.gYear type
     if before_month:
         update_triples_catchnone(triples, [(before_time_component_id, AIDA.month, before_month)], "for time: before month")
     if before_day:
         update_triples_catchnone(triples, [(before_time_component_id, AIDA.day, before_day)], "for time: before day")
     if after_year:
-        update_triples_catchnone(triples, [(after_time_component_id, AIDA.year, after_year)], 'for time: after year')
+        update_triples_catchnone(triples, [(after_time_component_id, AIDA.year, Literal(after_year, datatype = XSD.gYear, normalize=False))], 'for time: after year') #jy: make sure year is xsd.gYear type
     if after_month:
         update_triples_catchnone(triples, [(after_time_component_id, AIDA.month, after_month)], "for time: after month")
     if after_day:
