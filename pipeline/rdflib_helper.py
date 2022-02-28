@@ -328,9 +328,11 @@ def triples_for_type_stmt(kb_graph, stmt_id):
         if p == AIDA.privateData:
             continue
 
+        # basically triples.add((s, p, o))
         update_triples_catchnone(triples, [(s, p, o)], "triples for type stmt")
 
         if p == AIDA.justifiedBy:
+            # basically triples.update(triples_for_justification(kb_graph, o))
             update_triples_catchnone(triples, triples_for_justification(kb_graph, o), "triples for type stmt: justification")
 
         update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for type stmt: conf and system")
