@@ -11,6 +11,7 @@ import io
 import json
 import shutil
 import logging
+import csv
 from argparse import ArgumentParser
 from collections import defaultdict
 
@@ -55,6 +56,51 @@ def parse_aifdocs(inpath, output_dir, fileinfix = ""):
 
     return claims
 
+# given the filename of a condition 6 topics file,
+# turn it into a list of cliams directories that write_claiminfo_to_file can write
+def parse_cond6(filename):
+    claims = [ ]
+    
+    with open(str(filename)) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter="\t")
+        # format: topic ID, topic, subtopic, template, qnodes, no header
+        for row in csv_reader:
+            topic_id, topic, subtopic, template, qnodes = row
+            thisclaim = {
+                "file" : "NONE",
+                "claim_id" : topic_id,
+                "claim_text" : topic + ": " + subtopic,
+                "topic" : topic,
+                "subtopic" : subtopic,
+                "claim_template" : template
+                }
+            claims.append(thisclaim)
+
+    return claims
+            
+# given the filename of a condition 7 topics file,
+# turn it into a list of cliams directories that write_claiminfo_to_file can write
+def parse_cond7(filename):
+    claims = [ ]
+    
+    with open(str(filename)) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter="\t")
+        # format: topic ID, topic
+        for row in csv_reader:
+            topic_id, topic= row
+            thisclaim = {
+                "file" : "NONE",
+                "claim_id" : topic_id,
+                "claim_text" : topic,
+                "topic" : topic,
+                "subtopic" : "NONE",
+                "claim_template" : "NONE"
+                }
+            claims.append(thisclaim)
+
+    return claims
+       
+# given a list of claims directories, write tab-separated output to the given file
 def write_claiminfo_to_file(claims, fout):
     for c in claims:
         print(c["file"], c["claim_id"], c["claim_text"], c["topic"], c["subtopic"], c["claim_template"], sep = "\t", file = fout)
@@ -115,6 +161,29 @@ def main():
                 write_claiminfo_to_file(claims, fout)
                 
                 fout.close()
+
+            # in condition 6, convert topics.tsv file to queries.tsv format
+            elif condition == "Condition6":
+                claims = parse_cond6(topicfilename)
+                
+                output_path = this_out_dir / "queries.tsv"
+                fout = open(output_path, "w")
+                
+                write_claiminfo_to_file(claims, fout)
+                
+                fout.close()
+                
+
+            elif condition == "Condition7":
+                claims = parse_cond7(topicfilename)
+                
+                output_path = this_out_dir / "queries.tsv"
+                fout = open(output_path, "w")
+                
+                write_claiminfo_to_file(claims, fout)
+                
+                fout.close()
+
 
     #####
     # making document jsons, retaining texts and IDS
