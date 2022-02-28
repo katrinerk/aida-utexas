@@ -18,84 +18,8 @@ import csv
 import json
 
 from aida_utexas import util
+from aida_utexas import claimutil
 
-
-##
-# read output file stating relatedness between queries and claims
-def read_querydoc_relatedness(filepath, qid_claimcandidates, qid_2_file, cid_2_file):
-    query_relclaim = { }
-    
-    with open(filepath) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=",")
-        # Query_Filename,Query_ID,Query_Sentence,Claim_Filename,Claim_ID,Claim_Sentence,Related or Unrelated,Score
-        header = next(csv_reader)
-        for row in csv_reader:
-            qfilename, qid, qtext, cfilename, cid, ctext, isrel, score = row
-
-            # santiy checks
-            if qid not in qid_2_file or qid_2_file[qid][0] != qfilename or qid_2_file[qid][1] != qtext:
-                print("error: mismatching info on query", qid)
-                if qfilename != qid_2_file[qid][0]:
-                    print("filenames:", qfilename, "vs", qid_2_file[qid][0])
-                if qtext != qid_2_file[qid][1]:
-                    print("text:", qtext, "vs", qid_2_file[qid][1])
-                sys.exit(1)
-
-            # santiy checks
-            if cid not in cid_2_file or  cid_2_file[cid][0] != cfilename or cid_2_file[cid][1] != ctext:
-                print("error: mismatching info on claim", cid)
-                sys.exit(1)
-
-            if qid not in qid_claimcandidates:
-                print("error: qid has no candidates", qid)
-                print(qid_claimcandidates.keys())
-                sys.exit(1)
-
-            # put qid into the dictionary so we can see if we get zero related items
-            if qid not in query_relclaim: query_relclaim[qid] = [ ]
-                
-            # test relatedness
-            if isrel == "Related" and cid in qid_claimcandidates[qid]:
-                query_relclaim[qid].append(cid)
-
-    return query_relclaim
-
-
-######3
-# given a queries.tsv or docclaims.tsv file, return:
-# mapping from IDs to filenames and text
-# mapping from IDs to topic/subtopic/list of templates
-def read_query_or_docclaim_tsv(filepath):
-    id_2_file = { }
-    id_2_topic = { }
-
-    with open(filepath) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter="\t")
-        # row example:
-        # 'CLL0C04979A.000004.ttl', 'claim-CLL0C04979A.000004', 'Author claims masks do not trap germs',
-        # 'Non-Pharmaceutical Interventions (NPIs): Masks', 'Harmful effects of wearing masks',
-        # "['Wearing masks has X negative effect']"]
-        #
-        # column indices:
-        # 0: query/claim filename
-        # 1: query/claim ID
-        # 2: query/claim text
-        # 3: topic
-        # 4 : subtopic
-        # 5: template
-        for row in csv_reader:
-            qcfilename, qcid, qctext, qctopic, qcsubtopic, qctemplate_s = row
-            if '[' in qctemplate_s and ']' in qctemplate_s:
-                # templates read from AIF are lists, encoded as strings.
-                qctemplate = json.loads(qctemplate_s.replace("\'", '\"'))
-            else:
-                # templates read from topic files are strings
-                qctemplate = [ qctemplate_s] 
-                
-            id_2_file[qcid] = (qcfilename, qctext)
-            id_2_topic[qcid] = (qctopic, qcsubtopic, qctemplate)
-
-    return id_2_file, id_2_topic
 
 #############33
 # given a dictionary of query IDs with their topics, subtopics, and templates,
@@ -209,27 +133,21 @@ def main():
     # read query/doc relatedness results
     working_path = util.get_input_path(args.working_dir)
     
-    if args.condition != "Condition6":
-        # actually do read those results and use them
+    working_cond_path = util.get_input_path(working_path / args.condition, check_exist = True)
+    querydoc_file = util.get_input_path(working_cond_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
 
-        working_cond_path = util.get_input_path(working_path / args.condition, check_exist = True)
-        querydoc_file = util.get_input_path(working_cond_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    query_rel = claimutil.read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext)
 
-        query_rel = read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext)
+    # histogram of relatedness counts
+    count_counts = defaultdict(int)
+    for query_id, rel in query_rel.items():
+        count_counts[ len(rel) ] += 1
 
-        # histogram of relatedness counts
-        count_counts = defaultdict(int)
-        for query_id, rel in query_rel.items():
-            count_counts[ len(rel) ] += 1
+    print("Sanity check: Do we have sufficient numbers of related claims?")
+    for count in sorted(count_counts.keys()):
+        print("queries with {} related claims".format(count), ":", count_counts[count])
+    print()
 
-        print("Sanity check: Do we have sufficient numbers of related claims?")
-        for count in sorted(count_counts.keys()):
-            print("queries with {} related claims".format(count), ":", count_counts[count])
-        print()
-
-    else:
-        # Condition6: any candidate is related
-        query_rel = query_candidates
 
 
     # ########
