@@ -153,6 +153,8 @@ def main():
 
 	parser.add_argument('--type', type=str, required=True, help="query_claim or claim_claim")
 
+	parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
+
 	parser.add_argument('--threshold', type=float, required=False, default=0.58, 
 						help="the threshold used to separate redundant from independent sentences.")
 
@@ -171,8 +173,8 @@ def main():
 	if args.type == "query_claim":
 
 		docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
-		query_file = os.path.join(args.query_file, "condition5/queries.tsv")
-		output_path = os.path.join(args.output_path, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv")
+		query_file = os.path.join(args.query_file, args.condition, "queries.tsv")
+		output_path = os.path.join(args.output_path, args.data, args.condition, "step1_query_claim_relatedness/q2d_relatedness.csv")
 
 		claims_split_by_document, claims_to_id = read_doc(docclaim_file)
 		queries_split_by_document, queries_to_id = read_query(query_file)
@@ -180,8 +182,8 @@ def main():
 		write_output(output_path, rows, args.type)
 
 	if args.type == "claim_claim":
-		input_file = os.path.join(args.output_path, args.data, "condition5/step3_claim_claim_ranking/claim_claim.csv")
-		output_path = os.path.join(args.output_path, args.data, "condition5/step3_claim_claim_ranking/claim_claim_redundancy.csv")
+		input_file = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/claim_claim.csv")
+		output_path = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/claim_claim_redundancy.csv")
 
 		# claim1 is as query, claim2 is as claim
 		queries_split_by_document, queries_to_id, claims_split_by_document, claims_to_id = read_combined(input_file)

@@ -116,6 +116,8 @@ def main():
 
     parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
 
+    parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
+
     parser.add_argument('--input_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/working",
                         help="path to related matched query-claim pair file")
     
@@ -123,8 +125,8 @@ def main():
 						help="path to working space for output result")
     
     args = parser.parse_args()
-    input_file = os.path.join(args.input_file, args.data, "condition5/step2_query_claim_nli/nli_input.csv")
-    output_path = os.path.join(args.output_path, args.data, "condition5/step2_query_claim_nli/q2d_nli.csv")
+    input_file = os.path.join(args.input_file, args.data, args.condition, "step2_query_claim_nli/nli_input.csv")
+    output_path = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/q2d_nli.csv")
 
     # setting device on GPU if available, else CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -147,7 +149,7 @@ def main():
     # read in input dataset
     processor = EvalProcessor()
     data = processor.get_test_examples(input_file)
-    labels = processor.get_labels()
+    labels = ["contradiction", "neutral", "entailment"]
 
     # create data generator for prediction
     predictset = EvalDataset(data, roberta)
