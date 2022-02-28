@@ -135,7 +135,7 @@ def main():
     working_mainpath = util.get_input_path(args.working_dir)
     working_path = util.get_input_path(working_mainpath / args.run_id / args.condition)
     
-    querydoc_file = util.get_input_path(working_cond_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    querydoc_file = util.get_input_path(working_cond_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
 
     query_rel = claimutil.read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext)
 
