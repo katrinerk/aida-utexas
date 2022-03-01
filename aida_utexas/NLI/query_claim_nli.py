@@ -73,12 +73,12 @@ class NLI_predicter():
         return outputs
 
 
-def write_output(data_dir, outputs, dataloader, labels, threshold):
-    cols = ['Query_Filename', 'Query_ID', 'Query_Sentence', 'Claim_Filename', 'Claim_ID', 'Claim_Sentence', 'Related or Unrelated', 'Score', "nli_label", "contradict_prob", "neutral_prob", "entail_prob", 'adjust_nli_label'] 
+def write_output(data_dir, outputs, dataloader, labels, header, threshold):
+    cols = header + ["nli_label", "contradict_prob", "neutral_prob", "entail_prob", "adjust_nli_label"]
     df = pd.DataFrame(columns = cols)
 
     for i, output in enumerate(outputs):
-        info = dataloader.dataset.data[i] # [Query_Filename, Query_ID, Query_Sentence, Claim_Filename, Claim_ID, Claim_Sentence, Redundant_or_Independent, Score]
+        info = dataloader.dataset.data[i]
     
         tmp = []
         line = list(info)
@@ -89,7 +89,8 @@ def write_output(data_dir, outputs, dataloader, labels, threshold):
         
         # add adjust label
         probs = output[1:]
-        if np.max(probs) < threshold:
+        # CHECKME: contradict label less then certain threshold
+        if np.argmax(probs) == 0 and np.max(probs) < threshold:
             line.append('neutral')
         else:
             line.append(labels[np.argmax(probs)])
@@ -116,6 +117,8 @@ def main():
 
     parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
 
+    parser.add_argument('--type', type=str, required=True, help="query_claim or claim_claim")
+
     parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
 
     parser.add_argument('--input_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/working",
@@ -125,8 +128,12 @@ def main():
 						help="path to working space for output result")
     
     args = parser.parse_args()
-    input_file = os.path.join(args.input_file, args.data, args.condition, "step2_query_claim_nli/nli_input.csv")
-    output_path = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/q2d_nli.csv")
+    if args.type == "query_claim":
+        input_file = os.path.join(args.input_file, args.data, args.condition, "step2_query_claim_nli/nli_input.csv")
+        output_path = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/q2d_nli.csv")
+    elif args.type == "claim_claim":
+        input_file = os.path.join(args.input_file, args.data, args.condition, "step2_query_claim_nli/claim_claim.csv")
+        output_path = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/d2d_nli.csv")
 
     # setting device on GPU if available, else CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -148,7 +155,7 @@ def main():
     logger.info('Create predict data generator')
     # read in input dataset
     processor = EvalProcessor()
-    data = processor.get_test_examples(input_file)
+    header, data = processor.get_test_examples(input_file)
     labels = ["contradiction", "neutral", "entailment"]
 
     # create data generator for prediction
@@ -162,7 +169,7 @@ def main():
     outputs = predicter.predict(args.batch, predictloader, labels)
 
     # write output
-    write_output(output_path, outputs, predictloader, labels, args.threshold)
+    write_output(output_path, outputs, predictloader, labels, header, args.threshold)
 
     
 if __name__ == '__main__':

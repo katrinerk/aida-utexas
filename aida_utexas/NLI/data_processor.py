@@ -56,7 +56,7 @@ class EvalProcessor(DataProcessor):
     def get_test_examples(self, data_dir):
         lines = self._read_csv(data_dir)
         pairs = [line for line in lines]
-        return pairs[1:]
+        return pairs[0], pairs[1:]
 
     def get_labels(self):
         return ["contradiction", "neutral", "entailment"]

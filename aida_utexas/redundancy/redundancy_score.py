@@ -138,7 +138,7 @@ def calculate_redundancy_claim_claim(claims_split_by_document, claims_to_id, que
 		cosine_scores = util.cos_sim(query_embeddings, claim_embeddings)
 
 		score = cosine_scores[0][0].item()
-		label = 'Related' if score > threshold else 'Unrelated'
+		label = 'Related' if score >= threshold else 'Unrelated'
 		
 		score = round(score, 2)
 
