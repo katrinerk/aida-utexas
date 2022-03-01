@@ -18,7 +18,92 @@ import csv
 import json
 
 from aida_utexas import util
-from aida_utexas import claimutil
+
+######3
+# given a queries.tsv or docclaims.tsv file, return:
+# mapping from IDs to filenames and text
+# mapping from IDs to topic/subtopic/list of templates
+def read_query_or_docclaim_tsv(filepath, extend_query_ids = False):
+    id_2_file = { }
+    id_2_topic = { }
+
+    with open(filepath) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter="\t")
+        # row example:
+        # 'CLL0C04979A.000004.ttl', 'claim-CLL0C04979A.000004', 'Author claims masks do not trap germs',
+        # 'Non-Pharmaceutical Interventions (NPIs): Masks', 'Harmful effects of wearing masks',
+        # "['Wearing masks has X negative effect']"]
+        #
+        # column indices:
+        # 0: query/claim filename
+        # 1: query/claim ID
+        # 2: query/claim text
+        # 3: topic
+        # 4 : subtopic
+        # 5: template
+        for row in csv_reader:
+            qcfilename, qcid, qctext, qctopic, qcsubtopic, qctemplate_s = row
+            if '[' in qctemplate_s and ']' in qctemplate_s:
+                # template from AIF: list encoded as string
+                qctemplate = json.loads(qctemplate_s.replace("\'", '\"'))
+            else:
+                qctemplate = [ qctemplate_s ]
+
+            # extend query ID? if so, add query text to it
+            if extend_query_ids:
+                qcid = (qcid, qctext)
+                
+            id_2_file[qcid] = (qcfilename, qctext)
+            id_2_topic[qcid] = (qctopic, qcsubtopic, qctemplate)
+
+    return id_2_file, id_2_topic
+
+
+##
+# read file stating relatedness between queries and claims
+def read_querydoc_relatedness(filepath, qid_claimcandidates, qid_2_file, cid_2_file, threshold = None, extend_query_ids = False):
+    query_relclaim = { }
+    
+    with open(filepath) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=",")
+        # Query_Filename,Query_ID,Query_Sentence,Claim_Filename,Claim_ID,Claim_Sentence,Related or Unrelated,Score
+        header = next(csv_reader)
+        for row in csv_reader:
+            qfilename, qid, qtext, cfilename, cid, ctext, isrel, score = row
+
+            if extend_query_ids:
+                qid = (qid, qtext)
+
+            # santiy checks
+            if qid not in qid_2_file or qid_2_file[qid][0] != qfilename or qid_2_file[qid][1] != qtext:
+                print("error: mismatching info on query", qid)
+                if qfilename != qid_2_file[qid][0]:
+                    print("filenames:", qfilename, "vs", qid_2_file[qid][0])
+                if qtext != qid_2_file[qid][1]:
+                    print("text:", qtext, "vs", qid_2_file[qid][1])
+                sys.exit(1)
+
+            # santiy checks
+            if cid not in cid_2_file or  cid_2_file[cid][0] != cfilename or cid_2_file[cid][1] != ctext:
+                print("error: mismatching info on claim", cid)
+                sys.exit(1)
+
+            if qid not in qid_claimcandidates:
+                print("error: qid has no candidates", qid)
+                print(qid_claimcandidates.keys())
+                sys.exit(1)
+
+            # put qid into the dictionary so we can see if we get zero related items
+            if qid not in query_relclaim: query_relclaim[qid] = [ ]
+                
+            # test relatedness
+            if (threshold is None and isrel == "Related") or (threshold and float(score) >= threshold):
+                if cid in qid_claimcandidates[qid]:
+                    query_relclaim[qid].append(cid)
+
+    return query_relclaim
+
+
 
 
 #############33
@@ -85,105 +170,26 @@ def match_everything(query_topics, docclaim_topics, verbose = False):
         print()
 
     return query_candidates
-    
-###########################
-def main():
-    ######3
-    # parsing arguments
-    parser = ArgumentParser()
-    parser.add_argument('query_dir', help='Directory with preprocessed query files (cond5,6,7)')
-    parser.add_argument('docclaim_dir', help="Directory with text claims in tsv")
-    parser.add_argument('working_dir', help="Working directory with intermediate system results")
-    parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
-    parser.add_argument('condition', help="Condition5, Condition6, Condition7")
-    parser.add_argument('-f', '--force', action='store_true',
-                        help='If specified, overwrite existing output files without warning')
-    
-    
-    args = parser.parse_args()
-
-    # sanity check on condition
-    if args.condition not in ["Condition5", "Condition6", "Condition7"]:
-        print("Error: need a condition that is Condition5, Condition6, Condition7")
-        sys.exit(1)
-
-    ########
-    # read queries tsv. 
-    query_path = util.get_input_path(args.query_dir)
-    query_path_cond = util.get_input_path(query_path / args.condition / "queries.tsv")
-
-    query_filetext, query_topics = read_query_or_docclaim_tsv(str(query_path_cond))
-
-    #######
-    # read docclaims tsv
-
-    docclaims_path = util.get_input_path(args.docclaim_dir)
-    docclaims_file = util.get_input_path(docclaims_path / "docclaims.tsv")
-
-    docclaim_filetext, docclaim_topics = read_query_or_docclaim_tsv(str(docclaims_file))
-
-    ###
-    # determine query candidates: claims with matching topic/subtopic/template
-    if args.condition != "Condition7":
-        query_candidates = topic_matcher(query_topics, docclaim_topics, verbose = True)
-    else:
-        # everything matches with everything
-        query_candidates = match_everyting(query_topics, docclaim_topics, verbose = True)
-    
-    ########
-    # read query/doc relatedness results
-    working_mainpath = util.get_input_path(args.working_dir)
-    working_path = util.get_input_path(working_mainpath / args.run_id / args.condition)
-    
-    querydoc_file = util.get_input_path(working_cond_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
-
-    query_rel = claimutil.read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext)
-
-    # histogram of relatedness counts
-    count_counts = defaultdict(int)
-    for query_id, rel in query_rel.items():
-        count_counts[ len(rel) ] += 1
-
-    print("Sanity check: Do we have sufficient numbers of related claims?")
-    for count in sorted(count_counts.keys()):
-        print("queries with {} related claims".format(count), ":", count_counts[count])
-    print()
 
 
+##################3
+# determine claim pairs that have a query in common.
+# returns a dictionary: claim => list of other claims
+# each claim lists as "other claims" only ones that come later in the overall list of claims.
 
-    # ########
-    # # check against yaling's file
-    # yaling_path = util.get_input_path(args.yalings_file)
-
-    # yaling_rel = defaultdict(list)
-
-    # with open(yaling_path) as csv_file:
-    #     csv_reader = csv.reader(csv_file, delimiter=",")
-    #     # Query_Filename,Query_ID,Claim_Filename,Claim_ID
-    #     header = next(csv_reader)
-    #     for row in csv_reader:
-    #         qfilename, qid, cfilename, cid = row
-
-    #         if qid not in query_rel or cid not in query_rel[qid]:
-    #             print("Error, entry that yaling has but I don't", qid, cid)
-
-
-    #         yaling_rel[qid].append(cid)
-
-    # for qid, rel in query_rel.items():
-    #     for cid in rel:
-    #         if qid not in yaling_rel or cid not in yaling_rel[qid]:
-    #             print('error, entry that I have but yaling doesnt', qid, cid)
-            
-
-
-    #########
-    # write output file: pairs of claims that have a query in common
-    
+def claimpairs_that_have_a_query_in_common(query_rel, query_filetext, docclaim_filetext, generalize_query_ids = False):
     # first, invert query -> claim dict
     claim_query = defaultdict(list)
     
     for query_id, rel in query_rel.items():
+        if generalize_query_ids:
+            if len(query_id) != 2:
+                print("Error, was expecting query ID to consist of query ID and text for condition 6, got:", query_id)
+                sys.exit(1)
+
+            actual_query_id, qtext = query_id
+            query_id = actual_query_id
+            
         for claim_id in rel:
             claim_query[claim_id].append(query_id)
 
@@ -209,15 +215,12 @@ def main():
             for claim2 in rel:
                 if claim1 != claim2 and claim2 not in claim_claim.get(claim1, []) and claim1 not in claim_claim.get(claim2, []):
                     print("error: two claims that should be related but aren't in the list", claim1, claim2)
+    
+    return claim_claim
 
-    # make output file
-    working_cond_path = working_path / args.condition
-    if not working_cond_path.exists():
-        working_cond_path.mkdir(exist_ok=True, parents=True)
-        
-    output_path = util.get_output_dir(working_cond_path / "step2_query_claim_nli" , overwrite_warning=not args.force)
-    output_filename = output_path / "claim_claim.csv"
-
+########
+# write a file with claim-claim pairs that have a query in common
+def write_claimclaim_file(claim_claim, output_filename, docclaim_filetext):
     # write csv output
     with open(str(output_filename), 'w', newline='') as csvfile:
         fieldnames = ["claim1_filename", "claim1_id", "claim1_text", "claim2_filename", "claim2_id", "claim2_text"]
@@ -233,9 +236,103 @@ def main():
                 writer.writerow({"claim1_filename" : claim1_file, "claim1_id" : claim1, "claim1_text": claim1_text,
                                 "claim2_filename" : claim2_file, "claim2_id" : claim2, "claim2_text" : claim2_text})
                 
+
     
 
+###########################
+def main():
+    ######3
+    # parsing arguments
+    parser = ArgumentParser()
+    parser.add_argument('query_dir', help='Directory with preprocessed query files (cond5,6,7)')
+    parser.add_argument('docclaim_dir', help="Directory with text claims in tsv")
+    parser.add_argument('working_dir', help="Working directory with intermediate system results")
+    parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
+    parser.add_argument('condition', help="Condition5, Condition6, Condition7")
+    parser.add_argument('-f', '--force', action='store_true',
+                        help='If specified, overwrite existing output files without warning')
+    parser.add_argument('-t', '--threshold', help="threshold for counting a claim as related", type = float)
+    
+    
+    args = parser.parse_args()
 
+    # sanity check on condition
+    if args.condition not in ["Condition5", "Condition6", "Condition7"]:
+        print("Error: need a condition that is Condition5, Condition6, Condition7")
+        sys.exit(1)
+
+    ########
+    # read queries tsv. 
+    query_path = util.get_input_path(args.query_dir)
+    query_path_cond = util.get_input_path(query_path / args.condition / "queries.tsv")
+
+    # in condition 6, special handling of query IDs
+    query_filetext, query_topics = read_query_or_docclaim_tsv(str(query_path_cond), extend_query_ids = (args.condition == "Condition6"))
+
+    #######
+    # read docclaims tsv
+
+    docclaims_path = util.get_input_path(args.docclaim_dir)
+    docclaims_file = util.get_input_path(docclaims_path / "docclaims.tsv")
+
+    docclaim_filetext, docclaim_topics = read_query_or_docclaim_tsv(str(docclaims_file))
+
+    ###
+    # determine query candidates: claims with matching topic/subtopic/template
+    if args.condition != "Condition7":
+        query_candidates = topic_matcher(query_topics, docclaim_topics, verbose = True)
+    else:
+        # in condition 7, everything matches with everything because we don't have topics
+        query_candidates = match_everything(query_topics, docclaim_topics, verbose = True)
+    
+    ########
+    # read query/doc relatedness results
+    working_mainpath = util.get_input_path(args.working_dir)
+    working_path = util.get_input_path(working_mainpath / args.run_id / args.condition)
+    
+    querydoc_file = util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
+
+    query_rel = read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext,
+                                          threshold = args.threshold,
+                                          extend_query_ids = (args.condition == "Condition6"))
+
+    # histogram of relatedness counts
+    count_counts = defaultdict(int)
+    for query_id, rel in query_rel.items():
+        count_counts[ len(rel) ] += 1
+
+    print("Sanity check: Do we have sufficient numbers of related claims?")
+    for count in sorted(count_counts.keys()):
+        print("queries with {} related claims".format(count), ":", count_counts[count])
+    print()
+
+
+
+    #########
+    # write output file: pairs of claims that have a query in common
+    
+    claim_claim = claimpairs_that_have_a_query_in_common(query_rel, query_filetext, docclaim_filetext)
+    
+    # make output file
+    #  working_cond_path = working_path / args.condition
+    # if not working_cond_path.exists():
+    #     working_cond_path.mkdir(exist_ok=True, parents=True)
+        
+    output_path = util.get_output_dir(working_path / "step2_query_claim_nli" , overwrite_warning=not args.force)
+    output_filename = output_path / "claim_claim.csv"
+
+    write_claimclaim_file(claim_claim, str(output_filename), docclaim_filetext)
+
+
+    ##
+    # in condition 6, write another claim/claim file for claims
+    # that have a topic ID in common even if the query text is not the same
+    if args.condition == "Condition6":
+        claim_claim = claimpairs_that_have_a_query_in_common(query_rel, query_filetext, docclaim_filetext, generalize_query_ids = True)
+
+        output_filename = output_path / "claim_claim_for_relatedness.csv"
+
+        write_claimclaim_file(claim_claim, str(output_filename), docclaim_filetext)
 
 if __name__ == '__main__':
     main()
