@@ -215,7 +215,7 @@ def main():
     if not working_cond_path.exists():
         working_cond_path.mkdir(exist_ok=True, parents=True)
         
-    output_path = util.get_output_dir(working_cond_path / "Step2_claimpairs" , overwrite_warning=not args.force)
+    output_path = util.get_output_dir(working_cond_path / "step2_query_claim_nli" , overwrite_warning=not args.force)
     output_filename = output_path / "claim_claim.csv"
 
     # write csv output
