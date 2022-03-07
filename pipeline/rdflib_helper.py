@@ -452,6 +452,9 @@ def triples_for_claim(kb_graph, claim_id):
         if p == AIDA.claimLocation or p == AIDA.claimer or p == AIDA.xVariable or p == AIDA.claimerAffiliation:
             update_triples_catchnone(triples, triples_for_claimcomponent(kb_graph, o), "for claim: claim component")
 
+    if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
+        update_triples_catchnone(triples, [(claim_id, aida.sentiment, aida.SentimentNeutralUnknown)])
+
     return triples
 
 def triples_for_claimcomponent(kb_graph, comp_id):
