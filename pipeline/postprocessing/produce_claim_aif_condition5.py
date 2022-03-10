@@ -523,7 +523,7 @@ def main():
     all_claims = []
     #for condition 5
     #all claims can be extracted from q2d_relatedness.csv
-    filename= util.get_input_path(working_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
