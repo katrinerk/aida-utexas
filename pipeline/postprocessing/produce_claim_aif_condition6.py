@@ -593,7 +593,7 @@ def main():
     query_related = defaultdict(list)
 
     #jy fix for condition6
-    filename= util.get_input_path(working_path / "Step2_query_claim_nli" / "query_related_claims.csv")
+    filename= util.get_input_path(working_path / "step2_query_claim_nli" / "query_related_claims.csv")
     
     #jy fix for condition6
     with open(str(filename), newline='') as csvfile:
@@ -611,7 +611,7 @@ def main():
         query_claim_relation = { }
 
         # claims that are related and matching: located in [working_path]/step2_query_claim_nli/q2d_nli.csv
-        queryclaim_rel_filename = util.get_input_path(working_path / "Step2_query_claim_nli" / "q2d_nli.csv")
+        queryclaim_rel_filename = util.get_input_path(working_path / "step2_query_claim_nli" / "q2d_nli.csv")
     
         with open(str(queryclaim_rel_filename), newline='') as csvfile:
             # first row has header, so we don't need to give fieldnames
@@ -631,7 +631,7 @@ def main():
 
     claim_claim_score = { }
 
-    filename= util.get_input_path(working_path / "Step3_claim_claim_ranking" / "new_claim_claim_redundancy.csv") #hot fix for condition6
+    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "new_claim_claim_redundancy.csv") #hot fix for condition6
     
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -652,7 +652,7 @@ def main():
     claim_2_text = { }
     queries = set()
 
-    filename= util.get_input_path(working_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
     
     claim_related = defaultdict(list)
     
