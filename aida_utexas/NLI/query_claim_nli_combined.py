@@ -91,7 +91,7 @@ class NLI_predicter():
         return outputs
 
 
-def write_output(data_dir, outputs, dataloader, labels, header, threshold):
+def write_output(data_dir, outputs, dataloader, header, threshold):
     cols = header + ["nli_label", "contradict_prob", "neutral_prob", "entail_prob", "adjust_nli_label"]
     df = pd.DataFrame(columns = cols)
 
@@ -108,10 +108,10 @@ def write_output(data_dir, outputs, dataloader, labels, header, threshold):
         # add adjust label
         probs = output[1:]
         # CHECKME: contradict label less then certain threshold
-        if np.argmax(probs) == 2 and np.max(probs) < threshold:
+        if np.argmax(probs) == 0 and np.max(probs) < threshold:
             line.append('neutral')
         else:
-            line.append(labels[np.argmax(probs)])
+            line.append(output[0])
         tmp.append(pd.DataFrame([np.array(line)], columns = cols))
 
         buf = pd.concat(tmp, ignore_index=True)
@@ -180,7 +180,7 @@ def main():
     outputs = predicter.predict(args.batch, predictloader, labels)
 
     # write output
-    write_output(output_path, outputs, predictloader, labels, header, args.threshold)
+    write_output(output_path, outputs, predictloader, header, args.threshold)
 
     
 if __name__ == '__main__':

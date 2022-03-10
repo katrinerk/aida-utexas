@@ -21,7 +21,7 @@ def read_doc(doc_input):
 
 	with open(doc_input) as file:
 
-	    tsv_file = csv.reader(file, delimiter="\t")
+	    tsv_file = csv.reader(file, delimiter="\t", quoting=csv.QUOTE_NONE)
 	    for line in tsv_file:
 	        claims_to_id[line[2]] = (line[0], line[1])
 	        claims_split_by_document[0].append(line[2])
@@ -36,7 +36,7 @@ def read_query(query_input):
 
 	with open(query_input) as file:
 
-	    tsv_file = csv.reader(file, delimiter="\t")
+	    tsv_file = csv.reader(file, delimiter="\t",quoting=csv.QUOTE_NONE)
 	    for line in tsv_file:
 	        queries_to_id[line[2]] = (line[0], line[1])
 	        queries_split_by_document[0].append(line[2])
@@ -105,7 +105,7 @@ def calculate_redundancy_query_claim(claims_split_by_document, claims_to_id, que
 
 		for i in range(len(cosine_scores[0])):
 			score = cosine_scores[0][i].item()
-			label = 'Related' if score > threshold else 'Unrelated'
+			label = 'Related' if score >= threshold else 'Unrelated'
 			
 			score = round(score, 2)
 

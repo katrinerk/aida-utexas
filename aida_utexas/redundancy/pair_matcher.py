@@ -8,7 +8,7 @@ import argparse
 def queries_to_dict(filepath):
 	queries = {}
 	with open(filepath) as f:
-		query_reader = csv.reader(f, delimiter='\t')
+		query_reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 		for line in query_reader:
 			line[-1] = ast.literal_eval(line[-1])
 			queries[line[1]] = line
@@ -20,7 +20,7 @@ def queries_to_dict(filepath):
 def docclaims_to_dict(filepath):
 	docclaims = {}
 	with open(filepath) as f:
-		claim_reader = csv.reader(f, delimiter='\t')
+		claim_reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 		for line in claim_reader:
 			line[-1] = ast.literal_eval(line[-1])
 			docclaims[line[1]] = line
