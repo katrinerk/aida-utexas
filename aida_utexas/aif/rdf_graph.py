@@ -164,7 +164,7 @@ class RDFGraph:
     #             self.node_dict[obj].add_in_edge(pred, subj)
 
     #     logging.info('Done.')
-
+    
     # Build the RDF graph from a file, default format is ttl (turtle)
     def build_graph(self, graph_path, fmt='ttl'):
         # load triples from the file
