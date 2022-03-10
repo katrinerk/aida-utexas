@@ -181,7 +181,6 @@ def main():
 
     # output is to: [working_path] / step4_ranking
 
-
     output_path = util.get_output_dir("/Users/cookie/Downloads/step4_ranking2" , overwrite_warning=not args.force)
 
     for query_id in query_related.keys():
