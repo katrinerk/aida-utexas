@@ -123,9 +123,24 @@ def extract_stmt_components(kb_graph, stmt_id):
     """
     Find the subject, the predicate, and the object of a statement from a graph
     """
-    stmt_subj = next(iter(kb_graph.objects(subject=stmt_id, predicate=RDF.subject)))
-    stmt_pred = next(iter(kb_graph.objects(subject=stmt_id, predicate=RDF.predicate)))
-    stmt_obj = next(iter(kb_graph.objects(subject=stmt_id, predicate=RDF.object)))
+    stmt_subj = None
+    stmt_pred = None 
+    stmt_obj = None
+    
+    print("The current stmt_id is  {}\n".format(stmt_id))
+    try:
+        stmt_subj = next(iter(kb_graph.objects(subject=stmt_id, predicate=RDF.subject)))
+    except:
+        print("Fail to find subject for stmt: {} \n".format(stmt_id))
+    try:
+        stmt_pred = next(iter(kb_graph.objects(subject=stmt_id, predicate=RDF.predicate)))
+    except:
+        print("Fail to find pred for stmt: {} \n".format(stmt_id))
+    try:  
+        stmt_obj = next(iter(kb_graph.objects(subject=stmt_id, predicate=RDF.object)))
+    except:
+        print("Fail to find obj for stmt: {} \n".format(stmt_id))
+        
     return stmt_subj, stmt_pred, stmt_obj
 
 
@@ -164,7 +179,11 @@ def index_statement_nodes(kb_graph, kb_stmt_set=None):
     kb_stmt_key_mapping = defaultdict(set)
 
     for stmt_id in kb_stmt_set:
+        #######test
+        print("Try to find the subject, predicate and object of the statement: {} \n".format(stmt_id))
         stmt_subj, stmt_pred, stmt_obj = extract_stmt_components(kb_graph, stmt_id)
+        # print("subj: {}, pred: {}, obj: {} \n".format(stmt_subj, stmt_pred, stmt_obj))
+        
         kb_stmt_key_mapping[(stmt_subj, stmt_pred, stmt_obj)].add(stmt_id)
 
     return kb_stmt_key_mapping
