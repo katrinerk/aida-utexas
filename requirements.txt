@@ -8,7 +8,9 @@ edit_distance
 
 sentence_transformers
 six
-torch torchvision torchaudio
+torch
+torchvision
+torchaudio
 fairseq
 sklearn
 transformers

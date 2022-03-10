@@ -8,7 +8,7 @@ import argparse
 def queries_to_dict(filepath):
 	queries = {}
 	with open(filepath) as f:
-		query_reader = csv.reader(f, delimiter='\t')
+		query_reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 		for line in query_reader:
 			line[-1] = ast.literal_eval(line[-1])
 			queries[line[1]] = line
@@ -20,7 +20,7 @@ def queries_to_dict(filepath):
 def docclaims_to_dict(filepath):
 	docclaims = {}
 	with open(filepath) as f:
-		claim_reader = csv.reader(f, delimiter='\t')
+		claim_reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 		for line in claim_reader:
 			line[-1] = ast.literal_eval(line[-1])
 			docclaims[line[1]] = line
@@ -105,6 +105,8 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
 
+	parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
+
 	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed", 
 							help="path to preprocessed docclaims")
 
@@ -125,15 +127,15 @@ def main():
 	args = parser.parse_args()
 
 	docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
-	query_file = os.path.join(args.query_file, "condition5/queries.tsv")
-	redundancy_file = os.path.join(args.redundancy_file, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv")
+	query_file = os.path.join(args.query_file, args.condition, "queries.tsv")
+	redundancy_file = os.path.join(args.redundancy_file, args.data, args.condition, "step1_query_claim_relatedness/q2d_relatedness.csv")
 
 	if args.write_matching == "True":
-		output_path = os.path.join(args.output_path, args.data, "condition5/step3_claim_claim_ranking/query_claim_matching.csv")
+		output_path = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/query_claim_matching.csv")
 		get_matching(query_file, docclaim_file, redundancy_file, output_path)
 
 	if args.write_nli_input == "True":
-		output_path = os.path.join(args.output_path, args.data, "condition5/step2_query_claim_nli/nli_input.csv")
+		output_path = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/nli_input.csv")
 		get_nli_input(query_file, docclaim_file, redundancy_file, output_path)
 
 

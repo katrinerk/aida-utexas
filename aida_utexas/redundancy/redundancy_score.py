@@ -4,7 +4,7 @@ The models here are further trained from their Huggingface equivalents on a data
 [over 1 billion pairs](https://huggingface.co/datasets/sentence-transformers/embedding-training-data) 
 trained to detect similarity."""
 
-#python redundancy_score.py --data ta2_colorado
+#python redundancy_score.py --data ta2_colorado --type claim_claim
 
 import os
 import argparse
@@ -21,7 +21,7 @@ def read_doc(doc_input):
 
 	with open(doc_input) as file:
 
-	    tsv_file = csv.reader(file, delimiter="\t")
+	    tsv_file = csv.reader(file, delimiter="\t", quoting=csv.QUOTE_NONE)
 	    for line in tsv_file:
 	        claims_to_id[line[2]] = (line[0], line[1])
 	        claims_split_by_document[0].append(line[2])
@@ -36,17 +36,41 @@ def read_query(query_input):
 
 	with open(query_input) as file:
 
-	    tsv_file = csv.reader(file, delimiter="\t")
+	    tsv_file = csv.reader(file, delimiter="\t",quoting=csv.QUOTE_NONE)
 	    for line in tsv_file:
 	        queries_to_id[line[2]] = (line[0], line[1])
 	        queries_split_by_document[0].append(line[2])
 	return queries_split_by_document, queries_to_id
 
 
+# read claim_claim.csv for claims pairwise redundancy score calculation
+def read_combined(input_file):
+	queries_split_by_document = defaultdict(list)
+	queries_to_id = dict()
+
+	claims_split_by_document = defaultdict(list)
+	claims_to_id = dict()
+
+	with open(input_file) as file:
+		reader = csv.reader(file)
+		next(reader, None)
+		for line in reader:
+			queries_to_id[line[2]] = (line[0], line[1])
+			queries_split_by_document[0].append(line[2])
+			
+			claims_to_id[line[5]] = (line[3], line[4])
+			claims_split_by_document[0].append(line[5])
+
+	return queries_split_by_document, queries_to_id, claims_split_by_document, claims_to_id
+
+
 """write output to csv"""
-def write_output(output_path, rows):
+def write_output(output_path, rows, header):
 	# field names 
-	fields = ['Query_Filename', 'Query_ID', 'Query_Sentence', 'Claim_Filename', 'Claim_ID', 'Claim_Sentence', 'Redundant_or_Independent', 'Score'] 
+	if header == "query_claim":
+		fields = ['Query_Filename', 'Query_ID', 'Query_Sentence', 'Claim_Filename', 'Claim_ID', 'Claim_Sentence', 'Redundant_or_Independent', 'Score'] 
+	elif header == "claim_claim":
+		fields = ['Claim1_Filename', 'Claim1_ID', 'Claim1_Sentence', 'Claim2_Filename', 'Claim2_ID', 'Claim2_Sentence', 'Redundant_or_Independent', 'Score'] 
 
 	with open(output_path, 'w') as csvfile: 
 
@@ -57,12 +81,12 @@ def write_output(output_path, rows):
 	    csvwriter.writerows(rows)
 
 
-"""Calculate redundancy/independent 
+"""Calculate redundancy/independent of query_claim pair 
 
 This is a sample model I chose - it's 22M parameters and a distilled version of BERT.
 By default, the model uses a GPU if it is available.
 """
-def calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, threshold):
+def calculate_redundancy_query_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, threshold):
 
 	model = SentenceTransformer('all-MiniLM-L6-v2')
 	rows = []
@@ -81,7 +105,7 @@ def calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_b
 
 		for i in range(len(cosine_scores[0])):
 			score = cosine_scores[0][i].item()
-			label = 'Related' if score > threshold else 'Unrelated'
+			label = 'Related' if score >= threshold else 'Unrelated'
 			
 			score = round(score, 2)
 
@@ -91,8 +115,45 @@ def calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_b
 	return rows
 
 
+"""Calculate redundancy/independent of query_claim pair 
+
+This is a sample model I chose - it's 22M parameters and a distilled version of BERT.
+By default, the model uses a GPU if it is available.
+"""
+def calculate_redundancy_claim_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, threshold):
+
+	model = SentenceTransformer('all-MiniLM-L6-v2')
+	rows = []
+	queries = queries_split_by_document[0]
+	claims = claims_split_by_document[0]
+
+	query_num = -1
+	for i, query in enumerate(queries):
+
+		query_num += 1
+		claim = claims[i]
+		query_embeddings = model.encode([query], convert_to_tensor=True)
+		claim_embeddings = model.encode([claim], convert_to_tensor=True)
+		#Compute cosine-similarities
+		cosine_scores = util.cos_sim(query_embeddings, claim_embeddings)
+
+		score = cosine_scores[0][0].item()
+		label = 'Related' if score >= threshold else 'Unrelated'
+		
+		score = round(score, 2)
+
+		query_filename, query_claim_id = queries_to_id[query]
+		doc_filename, doc_claim_id = claims_to_id[claim]
+		rows.append([query_filename, query_claim_id, query, doc_filename, doc_claim_id, claim, label, score]) 
+	return rows
+
+
 def main():
 	parser = argparse.ArgumentParser()
+
+	parser.add_argument('--type', type=str, required=True, help="query_claim or claim_claim")
+
+	parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
 
 	parser.add_argument('--threshold', type=float, required=False, default=0.58, 
 						help="the threshold used to separate redundant from independent sentences.")
@@ -109,14 +170,25 @@ def main():
 						help="path to working space for output result")
 	args = parser.parse_args()
 
-	docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
-	query_file = os.path.join(args.query_file, "condition5/queries.tsv")
-	output_path = os.path.join(args.output_path, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv")
+	if args.type == "query_claim":
 
-	claims_split_by_document, claims_to_id = read_doc(docclaim_file)
-	queries_split_by_document, queries_to_id = read_query(query_file)
-	rows = calculate_redundancy(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
-	write_output(output_path , rows)
+		docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
+		query_file = os.path.join(args.query_file, args.condition, "queries.tsv")
+		output_path = os.path.join(args.output_path, args.data, args.condition, "step1_query_claim_relatedness/q2d_relatedness.csv")
+
+		claims_split_by_document, claims_to_id = read_doc(docclaim_file)
+		queries_split_by_document, queries_to_id = read_query(query_file)
+		rows = calculate_redundancy_query_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
+		write_output(output_path, rows, args.type)
+
+	if args.type == "claim_claim":
+		input_file = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/claim_claim.csv")
+		output_path = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/claim_claim_redundancy.csv")
+
+		# claim1 is as query, claim2 is as claim
+		queries_split_by_document, queries_to_id, claims_split_by_document, claims_to_id = read_combined(input_file)
+		rows = calculate_redundancy_claim_claim(claims_split_by_document, claims_to_id, queries_split_by_document, queries_to_id, args.threshold)
+		write_output(output_path, rows, args.type)
 
 if __name__ == '__main__':
     main()
