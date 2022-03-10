@@ -1,12 +1,16 @@
 import sys
-sys.path.insert(0, "/Users/kee252/Documents/Projects/AIDA/scripts/aida-utexas")
+from pathlib import Path
+import os
+currpath = Path(os.getcwd())
+
+sys.path.insert(0, str(currpath.parents[1]))
 
 
 import io
 import json
 import logging
 import sys
-import os
+
 from argparse import ArgumentParser
 from collections import defaultdict
 import csv
@@ -100,14 +104,17 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 #############
 # main
 
+def main():
+    claim_id = "claim_L0C049P3R_2"
+    graph_path = "/Users/cookie/Downloads/GAIA_English.Colorado_TA2_20220211.ttl.json"
 
-claim_id = sys.argv[1]
-graph_path = sys.argv[2]
+    json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
 
-json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
+    clusterinfo = get_cluster_info_forgraph(json_graph)
 
-clusterinfo = get_cluster_info_forgraph(json_graph)
+    claim_is_okay = test_claim_has_oneedge(json_graph, claim_id, clusterinfo)
 
-claim_is_okay = test_claim_has_oneedge(json_graph, claim_id, clusterinfo)
-
-print("claim", claim_id, "is okay?", claim_is_okay)
+    print("claim", claim_id, "is okay?", claim_is_okay)
+    
+if __name__ == '__main__':
+    main()
