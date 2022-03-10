@@ -369,13 +369,11 @@ def triples_for_ere(kb_graph, ere_id):
         update_triples_catchnone(triples, info_just_triples, "for ere: justifications")
 
     for s, p, o in kb_graph.triples((ere_id, None, None)):
-        ### jy
-        #if p in [AIDA.justifiedBy, AIDA.privateData]:
-        if p == AIDA.privateData:
+        if p in [AIDA.justifiedBy, AIDA.privateData]:
             continue
 
-        #if p == AIDA.informativeJustification:
-        #    continue
+        if p == AIDA.informativeJustification:
+            continue
 
         update_triples_catchnone(triples, [(s, p, o)], "triples for ere: graph triple")
         
@@ -449,6 +447,10 @@ def triples_for_claim(kb_graph, claim_id):
 
         if p == AIDA.claimLocation or p == AIDA.claimer or p == AIDA.xVariable or p == AIDA.claimerAffiliation:
             update_triples_catchnone(triples, triples_for_claimcomponent(kb_graph, o), "for claim: claim component")
+    
+    if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
+        update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)],"for claim: claim sentiment manually adding" )
+
 
     return triples
 
@@ -460,6 +462,10 @@ def triples_for_claimcomponent(kb_graph, comp_id):
 
     for s, p, o in kb_graph.triples((comp_id, None, None)):
         if p == AIDA.privateData:
+            continue
+        
+        #jy: hot fix for validator error
+        if p == AIDA.componentKE:
             continue
 
         if p == AIDA.justifiedBy:
