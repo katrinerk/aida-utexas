@@ -4,6 +4,7 @@
 import sys
 import os
 import pandas
+import logging 
 
 # find relative path_jy
 from pathlib import Path
@@ -74,24 +75,52 @@ def print_graph(g):
     return stream.getvalue().decode()
 
 #############################
+# NEW
+# (or rather updated)
 # determine set of all clusters relevant for hte given EREs,
 # and for each cluster prototype, determine handle
 # return mapping from prototype to handles
 def compute_handle_mapping(ere_set, json_graph, member_to_clusters, cluster_to_prototype):
     entity_cluster_set = set()
+    cluster_labels = defaultdict(list)
+    
     for ere in ere_set:
         # Only include handles for clusters of Entities.
         if json_graph.is_entity(ere):
             for cluster in member_to_clusters[ere]:
                 entity_cluster_set.add(cluster)
+                for erename in json_graph.node_dict[ere].name:
+                    if len(erename) > 0:
+                        cluster_labels[cluster].append(erename)
 
     proto_handles = {}
     for cluster in entity_cluster_set:
         prototype = cluster_to_prototype.get(cluster, None)
         if prototype is not None:
-            proto_handles[prototype] = json_graph.node_dict[cluster].handle
+            firsthandle = json_graph.node_dict[cluster].handle
+            if firsthandle != "":
+                # handle on the prototype is there and is not empty
+                proto_handles[prototype] = firsthandle
+            else:
+                # any better handle to be had?
+                if len(cluster_labels[cluster]) > 0:
+                    proto_handles[prototype] = cluster_labels[cluster][0]
+                else:
+                    # nope, nothing better there
+                    proto_handles[prototype] = firsthandle
+                    
 
     return proto_handles
+
+#########3
+# NEW compute info on clusters needed for handling prototype handles
+# returns: ere_set, member_to_clusters, cluster_to_prototype 
+def compute_cluster_info(json_graph, ere_list):
+    graph_mappings = json_graph.build_cluster_member_mappings()
+    member_to_clusters = graph_mappings['member_to_clusters']
+    cluster_to_prototype = graph_mappings['cluster_to_prototype']
+
+    return (set(ere_list), member_to_clusters, cluster_to_prototype)
 
 #########
 # given a claim ID and a json graph, find the matching claim and its associated KEs,
@@ -255,7 +284,21 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, cl
     # Add all triples
     for triple in all_triples:
         subgraph.add(triple)
+        
+    # NEW
+    # fix prototype handles
+    # Compute cluster info
+    ere_set, member_to_clusters, cluster_to_prototype = compute_cluster_info(json_graph, material_dict["eres"])
 
+    # Compute handles for Entity clusters
+    proto_handles = compute_handle_mapping(
+        ere_set, json_graph, member_to_clusters, cluster_to_prototype)
+
+    # add in handles for prototypes where they are missing
+    for proto_ere, handle in proto_handles.items():
+        kb_proto_id = URIRef(proto_ere)
+        if len(list(subgraph.objects(subject=kb_proto_id, predicate=AIDA.handle))) == 0:
+            subgraph.add((kb_proto_id, AIDA.handle, Literal(handle, datatype=XSD.string)))
 
     return subgraph
 
@@ -416,6 +459,85 @@ def make_ranking(query_id, query_claim_score, claim_claim_score):
 
     return claims_ranked, claim_score
 
+###
+# determine cluster info for the json graph
+# run this once globally for the graph
+# before running any test_claim_has_oneedge calls
+def get_cluster_info_forgraph(json_graph):
+
+    node2cluster = {} # store node label -> sameAsClusterNode
+    clusterlabel = set() # store sameAsCluster node label
+    cluster2members = defaultdict(list) # store cluster label -> members
+    
+    for node_label, node in json_graph.node_dict.items():
+        if node.type == 'SameAsCluster':
+            clusterlabel.add(node_label)
+            node2cluster[node_label] = node
+        elif node.type == "ClusterMembership":
+            cluster2members[ node.cluster].append(node.clusterMember)
+
+    return { "node2cluster" : node2cluster,
+             "clusterlabels" : clusterlabel,
+             "cluster2members" : cluster2members}
+
+###
+# Katrin Erk March 2022: given a json graph and a claim ID,
+# test whether the claim has at least one associated KE that is
+# an event or relation with at least one edge that also goes to an associated KE
+#
+# returns: True if test passed, else False
+def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
+
+    ###
+    # find the claim
+    this_claim_label = None
+    this_claim_entry = None
+    
+    for claim_label, claim_entry in json_graph.each_claim():
+        if str(claim_entry.claim_id) == claim_id:
+            # found the right claim
+            this_claim_label = claim_label
+            this_claim_entry = claim_entry
+            break
+
+    if this_claim_label is None:
+        # we didn't find the claim
+        logging.warning(f'Test for edge presence in claim: claim not found: {claim_id}')
+        return False
+
+    ####
+    # determine EREs that are associated KEs
+    # EREs: associated KEs
+    eres = set(this_claim_entry.associated_kes)
+
+    # for KEs that are clusters, add prototypes and other members to list of EREs
+    for ake in this_claim_entry.associated_kes:
+        # if we got a cluster, find the prototype
+        if str(ake) in clusterinfo["clusterlabels"]:
+            eres.add(clusterinfo["node2cluster"][str(ake)].prototype)
+            # and all members
+            for member in clusterinfo["cluster2members"][ str(ake) ]:
+                eres.add(member)
+
+
+    ###
+    # test whether there are associated KEs that are events or relations
+    # that have at least one edge going to an associated KE
+    evrel_with_edge = set()
+    for ake in list(eres):
+        if json_graph.is_event(ake) or json_graph.is_relation(ake):
+            for stmt in json_graph.each_ere_adjacent_stmt(ake):
+                if json_graph.is_type_stmt(stmt):
+                    continue
+                else:
+                    obj = json_graph.stmt_object(stmt)
+                    if obj in eres:
+                        evrel_with_edge.add(ake)
+
+    # return: True (test passed) if we have at least one event or relation with an edge,
+    # else false
+    return len(evrel_with_edge) > 0
+
 def main():
     parser = ArgumentParser()   
     parser.add_argument('working_dir', help="Working directory with intermediate system results")
@@ -442,6 +564,31 @@ def main():
     working_mainpath = util.get_input_path(args.working_dir)
     working_path = util.get_input_path(working_mainpath / args.run_id / args.condition) 
     
+    #filter bad claims without associated KE that is
+    # an event or relation with at least one edge that also goes to an associated KE
+    json_path = args.graph_path
+    json_graph = JsonGraph.from_dict(util.read_json_file(json_path, 'JSON graph'))
+    
+    all_claims = []
+    #for condition 7 get all the claims
+    filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    with open(str(filename), newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            claim_id = row["Claim_ID"]
+            all_claims.append(claim_id)
+    
+    clusterinfo = get_cluster_info_forgraph(json_graph)
+    
+    good_claims = []
+     
+    for claim in all_claims:
+        claim_is_okay = test_claim_has_oneedge(json_graph, claim, clusterinfo)
+        if claim_is_okay:
+            good_claims.append(claim)
+        else:
+            print("bad claim: {}".format(claim))
+    
     ### ranking processing
     # for each query, determine the list of related claims
     query_related = defaultdict(list)
@@ -458,7 +605,7 @@ def main():
             query_id = row["Query_ID"]
             claim_id = row["Claim_ID"]
             queries.add(query_id)
-            if row["Redundant_or_Independent"] == "Related" and float(row["Score"]) >= 0.57:
+            if claim_id in good_claims and row["Redundant_or_Independent"] == "Related" and float(row["Score"]) >= 0.57:
                 query_related[ query_id ].append(claim_id)
                 claim_related[ claim_id ].append(query_id)  
 
@@ -496,9 +643,9 @@ def main():
             claim1 = row["Claim1_ID"]
             claim2 = row["Claim2_ID"]
             score = row["Score"]
-
-            claim_claim_score[ (claim1, claim2) ] = float(score)
-            claim_claim_score[ (claim2, claim1) ] = float(score)
+            if claim1 in good_claims and claim2 in good_claims:
+                claim_claim_score[ (claim1, claim2) ] = float(score)
+                claim_claim_score[ (claim2, claim1) ] = float(score)
 
 
     # read relatedness ratings between query and claims
@@ -518,7 +665,7 @@ def main():
             claim_text = row["Claim_Sentence"]
             score = row["Score"]
 
-            if claim_id in query_related[ query_id ]:
+            if claim_id in good_claims and claim_id in query_related[ query_id ]:
                 query_claim_score[ query_id][claim_id]  = float(score)
 
             query_2_text[ query_id ] = query_text
@@ -560,25 +707,21 @@ def main():
         if args.condition == "Condition5":
 
             with open(output_filename, 'w', newline='') as csvfile:
-                fieldnames = ['Query_ID', 'Claim_ID', 'Rank', 'Relation_to_Query']
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter="\t")
-
-                writer.writeheader()
+                #fieldnames = ['Query_ID', 'Claim_ID', 'Rank', 'Relation_to_Query']
+                writer = csv.writer(csvfile, delimiter="\t")
 
                 for rank, claim_id in enumerate(ranked_claims):
-                    rel = query_claim_relation.get( (query_id, claim_id), "related")
-                        
-                    writer.writerow( { "Query_ID" : query_id, "Claim_ID" : claim_id, "Rank" : rank + 1, "Relation_to_Query": rel })
+                    rel = query_claim_relation.get( (query_id, claim_id), "related")                  
+                    writer.writerow( [query_id, claim_id, rank + 1, rel ])
 
         # Conditions 6, 7: write without relation to query
         else:
             with open(output_filename, 'w', newline='') as csvfile:
-                fieldnames = ['Query_ID', 'Claim_ID', 'Rank']
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter="\t")
+                #fieldnames = ['Query_ID', 'Claim_ID', 'Rank']
+                writer = csv.writer(csvfile, delimiter="\t")
 
-                writer.writeheader()
                 for rank, claim_id in enumerate(ranked_claims):
-                    writer.writerow( { "Query_ID" : query_id, "Claim_ID" : claim_id, "Rank" : rank + 1})
+                    writer.writerow( [query_id, claim_id, rank + 1])
                     
     
     ### turtle files output processing
@@ -587,9 +730,6 @@ def main():
     #extract doc-doc relationship
     claim_claim_refuting, claim_claim_supporting = conflict_supporting_file_filter2(args.suppporting_refuting_file_path)
     claim_claim_related = relevant_file_filter2(args.relative_file_path)
-    
-    json_path = args.graph_path
-    json_graph = JsonGraph.from_dict(util.read_json_file(json_path, 'JSON graph'))
     
     ###
     # identify ttl file: can be buried more deeply somewhere under kb_path
