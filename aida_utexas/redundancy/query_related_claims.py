@@ -28,7 +28,7 @@ def read_query_or_docclaim_tsv(filepath, extend_query_ids = False):
     id_2_topic = { }
 
     with open(filepath) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter="\t")
+        csv_reader = csv.reader(csv_file, delimiter="\t", quoting=csv.QUOTE_NONE)
         # row example:
         # 'CLL0C04979A.000004.ttl', 'claim-CLL0C04979A.000004', 'Author claims masks do not trap germs',
         # 'Non-Pharmaceutical Interventions (NPIs): Masks', 'Harmful effects of wearing masks',
@@ -86,6 +86,11 @@ def read_querydoc_relatedness(filepath, qid_claimcandidates, qid_2_file, cid_2_f
             # santiy checks
             if cid not in cid_2_file or  cid_2_file[cid][0] != cfilename or cid_2_file[cid][1] != ctext:
                 print("error: mismatching info on claim", cid)
+                if cid not in cid_2_file: print("claim ID missing file info")
+                if cid_2_file[cid][0] != cfilename:
+                    print("mismatching file info", cid_2_file[cid][0], cfilename)
+                if cid_2_file[cid][1] != ctext:
+                    print("mismatching claim text", cid_2_file[cid][1], ctext)
                 sys.exit(1)
 
             if qid not in qid_claimcandidates:
@@ -180,6 +185,7 @@ def match_everything(query_topics, docclaim_topics, verbose = False):
 def claimpairs_that_have_a_query_in_common(query_rel, query_filetext, docclaim_filetext, generalize_query_ids = False):
     # first, invert query -> claim dict
     claim_query = defaultdict(list)
+
     
     for query_id, rel in query_rel.items():
         if generalize_query_ids:
@@ -189,10 +195,14 @@ def claimpairs_that_have_a_query_in_common(query_rel, query_filetext, docclaim_f
 
             actual_query_id, qtext = query_id
             query_id = actual_query_id
-            
-        for claim_id in rel:
-            claim_query[claim_id].append(query_id)
 
+        for claim_id in rel:
+            if query_id not in claim_query[claim_id]:
+                claim_query[claim_id].append(query_id)
+
+
+    # print("HIER1 claim_L0C04ATMB_0", "claim_L0C04ATMB_0" in claim_query)
+    # print("HIER1 claim_L0C04CA4U_7", "claim_L0C04CA4U_7" in claim_query)
             
     # now, for each claim, determine later-named claims that have one of the same queries
     claimlist = list(claim_query.keys())
@@ -248,7 +258,7 @@ def main():
     parser.add_argument('docclaim_dir', help="Directory with text claims in tsv")
     parser.add_argument('working_dir', help="Working directory with intermediate system results")
     parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
-    parser.add_argument('condition', help="Condition5, Condition6, Condition7")
+    parser.add_argument('condition', help="condition5, condition6, condition7")
     parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
     parser.add_argument('-t', '--threshold', help="threshold for counting a claim as related", type = float)
@@ -257,8 +267,8 @@ def main():
     args = parser.parse_args()
 
     # sanity check on condition
-    if args.condition not in ["Condition5", "Condition6", "Condition7"]:
-        print("Error: need a condition that is Condition5, Condition6, Condition7")
+    if args.condition not in ["condition5", "condition6", "condition7"]:
+        print("Error: need a condition that is condition5, condition6, condition7")
         sys.exit(1)
 
     ########
@@ -267,7 +277,7 @@ def main():
     query_path_cond = util.get_input_path(query_path / args.condition / "queries.tsv")
 
     # in condition 6, special handling of query IDs
-    query_filetext, query_topics = read_query_or_docclaim_tsv(str(query_path_cond), extend_query_ids = (args.condition == "Condition6"))
+    query_filetext, query_topics = read_query_or_docclaim_tsv(str(query_path_cond), extend_query_ids = (args.condition == "condition6"))
 
     #######
     # read docclaims tsv
@@ -279,11 +289,16 @@ def main():
 
     ###
     # determine query candidates: claims with matching topic/subtopic/template
-    if args.condition != "Condition7":
+    if args.condition != "condition7":
         query_candidates = topic_matcher(query_topics, docclaim_topics, verbose = True)
     else:
         # in condition 7, everything matches with everything because we don't have topics
         query_candidates = match_everything(query_topics, docclaim_topics, verbose = True)
+
+    # for q, cand in query_candidates.items():
+    #     if "claim_L0C04ATMB_0" in cand:
+    #         print("HIER0", q)
+            
     
     ########
     # read query/doc relatedness results
@@ -294,7 +309,7 @@ def main():
 
     query_rel = read_querydoc_relatedness(querydoc_file, query_candidates, query_filetext, docclaim_filetext,
                                           threshold = args.threshold,
-                                          extend_query_ids = (args.condition == "Condition6"))
+                                          extend_query_ids = (args.condition == "condition6"))
 
     # histogram of relatedness counts
     count_counts = defaultdict(int)
@@ -327,12 +342,37 @@ def main():
     ##
     # in condition 6, write another claim/claim file for claims
     # that have a topic ID in common even if the query text is not the same
-    if args.condition == "Condition6":
+    if args.condition == "condition6":
         claim_claim = claimpairs_that_have_a_query_in_common(query_rel, query_filetext, docclaim_filetext, generalize_query_ids = True)
 
         output_filename = output_path / "claim_claim_for_relatedness.csv"
 
         write_claimclaim_file(claim_claim, str(output_filename), docclaim_filetext)
+
+    ##
+    # also write out query_rel, since for condition 6
+    # this is the only record we have of which claims are both candidates and related
+    output_filename = output_path / "query_related_claims.csv"
+
+    # write csv output
+    with open(str(output_filename), 'w', newline='') as csvfile:
+        fieldnames = ["Query_ID", "Claim_ID"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for query_id, relatedclaims in query_rel.items():
+            # in condition 6, our query_id is actually a pair (query_id, query_text).
+            # for this file, only retain the actual query ID
+            if args.condition == "condition6":
+                if len(query_id) != 2:
+                    print("Error, expected internal ID to be (ID, text) in condition 6, but I got:", query_id)
+                    sys.exit(1)
+                actual_query_id, query_text = query_id
+                query_id = actual_query_id
+
+            for claim_id in relatedclaims:
+                writer.writerow({"Query_ID" : query_id, "Claim_ID" : claim_id} )
+    
 
 if __name__ == '__main__':
     main()
