@@ -65,7 +65,10 @@ def parse_cond6(filename):
         csv_reader = csv.reader(csv_file, delimiter="\t")
         # format: topic ID, topic, subtopic, template, qnodes, no header
         for row in csv_reader:
-            topic_id, topic, subtopic, template, qnodes = row
+            topic_id = row[0]
+            topic = row[1]
+            subtopic = row[2]
+            template = row[3]
             thisclaim = {
                 "file" : "NONE",
                 "claim_id" : topic_id,
