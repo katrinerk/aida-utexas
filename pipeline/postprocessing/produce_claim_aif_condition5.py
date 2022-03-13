@@ -1,6 +1,5 @@
 # Code by Pengxiang Cheng
 # Attempt to adapt to claim output: Katrin Erk
-# test jy
 
 import sys
 import os
@@ -634,7 +633,8 @@ def main():
 
     for query_id in query_related.keys():
         #jy
-        output_dir = Path(str(output_path) + '/{}'.format(query_id))
+        new_query_id = query_id[6:]
+        output_dir = Path(str(output_path) + '/{}'.format(new_query_id))
         os.makedirs(output_dir)
         # make a ranking
         ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score, query_2_text, claim_2_text)
@@ -645,7 +645,8 @@ def main():
         #     print(claim, claim_scores[claim], claim_2_text[claim])
 
         # and write it to a file
-        output_filename = output_dir / (query_id + ".ranking.tsv")
+        
+        output_filename = output_dir / (new_query_id + ".ranking.tsv")
 
         # Condition5: write including relation to query
         if args.condition == "Condition5":
@@ -656,7 +657,8 @@ def main():
 
                 for rank, claim_id in enumerate(ranked_claims):
                     rel = query_claim_relation.get( (query_id, claim_id), "related")
-                    writer.writerow( [ query_id, claim_id, rank + 1, rel ])
+                    new_query_id = query_id[6:]
+                    writer.writerow( [ new_query_id, claim_id, rank + 1, rel ])
 
         # Conditions 6, 7: write without relation to query
         else:
@@ -724,7 +726,8 @@ def main():
         subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim, doc_claim_match_supporting_query, doc_claim_match_refuting_query, claim_related) 
         
         for query in claim_related[claim]: 
-            file_path = os.path.join(str(str(output_path) + '/' + query + '/'), claim + ".ttl")
+            new_query = query[6:]
+            file_path = os.path.join(str(str(output_path) + '/' + new_query + '/'), claim + ".ttl")
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
       
