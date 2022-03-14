@@ -353,7 +353,7 @@ def triples_for_ere(kb_graph, ere_id):
 
     for s, p, info_just in kb_graph.triples((ere_id, AIDA.informativeJustification, None)):
         info_just_triples = triples_for_justification(kb_graph, info_just)
-
+        
         source_document = None
         for _, info_just_p, info_just_o in info_just_triples:
             if info_just_p == AIDA.sourceDocument:
@@ -369,6 +369,7 @@ def triples_for_ere(kb_graph, ere_id):
             seen_source_document.add(source_document)
 
         update_triples_catchnone(triples, info_just_triples, "for ere: justifications")
+        update_triples_catchnone(triples, [(s, p, info_just)], "for ere: informative just")
 
     for s, p, o in kb_graph.triples((ere_id, None, None)):
         if p in [AIDA.justifiedBy, AIDA.privateData]:
