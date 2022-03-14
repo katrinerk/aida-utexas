@@ -190,7 +190,7 @@ class JsonGraph:
 
         for node in tqdm(aida_graph.nodes()):
             node_label = node.name
-
+            
             # formatting for EREs
             if node.is_ere():
                 if node.is_entity():

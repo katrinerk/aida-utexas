@@ -194,21 +194,24 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, su
     if claim_name in relevant_query.keys():
         rpred = URIRef(AIDA + 'relatedClaims')
         for query in relevant_query[claim_name]:   
-            obj = URIRef(EX + query)
+            #obj = URIRef(EX + query)
+            obj = Literal(query, datatype=XSD.string)
             all_triples.add((claim_id, rpred, obj))
     
     # add supporting query claims
     if claim_name in supporting_query.keys(): 
         spred = URIRef(AIDA + 'supportingClaims')
         for query in supporting_query[claim_name]:   
-            obj = URIRef(EX + query)
+            #obj = URIRef(EX + query)
+            obj = Literal(query, datatype=XSD.string)
             all_triples.add((claim_id, spred, obj))
     
     # add refuting query claims
     if claim_name in refuting_query.keys(): 
         rpred = URIRef(AIDA + 'refutingClaims')
         for query in refuting_query[claim_name]:   
-            obj = URIRef(EX + query)
+            #obj = URIRef(EX + query)
+            obj = Literal(query, datatype=XSD.string)
             all_triples.add((claim_id, rpred, obj))    
 
     #############3
@@ -248,35 +251,31 @@ def find_ttl_file(startpath, filename):
    
 ### jy
 # return supporting/refuting relations between queries and doc claims
-def conflict_supporting_file_filter(csvfile_path):
-    filepath = Path(csvfile_path)
-    
+def relevant_file_filter(csvfile_path):
+    filepath = Path(csvfile_path)       
     record = pandas.read_csv(filepath)
-    unique_premise = record['premise_id'].unique()
-    hypo_match_supporting_premise = {}
-    hypo_match_refuting_premise = {}
-    claim_ttl = {}
+
+    unique_premise = record['Query_ID'].unique()
+    #hot fix to remove spaces from column names
+    record.rename(columns = {'Related or Unrelated': 'Related_or_Unrelated'}, inplace=True)
+    frecord = record[record.Related_or_Unrelated == 'Related']
     
+    premise_match_hypo = {}
+    hypo_match_relevant_premise = {}
+    claim_ttl = {}
     for premise in unique_premise:
-        ctdrecord = record[record.adjust_label == 'contradiction']
-        for row in ctdrecord.itertuples(index=True, name='Pandas'):
-            if row.premise_id == premise:
-                claim_ttl[row.hypo_id]= row.hypo_ttl # doc claimid -> doc turtle file name
-                if row.hypo_id not in hypo_match_refuting_premise.keys():
-                    hypo_match_refuting_premise[row.hypo_id] = [] 
-                if premise not in hypo_match_refuting_premise[row.hypo_id]:
-                    hypo_match_refuting_premise[row.hypo_id].append(premise) # doc claimid -> refuting query claimids
-     
-        rfrecord = record[record.adjust_label == 'entailment']
-        for row in rfrecord.itertuples(index=True, name='Pandas'):
-            if row.premise_id == premise:
-                claim_ttl[row.hypo_id]= row.hypo_ttl # doc claimid -> doc turtle file name
-                if row.hypo_id not in hypo_match_supporting_premise.keys():
-                    hypo_match_supporting_premise[row.hypo_id] = []
-                if premise not in hypo_match_supporting_premise[row.hypo_id]:
-                    hypo_match_supporting_premise[row.hypo_id].append(premise) # doc claimid -> supporting query claimids
-                         
-    return (hypo_match_refuting_premise, hypo_match_supporting_premise, claim_ttl)  
+        premise_match_hypo[premise] = []
+        for row in frecord.itertuples(index=True, name='Pandas'):
+            if row.Query_ID == premise:
+                if row.Claim_ID not in premise_match_hypo[premise]: #remove duplicate query-doc pairs
+                    premise_match_hypo[premise].append(row.Claim_ID) # query claimid -> doc claimid
+                    claim_ttl[row.Claim_ID]= row.Claim_Filename # doc claimid -> doc turtle file name
+                if row.Claim_ID not in hypo_match_relevant_premise.keys():
+                    hypo_match_relevant_premise[row.Claim_ID] = [] 
+                if premise not in hypo_match_relevant_premise[row.Claim_ID]:
+                    hypo_match_relevant_premise[row.Claim_ID].append(premise) # doc claimid -> refuting query claimids
+            
+    return (premise_match_hypo, hypo_match_relevant_premise, claim_ttl)
 
 ### jy
 # return relevant relations between queries and doc claims
@@ -285,7 +284,9 @@ def relevant_file_filter(csvfile_path):
     record = pandas.read_csv(filepath)
 
     unique_premise = record['Query_ID'].unique()
-    frecord = record[record.Redundant_or_Independent == 'Redundant']
+    #hot fix to remove spaces from column names
+    record.rename(columns = {'Related or Unrelated': 'Related_or_Unrelated'}, inplace=True)
+    frecord = record[record.Related_or_Unrelated == 'Related']
     
     premise_match_hypo = {}
     hypo_match_relevant_premise = {}

@@ -441,8 +441,7 @@ def triples_for_claim(kb_graph, claim_id):
             update_triples_catchnone(triples, [(s, p, o)], "triples for claim")
 
             update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for claim: conf and system")
-
-
+        
         if p == AIDA.claimDateTime: 
             update_triples_catchnone(triples, triples_for_ldc_time(kb_graph, o), "for claim: ldc time")
         if p == AIDA.link:
@@ -465,7 +464,8 @@ def triples_for_claimcomponent(kb_graph, comp_id):
     Extracting all triples related to a claim coponent node.
     """
     triples = set()
-
+    countType = 0
+    
     for s, p, o in kb_graph.triples((comp_id, None, None)):
         if p == AIDA.privateData:
             continue
@@ -474,6 +474,13 @@ def triples_for_claimcomponent(kb_graph, comp_id):
         if p == AIDA.componentKE:
             continue
 
+        if p == AIDA.componentType: 
+            countType = countType + 1
+            if countType <= 5:
+                update_triples_catchnone(triples, [(s, p, o)], "triples for claim component: componentType")
+            else:
+                continue
+
         if p == AIDA.justifiedBy:
             update_triples_catchnone(triples, [(s, p, o)], "triples for claim component: justification")
             update_triples_catchnone(triples, triples_for_compound_just(kb_graph, o), "triples for claim component: compound justification")
@@ -481,7 +488,6 @@ def triples_for_claimcomponent(kb_graph, comp_id):
             update_triples_catchnone(triples, [(s, p, o)], "triples for claim")
 
             update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for claim component: conf and system")
-
 
         if p == AIDA.link:
             update_triples_catchnone(triples, triples_for_link_assertion(kb_graph, o), "for claim component: link assertion")

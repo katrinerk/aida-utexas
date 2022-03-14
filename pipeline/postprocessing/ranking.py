@@ -18,7 +18,7 @@ import csv
 import json
 
 from aida_utexas import util
-from aida_utexas import claimutil
+#from aida_utexas import claimutil
 
 #########3
 # make a ranking for a given query
@@ -181,7 +181,8 @@ def main():
 
     # output is to: [working_path] / step4_ranking
 
-    output_path = util.get_output_dir(working_path / "step4_ranking" , overwrite_warning=not args.force)
+
+    output_path = util.get_output_dir("/Users/cookie/Downloads/step4_ranking2" , overwrite_warning=not args.force)
 
     for query_id in query_related.keys():
         # make a ranking
@@ -199,15 +200,14 @@ def main():
         if args.condition == "Condition5":
 
             with open(output_filename, 'w', newline='') as csvfile:
-                fieldnames = ['Query_ID', 'Claim_ID', 'Rank', 'Relation_to_Query']
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter="\t")
+                #fieldnames = ['Query_ID', 'Claim_ID', 'Rank', 'Relation_to_Query']
+                writer = csv.writer(csvfile, delimiter="\t")
 
-                writer.writeheader()
+                #writer.writeheader()
 
                 for rank, claim_id in enumerate(ranked_claims):
-                    rel = query_claim_relation.get( (query_id, claim_id), "related")
-                        
-                    writer.writerow( { "Query_ID" : query_id, "Claim_ID" : claim_id, "Rank" : rank + 1, "Relation_to_Query": rel })
+                    rel = query_claim_relation.get( (query_id, claim_id), "related")                        
+                    writer.writerow( [ query_id, claim_id, rank + 1, rel ])
 
         # Conditions 6, 7: write without relation to query
         else:
