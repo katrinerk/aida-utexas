@@ -456,7 +456,7 @@ def triples_for_claim(kb_graph, claim_id):
 
 
     if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
-        update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)])
+        update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)], "sentiment for claim")
 
     return triples
 
