@@ -329,9 +329,11 @@ def triples_for_type_stmt(kb_graph, stmt_id):
         if p == AIDA.privateData:
             continue
 
+        # basically triples.add((s, p, o))
         update_triples_catchnone(triples, [(s, p, o)], "triples for type stmt")
 
         if p == AIDA.justifiedBy:
+            # basically triples.update(triples_for_justification(kb_graph, o))
             update_triples_catchnone(triples, triples_for_justification(kb_graph, o), "triples for type stmt: justification")
 
         update_triples_catchnone(triples, expand_conf_and_system_node(kb_graph, p, o), "triples for type stmt: conf and system")
@@ -351,7 +353,7 @@ def triples_for_ere(kb_graph, ere_id):
 
     for s, p, info_just in kb_graph.triples((ere_id, AIDA.informativeJustification, None)):
         info_just_triples = triples_for_justification(kb_graph, info_just)
-
+        
         source_document = None
         for _, info_just_p, info_just_o in info_just_triples:
             if info_just_p == AIDA.sourceDocument:
@@ -367,6 +369,7 @@ def triples_for_ere(kb_graph, ere_id):
             seen_source_document.add(source_document)
 
         update_triples_catchnone(triples, info_just_triples, "for ere: justifications")
+        update_triples_catchnone(triples, [(s, p, info_just)], "for ere: informative just")
 
     for s, p, o in kb_graph.triples((ere_id, None, None)):
         if p in [AIDA.justifiedBy, AIDA.privateData]:
@@ -450,6 +453,9 @@ def triples_for_claim(kb_graph, claim_id):
     if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
         update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)],"for claim: claim sentiment manually adding" )
 
+
+    if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
+        update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)], "sentiment for claim")
 
     return triples
 

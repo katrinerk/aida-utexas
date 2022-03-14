@@ -5,3 +5,12 @@ pandas
 dill
 gensim
 edit_distance
+
+sentence_transformers
+six
+torch
+torchvision
+torchaudio
+fairseq
+sklearn
+transformers

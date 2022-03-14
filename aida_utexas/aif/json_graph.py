@@ -324,7 +324,7 @@ class JsonGraph:
                     importance = importance if importance else None,
                     epistemic = str(epistemic) if epistemic else None,
                     sentiment = str(sentiment) if sentiment else None,
-                    claim_template = claim_template if claim_template else None,
+                    claim_template = [str(t) for t in claim_template] if claim_template else None,
                     date_time = list(aida_graph.times_associated_with(node_label)),
                     text = nl_description if nl_description else None,
                     claim_semantics = claim_semantics,
