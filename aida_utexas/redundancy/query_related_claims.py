@@ -332,8 +332,12 @@ def main():
     #  working_cond_path = working_path / args.condition
     # if not working_cond_path.exists():
     #     working_cond_path.mkdir(exist_ok=True, parents=True)
-        
-    output_path = util.get_output_dir(working_path / "step2_query_claim_nli" , overwrite_warning=not args.force)
+
+    output_path = working_path / "step2_query_claim_nli"
+    if not output_path.exists():
+        output_math.mkdir(exist_ok = True, parents = True)
+
+    # output_path = util.get_output_dir(working_path / "step2_query_claim_nli" , overwrite_warning=not args.force)
     output_filename = output_path / "claim_claim.csv"
 
     write_claimclaim_file(claim_claim, str(output_filename), docclaim_filetext)
