@@ -23,7 +23,7 @@ from aida_utexas import util
 # parse files containing claim frames and possibly other EREs and statements
 # write as json files,
 # extract information about each claim and return as dictionary
-def parse_aifdocs(currentpath, mainpath, output_dir, fileinfix = ""):
+def parse_aifdocs(currentpath, mainpath, output_dir, fileinfix = "", force = False):
     in_filepaths = util.get_file_list(currentpath, suffix=".ttl")
 
     claims = [ ]
@@ -36,17 +36,20 @@ def parse_aifdocs(currentpath, mainpath, output_dir, fileinfix = ""):
         json_graph = JsonGraph()
         json_graph.build_graph(aif_graph)
 
-        output_path = output_dir / (inpath.name + fileinfix + '.json')
+        # write output
+        try:
+            file_relpath = inpath.relative_to(mainpath)
+            output_path = util.get_output_path(output_dir / (str(file_relpath) + fileinfix + '.json'), overwrite_warning=not force)
+            print("HIER", output_path)
+        except ValueError:
+            file_relpath = inpath.name
+            output_path = output_dir / (inpath.name + fileinfix + '.json')
+            
         fout = open(output_path, "w")
         json.dump(json_graph.as_dict(), fout, indent=1)
         fout.close()
 
         # extract claim texts and claim IDs
-        try:
-            file_relpath = inpath.relative_to(mainpath)
-            
-        except ValueError:
-            file_relpath = inpath.name
         
         for claim_label, claim_entry in json_graph.each_claim():
             if claim_entry.text is not None:
