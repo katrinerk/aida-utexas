@@ -40,7 +40,6 @@ def parse_aifdocs(currentpath, mainpath, output_dir, fileinfix = "", force = Fal
         try:
             file_relpath = inpath.relative_to(mainpath)
             output_path = util.get_output_path(output_dir / (str(file_relpath) + fileinfix + '.json'), overwrite_warning=not force)
-            print("HIER", output_path)
         except ValueError:
             file_relpath = inpath.name
             output_path = output_dir / (inpath.name + fileinfix + '.json')
