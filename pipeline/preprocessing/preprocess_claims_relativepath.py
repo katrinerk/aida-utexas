@@ -23,8 +23,8 @@ from aida_utexas import util
 # parse files containing claim frames and possibly other EREs and statements
 # write as json files,
 # extract information about each claim and return as dictionary
-def parse_aifdocs(inpath, output_dir, fileinfix = ""):
-    in_filepaths = util.get_file_list(inpath, suffix=".ttl")
+def parse_aifdocs(currentpath, mainpath, output_dir, fileinfix = ""):
+    in_filepaths = util.get_file_list(currentpath, suffix=".ttl")
 
     claims = [ ]
     
@@ -42,10 +42,16 @@ def parse_aifdocs(inpath, output_dir, fileinfix = ""):
         fout.close()
 
         # extract claim texts and claim IDs
+        try:
+            file_relpath = inpath.relative_to(mainpath)
+            
+        except ValueError:
+            file_relpath = inpath.name
+        
         for claim_label, claim_entry in json_graph.each_claim():
             if claim_entry.text is not None:
                 thisclaim = {
-                    "file" : inpath.name,
+                    "file" : file_relpath,
                     "claim_id" : json_graph.shorten_label(claim_label),
                     "claim_text" : claim_entry.text,
                     "topic" : claim_entry.topic,
@@ -156,7 +162,7 @@ def main():
                 query_out_json_dir = util.get_output_dir(this_out_dir / "json/", overwrite_warning=not args.force)
                 query_in_ttl_dir = util.get_input_path(this_in_dir / "Query_Claim_Frames")
         
-                claims = parse_aifdocs(query_in_ttl_dir, query_out_json_dir, "_query")
+                claims = parse_aifdocs(query_in_ttl_dir, this_in_dir, query_out_json_dir, "_query")
         
                 output_path = this_out_dir / "queries.tsv"
                 fout = open(output_path, "w")
@@ -198,7 +204,7 @@ def main():
 
     # possibly run through multiple subdirectories
     for root, dirs, _ in os.walk(args.aif_path):
-        claims = parse_aifdocs(root, doc_out_json_dir)
+        claims = parse_aifdocs(root, args.aif_path, doc_out_json_dir)
         write_claiminfo_to_file(claims, fout)
         # for thisdir in dirs:
         #     fulldir = os.path.join(root, thisdir)
