@@ -146,7 +146,41 @@ def topic_matcher(query_topics, docclaim_topics, verbose = False):
         print()
 
     return query_candidates
-    
+
+#############33
+# given a dictionary of topic IDs with topics
+# and of claim IDs with their topics, subtopics, and templates,
+# make a dictionary that maps each topic ID to the claim IDs with matching topic, subtopic, and templates
+def topic_matcher_nosubtopics(query_topics, docclaim_topics, verbose = False):
+    # determine candidate claims for each query
+    query_candidates = { }
+
+    for query_id, query_type in query_topics.items():
+        qtopic, _, _ = query_type
+        query_candidates[query_id] = [ ]
+        
+        for claim_id, claim_type in docclaim_topics.items():
+            ctopic, _, _ = claim_type
+            if qtopic == ctopic:
+                query_candidates[query_id].append(claim_id)
+
+        if len(query_candidates[query_id]) == 0 and verbose:
+            print("\nWarning: no candidates found for query", query_id)
+            print("Topic:", qtopic)
+
+    if verbose:
+        # histogram of candidate counts
+        count_counts = defaultdict(int)
+        for query_id, candidates in query_candidates.items():
+            count_counts[ len(candidates) ] += 1
+
+        print("Sanity check: Do we have sufficient numbers of candidates, just based on topic match?")
+        for count in sorted(count_counts.keys()):
+            print("queries with {} candidates".format(count), ":", count_counts[count])
+        print()
+
+    return query_candidates
+ 
 def match_everything(query_topics, docclaim_topics, verbose = False):
     # determine candidate claims for each query
     query_candidates = { }
@@ -293,12 +327,9 @@ def main():
         query_candidates = topic_matcher(query_topics, docclaim_topics, verbose = True)
     else:
         # in condition 7, everything matches with everything because we don't have topics
-        query_candidates = match_everything(query_topics, docclaim_topics, verbose = True)
+        # query_candidates = match_everything(query_topics, docclaim_topics, verbose = True)
+        query_candidates = topic_matcher_nosubtopics(query_topics, docclaim_topics, verbose = True)
 
-    # for q, cand in query_candidates.items():
-    #     if "claim_L0C04ATMB_0" in cand:
-    #         print("HIER0", q)
-            
     
     ########
     # read query/doc relatedness results
@@ -335,7 +366,7 @@ def main():
 
     output_path = working_path / "step2_query_claim_nli"
     if not output_path.exists():
-        output_math.mkdir(exist_ok = True, parents = True)
+        output_path.mkdir(exist_ok = True, parents = True)
 
     # output_path = util.get_output_dir(working_path / "step2_query_claim_nli" , overwrite_warning=not args.force)
     output_filename = output_path / "claim_claim.csv"
