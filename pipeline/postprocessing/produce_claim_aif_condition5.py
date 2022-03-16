@@ -522,7 +522,7 @@ def main():
     all_claims = []
     #for condition 5
     #all claims can be extracted from q2d_relatedness.csv
-    filename= util.get_input_path(working_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -546,7 +546,7 @@ def main():
     query_related = defaultdict(list)
     claim_related = defaultdict(list)
 
-    filename= util.get_input_path(working_path / "Step3_claim_claim_ranking" / "query_claim_matching.csv")
+    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "query_claim_matching.csv")
     
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -564,7 +564,7 @@ def main():
         query_claim_relation = { }
 
         # claims that are related and matching: located in [working_path]/step2_query_claim_nli/q2d_nli.csv
-        queryclaim_rel_filename = util.get_input_path(working_path / "Step2_query_claim_nli" / "q2d_nli.csv")
+        queryclaim_rel_filename = util.get_input_path(working_path / "step2_query_claim_nli" / "q2d_nli.csv")
     
         with open(str(queryclaim_rel_filename), newline='') as csvfile:
             # first row has header, so we don't need to give fieldnames
@@ -584,7 +584,7 @@ def main():
 
     claim_claim_score = { }
 
-    filename= util.get_input_path(working_path / "Step3_claim_claim_ranking" / "claim_claim_redundancy.csv")
+    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_redundancy.csv")
     
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -603,7 +603,7 @@ def main():
     query_2_text = { }
     claim_2_text = { }
 
-    filename= util.get_input_path(working_path / "Step1_query_claim_relatedness" / "q2d_relatedness.csv")
+    filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
     
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
