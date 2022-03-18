@@ -3,6 +3,7 @@ from collections import defaultdict
 
 from rdflib.namespace import Namespace, RDF, XSD
 from rdflib.term import BNode, Literal, URIRef
+import rdflib
 
 from aida_utexas.aif import AIF_NS_PREFIX
 from aida_utexas.hypothesis.date_check import AidaIncompleteDate
@@ -456,8 +457,8 @@ def triples_for_claim(kb_graph, claim_id):
         update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)],"for claim: claim sentiment manually adding" )
 
 
-    if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
-        update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)], "sentiment for claim")
+    #if len(list(kb_graph.objects(subject=claim_id, predicate=AIDA.sentiment))) == 0:
+        #update_triples_catchnone(triples, [(claim_id, AIDA.sentiment, AIDA.SentimentNeutralUnknown)], "sentiment for claim")
 
     return triples
 

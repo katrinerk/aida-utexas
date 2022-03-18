@@ -697,7 +697,8 @@ def main():
                 if claim_id in good_claims and claim_id in query_related[ query_id ]:
                     query_claim_score[ query_id][claim_id]  = float(score)
             elif args.condition == "Condition6":
-                if claim_id in good_claims and claim_id in query_related[ query_id ] and row["Redundant_or_Independent"] == "Related":
+                #if claim_id in good_claims and claim_id in query_related[ query_id ] and row["Redundant_or_Independent"] == "Related":
+                if claim_id in good_claims and claim_id in query_related[ query_id ]:
                     if query_id not in query_claim_score or claim_id not in query_claim_score[query_id] or float(score) > query_claim_score[query_id][claim_id]: #get the highest score
                         query_claim_score[query_id][claim_id]  = float(score)
                 
@@ -724,7 +725,7 @@ def main():
             output_dir = Path(str(output_path) + '/{}'.format(query_id))
         os.makedirs(output_dir)
         # make a ranking
-        ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score, query_2_text, claim_2_text)
+        ranked_claims, claim_scores = make_ranking(query_id,  query_claim_score, claim_claim_score, query_2_text, claim_2_text)
         
         # print("Sanity check")
         # print("Query", query_id, query_2_text[query_id], "\n")
