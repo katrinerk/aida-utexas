@@ -698,7 +698,6 @@ def main():
                     query_claim_score[ query_id][claim_id]  = float(score)
             elif args.condition == "Condition6":
                 if claim_id in good_claims and claim_id in query_related[ query_id ] and row["Redundant_or_Independent"] == "Related":
-                    claim_related[claim_id].append(query_id)
                     if query_id not in query_claim_score or claim_id not in query_claim_score[query_id] or float(score) > query_claim_score[query_id][claim_id]: #get the highest score
                         query_claim_score[query_id][claim_id]  = float(score)
                 
@@ -718,8 +717,8 @@ def main():
 
     for query_id in query_related.keys():
         #jy
+        new_query_id = query_id[6:]
         if args.condition == "Condition5":
-            new_query_id = query_id[6:]
             output_dir = Path(str(output_path) + '/{}'.format(new_query_id))
         else:
             output_dir = Path(str(output_path) + '/{}'.format(query_id))
@@ -747,7 +746,6 @@ def main():
 
                 for rank, claim_id in enumerate(ranked_claims):
                     rel = query_claim_relation.get( (query_id, claim_id), "related")
-                    new_query_id = query_id[6:]
                     writer.writerow( [ new_query_id, claim_id, rank + 1, rel ])
 
         # Conditions 6, 7: write without relation to query
@@ -822,11 +820,14 @@ def main():
         if args.condition == "Condition5":
             subgraph = build_subgraph_for_claim(material_dict, kb_graph[claim_dir], json_graph[claim_dir], claim, doc_claim_match_supporting_query, doc_claim_match_refuting_query, claim_related) 
         else:
-            subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim, claim_claim_refuting, claim_claim_supporting, claim_claim_related) 
+            subgraph = build_subgraph_for_claim(material_dict, kb_graph[claim_dir], json_graph[claim_dir], claim, claim_claim_refuting, claim_claim_supporting, claim_claim_related) 
             
         for query in claim_related[claim]: 
             new_query = query[6:]
-            file_path = os.path.join(str(str(output_path) + '/' + new_query + '/'), claim + ".ttl")
+            if args.condition == "Condition5":
+                file_path = os.path.join(str(str(output_path) + '/' + new_query + '/'), claim + ".ttl")
+            else:
+                file_path = os.path.join(str(str(output_path) + '/' + query + '/'), claim + ".ttl")
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
       
