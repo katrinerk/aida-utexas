@@ -435,8 +435,10 @@ def triples_for_claim(kb_graph, claim_id):
             continue
 
         if p == AIDA.justifiedBy:
-            update_triples_catchnone(triples, [(s, p, o)], "triples for claim: justification")
-            update_triples_catchnone(triples, triples_for_compound_just(kb_graph, o), "triples for claim: compound justification")
+            continue
+            #hot fix: justification node for claim lack source document
+            #update_triples_catchnone(triples, [(s, p, o)], "triples for claim: justification")
+            #update_triples_catchnone(triples, triples_for_compound_just(kb_graph, o), "triples for claim: compound justification")
         else:
             update_triples_catchnone(triples, [(s, p, o)], "triples for claim")
 
