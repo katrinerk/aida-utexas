@@ -20,11 +20,11 @@ def read_doc(doc_input):
 	claims_to_id = dict()
 
 	with open(doc_input) as file:
-
-	    tsv_file = csv.reader(file, delimiter="\t", quoting=csv.QUOTE_NONE)
-	    for line in tsv_file:
-	        claims_to_id[line[2]] = (line[0], line[1])
-	        claims_split_by_document[0].append(line[2])
+		tsv_file = csv.reader(file, delimiter="\t", quoting=csv.QUOTE_NONE)
+		for line in tsv_file:
+			if line[2] not in claims_to_id and len(line[2].split()) >= 4:
+				claims_to_id[line[2]] = (line[0], line[1])
+				claims_split_by_document[0].append(line[2])
 
 	return claims_split_by_document, claims_to_id
 
@@ -160,13 +160,13 @@ def main():
 
 	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
 
-	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed", 
+	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed", 
 						help="path to preprocessed docclaims")
 
-	parser.add_argument('--query_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed/query", 
+	parser.add_argument('--query_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed/query", 
 						help="path to preprocessed query")
 
-	parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/dryrun_data/working", 
+	parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/evaluation/working", 
 						help="path to working space for output result")
 	args = parser.parse_args()
 
