@@ -331,7 +331,7 @@ def conflict_supporting_file_filter(csvfile_path):
      
         rfrecord = record[record.nli_label == 'entailment']
         for row in rfrecord.itertuples(index=True, name='Pandas'):
-            if row.premise_id == premise:
+            if row.Query_ID == premise:
                 claim_ttl[row.Claim_ID]= row.Claim_Filename # doc claimid -> doc turtle file name
                 if row.Claim_ID not in hypo_match_supporting_premise.keys():
                     hypo_match_supporting_premise[row.Claim_ID] = []
