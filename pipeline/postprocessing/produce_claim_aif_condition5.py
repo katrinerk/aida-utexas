@@ -625,7 +625,7 @@ def main():
 
     # output is to: [working_path] / step4_ranking
     #jy:update
-    output_path = util.get_output_dir(str(args.output_dir + '/' +  "out" + '/' + args.run_id + '/' + args.condition), overwrite_warning=not args.force)
+    output_path = util.get_output_dir(str(args.output_dir + '/' +  "output" + '/' + args.run_id + '/' + "NIST" + '/' + args.condition), overwrite_warning=not args.force)
 
     for query_id in query_related.keys():
         #jy

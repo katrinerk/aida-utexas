@@ -96,6 +96,7 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
                     obj = json_graph.stmt_object(stmt)
                     if obj in eres:
                         evrel_with_edge.add(ake)
+                        print("subject {} : object {}".format(ake, obj))
 
     # return: True (test passed) if we have at least one event or relation with an edge,
     # else false
@@ -105,8 +106,8 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 # main
 
 def main():
-    claim_id = "claim_L0C049P3R_2"
-    graph_path = "/Users/cookie/Downloads/GAIA_English.Colorado_TA2_20220211.ttl.json"
+    claim_id = "claim_L0C04F73G_0"
+    graph_path = "/Users/cookie/Downloads/GAIA_COND5.Colorado_20220311.ttl.json"
 
     json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
 

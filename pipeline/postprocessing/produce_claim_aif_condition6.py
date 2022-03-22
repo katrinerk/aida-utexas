@@ -542,10 +542,6 @@ def main():
     parser.add_argument('working_dir', help="Working directory with intermediate system results")
     parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
     parser.add_argument('condition', help="Condition5, Condition6, Condition7")
-    
-    parser.add_argument('relative_file_path', help='Path to gunjan csv files') #need to rename
-    parser.add_argument('suppporting_refuting_file_path', help='Path to yaling csv files') # need to rename 
-    
     parser.add_argument('graph_path', help='path to the graph json file') # single big json file
     parser.add_argument('kb_path', help='path to AIF file') # single big file
     
@@ -561,21 +557,21 @@ def main():
         sys.exit(1)
 
     working_mainpath = util.get_input_path(args.working_dir)
-    working_path = util.get_input_path(working_mainpath / args.run_id / args.condition) 
+    working_path = util.get_input_path(working_mainpath / args.run_id / str(args.condition).lower()) 
     
     #filter bad claims without associated KE that is
     # an event or relation with at least one edge that also goes to an associated KE
     json_path = args.graph_path
     json_graph = JsonGraph.from_dict(util.read_json_file(json_path, 'JSON graph'))
     
-    all_claims = []
+    all_claims = set()
     #for condition 6 get all the claims
     filename= util.get_input_path(working_path / "step2_query_claim_nli" / "query_related_claims.csv")
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             claim_id = row["Claim_ID"]
-            all_claims.append(claim_id)
+            all_claims.add(claim_id)
     
     clusterinfo = get_cluster_info_forgraph(json_graph)
     
@@ -591,7 +587,7 @@ def main():
     ### ranking processing
     # for each query, determine the list of related claims
     query_related = defaultdict(list)
-
+    claim_related = defaultdict(list)
     #jy fix for condition6
     filename= util.get_input_path(working_path / "step2_query_claim_nli" / "query_related_claims.csv")
     
@@ -604,6 +600,7 @@ def main():
             # filter bad claim
             if claim_id in good_claims:
                 query_related[ query_id ].append(claim_id)
+                claim_related[ claim_id ].append(query_id)
 
     # if condition5, read supporting/refuting/related relations of claims to queries
 
@@ -631,7 +628,7 @@ def main():
 
     claim_claim_score = { }
 
-    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "new_claim_claim_redundancy.csv") #hot fix for condition6
+    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv") 
     
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -654,8 +651,6 @@ def main():
 
     filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
     
-    claim_related = defaultdict(list)
-    
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -667,8 +662,7 @@ def main():
             
             queries.add(query_id)
             
-            if claim_id in good_claims and claim_id in query_related[ query_id ] and row["Redundant_or_Independent"] == "Related":
-                claim_related[claim_id].append(query_id)
+            if claim_id in good_claims and claim_id in query_related[ query_id ]:
                 if query_id not in query_claim_score or claim_id not in query_claim_score[query_id] or float(score) > query_claim_score[query_id][claim_id]: #get the highest score
                     query_claim_score[query_id][claim_id]  = float(score)
 
@@ -684,20 +678,16 @@ def main():
 
     # output is to: [working_path] / step4_ranking
     #jy:update
-    output_path = util.get_output_dir(str(args.output_dir + '/' +  "out" + '/' + args.run_id + '/' + args.condition), overwrite_warning=not args.force)
+    output_path = util.get_output_dir(str(args.output_dir + '/' +  "output" + '/' + args.run_id + '/' + "NIST" + '/' + args.condition), overwrite_warning=not args.force)
 
     #jy: fix for condition 6
-    for query_id in queries:
+    for query_id in query_related.keys():
         #jy
         output_dir = Path(str(output_path) + '/{}'.format(query_id))
         os.makedirs(output_dir)
         # make a ranking
-        if query_id in query_related.keys():
-            ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score)
-        else:
-            ranked_claims = []
-            
-        
+        ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score)
+    
         # print("Sanity check")
         # print("Query", query_id, query_2_text[query_id], "\n")
         # for claim in ranked_claims:
@@ -731,8 +721,10 @@ def main():
     #query_relevant_doc_claim, doc_claim_relevant_query, relevant_claim_ttl = relevant_file_filter(args.relative_file_path)
     #doc_claim_match_refuting_query, doc_claim_match_supporting_query, ct_rf_claim_ttl = conflict_supporting_file_filter(args.suppporting_refuting_file_path)
     #extract doc-doc relationship
-    claim_claim_refuting, claim_claim_supporting = conflict_supporting_file_filter2(args.suppporting_refuting_file_path)
-    claim_claim_related = relevant_file_filter2(args.relative_file_path)
+    d2d_nli_path = util.get_input_path(working_path / "step2_query_claim_nli" / "d2d_nli.csv")
+    c_relatedness_path = util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv")
+    claim_claim_refuting, claim_claim_supporting = conflict_supporting_file_filter2(d2d_nli_path)
+    claim_claim_related = relevant_file_filter2(c_relatedness_path)
     
     ###
     # identify ttl file: can be buried more deeply somewhere under kb_path
