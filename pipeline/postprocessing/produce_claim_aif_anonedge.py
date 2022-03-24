@@ -198,27 +198,21 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
     # Find the statement node in the KB
     kb_stmt_id = URIRef(stmt_label)
     if kb_stmt_id not in kb_nodes_by_category['Statement']:
-        kb_stmt_pred = RDF.type if stmt_pred == 'type' else stmt_pred
+        kb_stmt_pred = RDF.type if stmt_pred == 'type' else rdflib.term.Literal(stmt_pred, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string'))
+
+        # Does this work now? 
+        # Problem: the kb_stmt_key_mapping keys have a shape like this:
+        # ( rdflib.term.URIRef('http://www.isi.edu/gaia/relations/uiuc/L0C04ATCO/EN_Relation_002421'),
+        # rdflib.term.Literal('A1', datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')),
+        # rdflib.term.URIRef('http://www.isi.edu/gaia/entity/prototype/eHWINSZd7y'))
+        #
+        # how do we get there from stmt_subj, stmt_pred, stmt_obj?
         kb_stmt_id = next(iter(
-                kb_stmt_key_mapping[str(stmt_subj), str(kb_stmt_pred), str(stmt_obj)]))
-    # else:
-    #     kb_stmt_pred = RDF.type if stmt_pred == 'type' else stmt_pred
-    #     print("HIER", stmt_subj, kb_stmt_pred, stmt_obj)
-    #     kb_stmt_id = next(iter(
-    #             kb_stmt_key_mapping[str(stmt_subj), str(kb_stmt_pred), str(stmt_obj)]))
+                kb_stmt_key_mapping[(URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))]))
+
 
     return kb_stmt_id
 
-# NEW
-def index_statement_nodes_wrapper(kb_graph, kb_type_stmt_set=None):
-    mapping = index_statement_nodes(kb_graph, kb_type_stmt_set)
-
-    retv = { }
-    for key, val in mapping.items():
-        k1, k2, k3 = key
-        retv[ (str(k1), str(k2), str(k3)) ] = mapping
-
-    return retv
 
 #############################
 # NEW parameters
@@ -357,7 +351,7 @@ def kb_and_mapping(args_kb_path, args_filename):
 
     # NEW from here
     kb_nodes_by_category = catalogue_kb_nodes(kb_graph) 
-    kb_stmt_key_mapping = index_statement_nodes_wrapper(kb_graph, kb_nodes_by_category['Statement'])
+    kb_stmt_key_mapping = index_statement_nodes(kb_graph, kb_nodes_by_category['Statement'])
     # for k in kb_stmt_key_mapping: print("H0", k)
     # NEW up to here
 
