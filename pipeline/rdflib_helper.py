@@ -608,9 +608,9 @@ def triples_for_time(kb_graph, time_id, p):
             if p in [AIDA.year, AIDA.month, AIDA.day]:
                 continue
             update_triples_catchnone(triples, [(s, p, o)], "for time")         
-            if p == AIDA.timeType and o == Literal("BEFORE", datatype=XSD.string):# jy correct the datatype of o
+            if p == AIDA.timeType and o == Literal("BEFORE"):# jy correct the datatype of o 0324 hotfix
                 before_time_component_id = s
-            elif p == AIDA.timeType and o == Literal("AFTER", datatype=XSD.string):# jy correct the datatype of o
+            elif p == AIDA.timeType and o == Literal("AFTER"):# jy correct the datatype of o 0324 hotfix
                 after_time_component_id = s
                 
     before_year, before_month, before_day = None, None, None
