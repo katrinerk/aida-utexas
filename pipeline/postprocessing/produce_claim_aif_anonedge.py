@@ -207,7 +207,12 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
         # rdflib.term.URIRef('http://www.isi.edu/gaia/entity/prototype/eHWINSZd7y'))
         #
         # how do we get there from stmt_subj, stmt_pred, stmt_obj?
-        kb_stmt_id = next(iter(
+        thekey = (URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))
+        if thekey not in kb_stmt_key_mapping:
+            kb_stmt_id = None
+            logging.warning(f"Tried to match statement key, failing with {thekey}")
+        else:
+            kb_stmt_id = next(iter(
                 kb_stmt_key_mapping[(URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))]))
 
 
