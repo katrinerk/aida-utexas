@@ -198,9 +198,9 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
     # Find the statement node in the KB
     kb_stmt_id = URIRef(stmt_label)
     if kb_stmt_id not in kb_nodes_by_category['Statement']:
-        kb_stmt_pred = RDF.type if stmt_pred == 'type' else LDC_ONT.term(stmt_pred)
+        kb_stmt_pred = RDF.type if stmt_pred == 'type' else stmt_pred
         kb_stmt_id = next(iter(
-                kb_stmt_key_mapping[(URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))]))
+                kb_stmt_key_mapping[str(stmt_subj), str(kb_stmt_pred), str(stmt_obj)]))
     # else:
     #     kb_stmt_pred = RDF.type if stmt_pred == 'type' else stmt_pred
     #     print("HIER", stmt_subj, kb_stmt_pred, stmt_obj)
