@@ -174,7 +174,7 @@ def find_claim_associated_kes(claim_id, json_graph):
     return None
 
 #########3
-# NEW compute info on clusters needed for handling prototype handles
+# compute info on clusters needed for handling prototype handles
 # returns: ere_set, member_to_clusters, cluster_to_prototype 
 def compute_cluster_info(json_graph, ere_list):
     graph_mappings = json_graph.build_cluster_member_mappings()
@@ -184,16 +184,15 @@ def compute_cluster_info(json_graph, ere_list):
     return (set(ere_list), member_to_clusters, cluster_to_prototype)
 
 
-def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, json_graph):
+# NEW
+def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_mapping, json_graph):
+    
     assert json_graph.is_statement(stmt_label)
     stmt_entry = json_graph.node_dict[stmt_label]
 
     stmt_subj = stmt_entry.subject
     stmt_pred = stmt_entry.predicate
     stmt_obj = stmt_entry.object
-    if stmt_subj is None: print("HIER0", stmt_label)
-    if stmt_pred is None: print ("HIER1", stmt_label)
-    if stmt_obj is None: print ("HIER2", stmt_label)
     assert stmt_subj is not None and stmt_pred is not None and stmt_obj is not None
 
     # Find the statement node in the KB
@@ -202,11 +201,28 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, json_graph):
         kb_stmt_pred = RDF.type if stmt_pred == 'type' else LDC_ONT.term(stmt_pred)
         kb_stmt_id = next(iter(
                 kb_stmt_key_mapping[(URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))]))
+    # else:
+    #     kb_stmt_pred = RDF.type if stmt_pred == 'type' else stmt_pred
+    #     print("HIER", stmt_subj, kb_stmt_pred, stmt_obj)
+    #     kb_stmt_id = next(iter(
+    #             kb_stmt_key_mapping[str(stmt_subj), str(kb_stmt_pred), str(stmt_obj)]))
 
     return kb_stmt_id
 
+# NEW
+def index_statement_nodes_wrapper(kb_graph, kb_type_stmt_set=None):
+    mapping = index_statement_nodes(kb_graph, kb_type_stmt_set)
+
+    retv = { }
+    for key, val in mapping.items():
+        k1, k2, k3 = key
+        retv[ (str(k1), str(k2), str(k3)) ] = mapping
+
+    return retv
+
 #############################
-def build_subgraph_for_claim(material_dict, kb_graph, kb_nodes_by_category, json_graph):
+# NEW parameters
+def build_subgraph_for_claim(material_dict, kb_graph, kb_nodes_by_category, kb_mappings, json_graph):
 
     ##########
     # make collection of all triples that need to go into the subgraph
@@ -227,7 +243,7 @@ def build_subgraph_for_claim(material_dict, kb_graph, kb_nodes_by_category, json
     # NEW from here
     # type statements
     for stmt in material_dict['type_stmts']:
-        kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, json_graph)
+        kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, kb_mappings, json_graph)
 
         if kb_stmt_id is None:
             logging.warning(f"Warning: could not match type statement, skipping: {stmt}")
@@ -236,7 +252,7 @@ def build_subgraph_for_claim(material_dict, kb_graph, kb_nodes_by_category, json
 
     # edge statements
     for stmt in material_dict["edge_stmts"]:
-        kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, json_graph)
+        kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, kb_mappings, json_graph)
 
         if kb_stmt_id is None:
             logging.warning(f"Warning: could not match edge statement, skipping: {stmt}")
@@ -324,11 +340,6 @@ def main():
         print("Error: couldn't find claim", args.claim_id)
         sys.exit(1)
 
-    print("HIER edge stmts", material_dict["edge_stmts"])
-    # print("HIER", len(associated_kes), len(associated_stmts))
-        
-    # for stmt in associated_stmts:
-    #     print(stmt)
 
     ###
     # identify ttl file: can be buried more deeply somewhere under kb_path
@@ -354,13 +365,17 @@ def main():
     kb_graph = Graph()
     kb_graph.parse(kb_path, format='ttl')
 
-    kb_nodes_by_category = catalogue_kb_nodes(kb_graph) # NEW
-
+    # NEW from here
+    kb_nodes_by_category = catalogue_kb_nodes(kb_graph) 
+    kb_stmt_key_mapping = index_statement_nodes_wrapper(kb_graph, kb_nodes_by_category['Statement'])
+    # for k in kb_stmt_key_mapping: print("H0", k)
+    # NEW up to here
+    
     output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
     run_id = args.run_id
 
-    subgraph = build_subgraph_for_claim(material_dict, kb_graph, kb_nodes_by_category, json_graph) # NEW
+    subgraph = build_subgraph_for_claim(material_dict, kb_graph, kb_nodes_by_category, kb_stmt_key_mapping, json_graph) # NEW
 
     
     output_path = os.path.join(str(output_dir), run_id + "." + args.filename)
