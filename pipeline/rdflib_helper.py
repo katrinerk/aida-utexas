@@ -608,9 +608,9 @@ def triples_for_time(kb_graph, time_id, p):
             if p in [AIDA.year, AIDA.month, AIDA.day]:
                 continue
             update_triples_catchnone(triples, [(s, p, o)], "for time")         
-            if p == AIDA.timeType and o == Literal("BEFORE"):# jy correct the datatype of o 0324 hotfix
+            if p == AIDA.timeType and o == Literal("BEFORE"):# jy correct the datatype of o
                 before_time_component_id = s
-            elif p == AIDA.timeType and o == Literal("AFTER"):# jy correct the datatype of o 0324 hotfix
+            elif p == AIDA.timeType and o == Literal("AFTER"):# jy correct the datatype of o
                 after_time_component_id = s
                 
     before_year, before_month, before_day = None, None, None
@@ -659,7 +659,7 @@ def triples_for_time(kb_graph, time_id, p):
     # jy
     # There are before date is before after date in claim files so ignore this date correction
     
-    #if before_date.is_before(after_date):
+    # if before_date.is_before(after_date):
     #    before_year = after_year
     #    before_month = after_month
     #    before_day = after_day
