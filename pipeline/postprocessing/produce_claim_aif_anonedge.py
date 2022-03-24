@@ -361,7 +361,7 @@ def kb_and_mapping(args_kb_path, args_filename):
     # for k in kb_stmt_key_mapping: print("H0", k)
     # NEW up to here
 
-    return kb_graph, kb_nodes_by_category_kb_stmt_key_mapping
+    return kb_graph, kb_nodes_by_category, kb_stmt_key_mapping
 
 
 def main():
