@@ -312,40 +312,30 @@ def find_ttl_file(startpath, filename):
     return None
 
 
-def main():
-    parser = ArgumentParser()
-    parser.add_argument('claim_id', help="ID of the claim to keep")
-    parser.add_argument('filename', help="name of file to use, prefix of both ttl and json filename")
-    parser.add_argument('graph_path', help='path to the graph json files')
-    parser.add_argument('kb_path', help='path to AIF files')
-    parser.add_argument('output_dir', help='path to output directory')
-    parser.add_argument('run_id', help='TA3 run ID')
-    parser.add_argument('-f', '--force', action='store_true', default=False,
-                        help='If specified, overwrite existing output files without warning')
-
-    args = parser.parse_args()
-
+def json_graph_and_material_dict(args_graph_path, args_filename, args_claim_id):
     #####
     # json file: extract associated KEs, and statements linking associated KEs
     # identify json file: should be located directly in graph_path
-    json_path = os.path.join(args.graph_path, args.filename +  ".json")
+    json_path = os.path.join(args_graph_path, args_filename +  ".json")
     json_graph = JsonGraph.from_dict(util.read_json_file(json_path, 'JSON graph'))
 
     # from the json file, extract the correct claim and its associated KEs
     # associated_kes: a list of labels of knowledge elements, both sameas clusters and prototypes
     # associated_stmts: one type statement per KE, plus other statements as long as they connect
     #        two associated KEs
-    material_dict = find_claim_associated_kes(args.claim_id, json_graph)
+    material_dict = find_claim_associated_kes(args_claim_id, json_graph)
     if material_dict is None:
-        print("Error: couldn't find claim", args.claim_id)
+        print("Error: couldn't find claim", args_claim_id)
         sys.exit(1)
 
+    return json_graph, material_dict
 
+def kb_and_mapping(args_kb_path, args_filename):
     ###
     # identify ttl file: can be buried more deeply somewhere under kb_path
-    kb_path = find_ttl_file(args.kb_path, args.filename)
+    kb_path = find_ttl_file(args_kb_path, args_filename)
     if kb_path is None:
-        print("Error: KB not found", args.filename)
+        print("Error: KB not found", args_filename)
         sys.exit(1)
 
     # make mappings between clusters, cluster members, and prototypes
@@ -370,7 +360,27 @@ def main():
     kb_stmt_key_mapping = index_statement_nodes_wrapper(kb_graph, kb_nodes_by_category['Statement'])
     # for k in kb_stmt_key_mapping: print("H0", k)
     # NEW up to here
-    
+
+    return kb_graph, kb_nodes_by_category_kb_stmt_key_mapping
+
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument('claim_id', help="ID of the claim to keep")
+    parser.add_argument('filename', help="name of file to use, prefix of both ttl and json filename")
+    parser.add_argument('graph_path', help='path to the graph json files')
+    parser.add_argument('kb_path', help='path to AIF files')
+    parser.add_argument('output_dir', help='path to output directory')
+    parser.add_argument('run_id', help='TA3 run ID')
+    parser.add_argument('-f', '--force', action='store_true', default=False,
+                        help='If specified, overwrite existing output files without warning')
+
+    args = parser.parse_args()
+
+    json_graph, material_dict = json_graph_and_material_dict(args.graph_path, args.filename, args.claim_id)
+
+    kb_graph, kb_nodes_by_category, kb_stmt_key_mapping = kb_and_mapping(args.kb_path, args.filename)
+     
     output_dir = util.get_output_dir(args.output_dir, overwrite_warning=not args.force)
 
     run_id = args.run_id
