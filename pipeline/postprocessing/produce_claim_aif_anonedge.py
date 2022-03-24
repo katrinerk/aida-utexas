@@ -199,6 +199,7 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
     kb_stmt_id = URIRef(stmt_label)
     if kb_stmt_id not in kb_nodes_by_category['Statement']:
         kb_stmt_pred = RDF.type if stmt_pred == 'type' else rdflib.term.Literal(stmt_pred, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string'))
+        kb_stmt_obj = rdflib.term.Literal(stmt_obj, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')) if stmt_pred == 'type' else URIRef(stmt_obj)
 
         # Does this work now? 
         # Problem: the kb_stmt_key_mapping keys have a shape like this:
@@ -207,7 +208,7 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
         # rdflib.term.URIRef('http://www.isi.edu/gaia/entity/prototype/eHWINSZd7y'))
         #
         # how do we get there from stmt_subj, stmt_pred, stmt_obj?
-        thekey = (URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))
+        thekey = (URIRef(stmt_subj), kb_stmt_pred, kb_stmt_obj)
         if thekey not in kb_stmt_key_mapping or len(kb_stmt_key_mapping[thekey]) == 0:
             kb_stmt_id = None
             logging.warning(f"Tried to match statement key, failing with {thekey}")
