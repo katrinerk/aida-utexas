@@ -208,7 +208,7 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
         #
         # how do we get there from stmt_subj, stmt_pred, stmt_obj?
         thekey = (URIRef(stmt_subj), kb_stmt_pred, URIRef(stmt_obj))
-        if thekey not in kb_stmt_key_mapping:
+        if thekey not in kb_stmt_key_mapping or len(kb_stmt_key_mapping[thekey]) == 0:
             kb_stmt_id = None
             logging.warning(f"Tried to match statement key, failing with {thekey}")
         else:
