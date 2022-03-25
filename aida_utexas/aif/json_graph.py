@@ -300,8 +300,8 @@ class JsonGraph:
                 epistemic = next(iter(node.get('epistemic', shorten=True)), None)
                 sentiment = next(iter(node.get('sentiment', shorten=True)), None)
 
-                logging.info("epistemic is {next(iter(node.get('epistemic', shorten=False)), None)}")
-                logging.info("sentiment is {next(iter(node.get('sentiment', shorten=False)), None)}")
+                # logging.info("epistemic is {next(iter(node.get('epistemic', shorten=False)), None)}")
+                # logging.info("sentiment is {next(iter(node.get('sentiment', shorten=False)), None)}")
                 
 
                 # KB node IDs and node ID lists
