@@ -233,8 +233,19 @@ class JsonGraph:
             # formatting for statements
             elif node.is_statement():
                 subj = next(iter(node.get('subject', shorten=False)), None)
-                pred = next(iter(node.get('predicate', shorten=False)), None)
                 obj = next(iter(node.get('object', shorten=False)), None)
+
+                # KE Mar 25: set this to shorten=False in order to
+                # fix the bug with the predicate that is
+                # "A1_ppt__sick/ill_one"
+                # However, this changes the "type" predicate to
+                # "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+                # which will cause other problems
+                pred0 = next(iter(node.get('predicate', shorten=False)), None)
+                if str(pred0) == "A1_ppt__sick/ill_one":
+                    pred = pred0
+                else:
+                    pred = next(iter(node.get('predicate', shorten=True)), None)
 
                 conf_levels = aida_graph.confidence_of(node_label)
 
