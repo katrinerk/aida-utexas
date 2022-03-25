@@ -236,6 +236,9 @@ class JsonGraph:
                 pred = next(iter(node.get('predicate', shorten=True)), None)
                 obj = next(iter(node.get('object', shorten=False)), None)
 
+                if "ill_one" in pred:
+                    print("HIER", next(iter(node.get('predicate', shorten=false)), None), pred)
+                    
                 conf_levels = aida_graph.confidence_of(node_label)
 
                 attributes = list(iter(node.get('attributes', shorten=True)))
