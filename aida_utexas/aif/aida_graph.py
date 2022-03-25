@@ -200,6 +200,23 @@ class AidaGraph(RDFGraph):
     def __init__(self, node_cls=AidaNode):
         super().__init__(node_cls=node_cls)
 
+    # Build the RDF graph from a file, default format is ttl (turtle)
+    def k_build_graph(self, graph, fmt='ttl'):
+        # load triples from the file
+        for subj, pred, obj in graph:
+            # get the short label for predicate
+            pred = RDFNode.short_label(pred)
+
+            if subj not in self.node_dict:
+                self.node_dict[subj] = self.node_cls(subj)
+
+            if obj not in self.node_dict:
+                self.node_dict[obj] = self.node_cls(obj)
+
+            self.node_dict[subj].add_out_edge(pred, obj)
+            self.node_dict[obj].add_in_edge(pred, subj)
+
+        logging.info('Done.')        
     # judge whether a node label exists in the graph
     def has_node(self, node_label):
         return node_label in self.node_dict
