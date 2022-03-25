@@ -192,6 +192,26 @@ class RDFGraph:
             self.node_dict[obj].add_in_edge(pred, subj)
 
         logging.info('Done.')
+
+    def katrintest_build_graph(self, graph):
+        for subj, pred, obj in graph:
+            # get the short label for predicate
+            pred0 = RDFNode.short_label(pred)
+
+            if "ill_one" in str(pred):
+                print("HIER", pred, pred0)
+
+            pred = pred0                
+
+            if subj not in self.node_dict:
+                self.node_dict[subj] = self.node_cls(subj)
+
+            if obj not in self.node_dict:
+                self.node_dict[obj] = self.node_cls(obj)
+
+            self.node_dict[subj].add_out_edge(pred, obj)
+            self.node_dict[obj].add_in_edge(pred, subj)
+
         
     # printing out the graph in readable form
     def prettyprint(self, max_nodes=None):
