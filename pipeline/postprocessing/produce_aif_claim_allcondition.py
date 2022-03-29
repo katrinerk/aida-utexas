@@ -1,10 +1,12 @@
 # Code by Pengxiang Cheng
 # Attempt to adapt to claim output: Katrin Erk
 
+import json
 import sys
 import os
 import pandas
 import logging
+import fnmatch
 
 # find relative path_jy
 from pathlib import Path
@@ -16,7 +18,7 @@ sys.path.insert(0, str(currpath.parents[1]))
 import math
 from argparse import ArgumentParser
 from io import BytesIO
-from operator import itemgetter, not_
+from operator import itemgetter
 from collections import defaultdict
 import csv
 
@@ -121,6 +123,7 @@ def compute_cluster_info(json_graph, ere_list):
     cluster_to_prototype = graph_mappings['cluster_to_prototype']
 
     return (set(ere_list), member_to_clusters, cluster_to_prototype)
+
 #########
 # given a claim ID and a json graph, find the matching claim and its associated KEs,
 # and find all statements that are either type statements of associated KEs or link two associated KEs.
@@ -186,7 +189,7 @@ def find_claim_associated_kes(claim_id, json_graph):
     return None
 
 #############################
-def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, claim_claim_refuting, claim_claim_supporting, claim_claim_related):
+def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, supporting_query, refuting_query, relevant_query):
 
     ##########
     # make collection of all triples that need to go into the subgraph
@@ -217,16 +220,14 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, cl
         all_triples.update(triples_for_edge_stmt(kb_graph, e_stmt_id))
         
     ### jy
-    # add relevant/supporting/refuting doc claims for condition 7
+    # add relevant/supporting/refuting query claims to doc claims for condition 5
     # try to add related/support claims to that claim in the rdflib
-    # refuting/supporting/relevant claims should be mutually exclusive
-    
-    marked_claims = set()
     
     # add supporting query claims
-    if claim_name in claim_claim_supporting.keys(): 
+    marked_claims = set()
+    if claim_name in supporting_query.keys(): 
         spred = URIRef(AIDA + 'supportingClaims')
-        for claim2 in claim_claim_supporting[claim_name]: 
+        for claim2 in supporting_query[claim_name]: 
             if claim2 in marked_claims:
                 continue  
             else:
@@ -236,9 +237,9 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, cl
                 marked_claims.add(claim2)
     
     # add refuting query claims
-    if claim_name in claim_claim_refuting.keys(): 
+    if claim_name in refuting_query.keys(): 
         rpred = URIRef(AIDA + 'refutingClaims')
-        for claim2 in claim_claim_refuting[claim_name]: 
+        for claim2 in refuting_query[claim_name]: 
             if claim2 in marked_claims:
                 continue  
             else:  
@@ -248,18 +249,16 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, cl
                 marked_claims.add(claim2) 
             
     # add relevant query claims
-    if claim_name in claim_claim_related.keys():
+    if claim_name in relevant_query.keys():
         rpred = URIRef(AIDA + 'relatedClaims')
-        for claim2 in claim_claim_related[claim_name]: 
+        for claim2 in relevant_query[claim_name]: 
             if claim2 in marked_claims:
                 continue  
             else:    
                 #obj = URIRef(EX + query)
                 obj = Literal(claim2, datatype=XSD.string)
                 all_triples.add((claim_id, rpred, obj))
-                marked_claims.add(claim2) 
-    
-       
+                marked_claims.add(claim2)     
 
     #############3
     # logging.info('Constructing a subgraph')
@@ -334,7 +333,7 @@ def conflict_supporting_file_filter(csvfile_path):
      
         rfrecord = record[record.nli_label == 'entailment']
         for row in rfrecord.itertuples(index=True, name='Pandas'):
-            if row.premise_id == premise:
+            if row.Query_ID == premise:
                 claim_ttl[row.Claim_ID]= row.Claim_Filename # doc claimid -> doc turtle file name
                 if row.Claim_ID not in hypo_match_supporting_premise.keys():
                     hypo_match_supporting_premise[row.Claim_ID] = []
@@ -417,10 +416,10 @@ def conflict_supporting_file_filter2(csvfile_path):
                     claim_claim_supporting[row.claim1_id].append(row.claim2_id)
                          
     return (claim_claim_refuting, claim_claim_supporting)  
-    
+
 # make a ranking for a given query
-#jy fix for condition 7
-def make_ranking(query_id, query_claim_score, claim_claim_score):
+def make_ranking(query_id, query_claim_score, claim_claim_score, query_2_text, claim_2_text):
+    
     # determine the highest-ranked claim
     query_claims = query_claim_score[query_id].keys()
 
@@ -445,7 +444,7 @@ def make_ranking(query_id, query_claim_score, claim_claim_score):
             for claim2 in claims_ranked:
                 
                 if (claim1, claim2) not in claim_claim_score:
-                    print("Error, missing score for", query_id, claim1, claim2)
+                    print("Error, missing score for", claim1, claim2)
                     sys.exit(0)
 
                 summed_score[claim1] += claim_claim_score[ (claim1, claim2) ]
@@ -537,35 +536,73 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
     # else false
     return len(evrel_with_edge) > 0
 
+###
+# find corresponding kb file
+def find_file(pattern, path):
+    result = {}
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            if fnmatch.fnmatch(name, pattern):
+                currpath = os.path.join(root, name)
+                dir = os.path.basename(os.path.dirname(currpath))
+                result[dir] = currpath
+    return result
+
+###
+# find the corresponding directory of the claim
+def locate_claim_file(csvfile_path):
+    filepath = Path(csvfile_path)       
+    record = pandas.read_csv(filepath,sep='\t', names=["location", "claim_id", "topic", "subtopic", "template", "detail"])
+
+    claim_ttl = {}
+    for row in record.itertuples(index=True, name='Pandas'):
+        location = str(row.location).split("/") 
+        claim_ttl[str(row.claim_id)] = location[0]
+            
+    return claim_ttl
+
 def main():
     parser = ArgumentParser()   
     parser.add_argument('working_dir', help="Working directory with intermediate system results")
+    parser.add_argument('kb_dir', help="Directory with kbs")
+    parser.add_argument('graph_dir', help="Directory with graph json files")
     parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
-    parser.add_argument('condition', help="Condition5, Condition6, Condition7")
-    parser.add_argument('graph_path', help='path to the graph json file') # single big json file
-    parser.add_argument('kb_path', help='path to AIF file') # single big file
-    
+    parser.add_argument('condition', help="Condition5, Condition6, Condition7")    
     parser.add_argument('output_dir', help='path to output directory')
 
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
     args = parser.parse_args()
-
+    
     # sanity check on condition
     if args.condition not in ["Condition5", "Condition6", "Condition7"]:
         print("Error: need a condition that is Condition5, Condition6, Condition7")
         sys.exit(1)
 
     working_mainpath = util.get_input_path(args.working_dir)
+    
     working_path = util.get_input_path(working_mainpath / args.run_id / str(args.condition).lower()) 
+    
+    kb_mainpath = util.get_input_path(args.kb_dir)
+    kb_match = find_file('*.ttl', kb_mainpath)
+    
+    #extract claim - filename relationship
+    docclaim_path = util.get_input_path(args.graph_dir)
+    docclaims = util.get_input_path(docclaim_path/ "docclaims.tsv") 
+    claim_filename = locate_claim_file(docclaims)
     
     #filter bad claims without associated KE that is
     # an event or relation with at least one edge that also goes to an associated KE
-    json_path = args.graph_path
-    json_graph = JsonGraph.from_dict(util.read_json_file(json_path, 'JSON graph'))
+     
+    json_mainpath = args.graph_dir
+    json_graph_path = find_file('*.json', json_mainpath)
+    json_graph = {}   
+    for graph in json_graph_path:
+        json_graph[graph] = JsonGraph.from_dict(util.read_json_file(json_graph_path[graph], 'JSON graph'))
     
     all_claims = set()
-    #for condition 6 get all the claims
+    #for condition 5
+    #all claims can be extracted from query_related_claims.csv
     filename= util.get_input_path(working_path / "step2_query_claim_nli" / "query_related_claims.csv")
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -573,25 +610,25 @@ def main():
             claim_id = row["Claim_ID"]
             all_claims.add(claim_id)
     
-    clusterinfo = get_cluster_info_forgraph(json_graph)
+    clusterinfo = {}
+    for graph in json_graph_path:
+        clusterinfo[graph] = get_cluster_info_forgraph(json_graph[graph])
     
     good_claims = []
      
     for claim in all_claims:
-        claim_is_okay = test_claim_has_oneedge(json_graph, claim, clusterinfo)
+        claim_dir = claim_filename[claim]
+        claim_is_okay = test_claim_has_oneedge(json_graph[claim_dir], claim, clusterinfo[claim_dir])
         if claim_is_okay:
             good_claims.append(claim)
         else:
             print("bad claim: {}".format(claim))
-            
+    
     ### ranking processing
-    # for each query, determine the list of related claims
+    # for each query, determine the list of related claims that match in topic/subtopic/template
     query_related = defaultdict(list)
     claim_related = defaultdict(list)
-    #jy fix for condition6
-    filename= util.get_input_path(working_path / "step2_query_claim_nli" / "query_related_claims.csv")
-    
-    #jy fix for condition6
+    filename= util.get_input_path(working_path / "step2_query_claim_nli" / "query_related_claims.csv")   
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -606,7 +643,6 @@ def main():
 
     if args.condition == "Condition5":
         query_claim_relation = { }
-
         # claims that are related and matching: located in [working_path]/step2_query_claim_nli/q2d_nli.csv
         queryclaim_rel_filename = util.get_input_path(working_path / "step2_query_claim_nli" / "q2d_nli.csv")
     
@@ -618,7 +654,6 @@ def main():
                 claim_id = row["Claim_ID"]
                 nli_label = row["nli_label"]
                 nist_label = {"neutral" : "related", "contradiction" : "refuting", "entailment" : "supporting"}[nli_label]
-
                 query_claim_relation[ (query_id, claim_id) ] = nist_label
     else:
         query_claim_relation = { }
@@ -628,7 +663,7 @@ def main():
 
     claim_claim_score = { }
 
-    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv") 
+    filename= util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv")
     
     with open(str(filename), newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -641,13 +676,11 @@ def main():
                 claim_claim_score[ (claim1, claim2) ] = float(score)
                 claim_claim_score[ (claim2, claim1) ] = float(score)
 
-
     # read relatedness ratings between query and claims
     # this is in [working_path] / step1_query_claim_relatedness / q2d_relatedness.csv
     query_claim_score = defaultdict(dict)
     query_2_text = { }
     claim_2_text = { }
-    queries = set()
 
     filename= util.get_input_path(working_path / "step1_query_claim_relatedness" / "q2d_relatedness.csv")
     
@@ -659,13 +692,16 @@ def main():
             claim_id = row["Claim_ID"]
             claim_text = row["Claim_Sentence"]
             score = row["Score"]
-            
-            queries.add(query_id)
-            
-            if claim_id in good_claims and claim_id in query_related[ query_id ]:
-                if query_id not in query_claim_score or claim_id not in query_claim_score[query_id] or float(score) > query_claim_score[query_id][claim_id]: #get the highest score
-                    query_claim_score[query_id][claim_id]  = float(score)
 
+            if args.condition == "Condition5":
+                if claim_id in good_claims and claim_id in query_related[ query_id ]:
+                    query_claim_score[ query_id][claim_id]  = float(score)
+            elif args.condition == "Condition6":
+                #if claim_id in good_claims and claim_id in query_related[ query_id ] and row["Redundant_or_Independent"] == "Related":
+                if claim_id in good_claims and claim_id in query_related[ query_id ]:
+                    if query_id not in query_claim_score or claim_id not in query_claim_score[query_id] or float(score) > query_claim_score[query_id][claim_id]: #get the highest score
+                        query_claim_score[query_id][claim_id]  = float(score)
+                
             query_2_text[ query_id ] = query_text
             claim_2_text[ claim_id ] = claim_text
         
@@ -680,21 +716,27 @@ def main():
     #jy:update
     output_path = util.get_output_dir(str(args.output_dir + '/' +  "output" + '/' + args.run_id + '/' + "NIST" + '/' + args.condition), overwrite_warning=not args.force)
 
-    #jy: fix for condition 6
     for query_id in query_related.keys():
         #jy
-        output_dir = Path(str(output_path) + '/{}'.format(query_id))
+        new_query_id = query_id[6:]
+        if args.condition == "Condition5":
+            output_dir = Path(str(output_path) + '/{}'.format(new_query_id))
+        else:
+            output_dir = Path(str(output_path) + '/{}'.format(query_id))
         os.makedirs(output_dir)
         # make a ranking
-        ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score)
-    
+        ranked_claims, claim_scores = make_ranking(query_id,  query_claim_score, claim_claim_score, query_2_text, claim_2_text)
+        
         # print("Sanity check")
         # print("Query", query_id, query_2_text[query_id], "\n")
         # for claim in ranked_claims:
         #     print(claim, claim_scores[claim], claim_2_text[claim])
 
         # and write it to a file
-        output_filename = output_dir / (query_id + ".ranking.tsv")
+        if args.condition == "Condition5":
+            output_filename = output_dir / (new_query_id + ".ranking.tsv")
+        else:
+            output_filename = output_dir / (query_id + ".ranking.tsv")
 
         # Condition5: write including relation to query
         if args.condition == "Condition5":
@@ -704,13 +746,12 @@ def main():
                 writer = csv.writer(csvfile, delimiter="\t")
 
                 for rank, claim_id in enumerate(ranked_claims):
-                    rel = query_claim_relation.get( (query_id, claim_id), "related")                       
-                    writer.writerow( [ query_id, claim_id, rank + 1, rel])
+                    rel = query_claim_relation.get( (query_id, claim_id), "related")
+                    writer.writerow( [ new_query_id, claim_id, rank + 1, rel ])
 
         # Conditions 6, 7: write without relation to query
         else:
             with open(output_filename, 'w', newline='') as csvfile:
-                #fieldnames = ['Query_ID', 'Claim_ID', 'Rank']
                 writer = csv.writer(csvfile, delimiter="\t")
 
                 for rank, claim_id in enumerate(ranked_claims):
@@ -719,18 +760,19 @@ def main():
     
     ### turtle files output processing
     #query_relevant_doc_claim, doc_claim_relevant_query, relevant_claim_ttl = relevant_file_filter(args.relative_file_path)
-    #doc_claim_match_refuting_query, doc_claim_match_supporting_query, ct_rf_claim_ttl = conflict_supporting_file_filter(args.suppporting_refuting_file_path)
-    #extract doc-doc relationship
-    d2d_nli_path = util.get_input_path(working_path / "step2_query_claim_nli" / "d2d_nli.csv")
-    c_relatedness_path = util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv")
-    claim_claim_refuting, claim_claim_supporting = conflict_supporting_file_filter2(d2d_nli_path)
-    claim_claim_related = relevant_file_filter2(c_relatedness_path)
+    if args.condition == "Condition5":
+        filename= util.get_input_path(working_path / "step2_query_claim_nli" / "q2d_nli.csv")
+        doc_claim_match_refuting_query, doc_claim_match_supporting_query, ct_rf_claim_ttl = conflict_supporting_file_filter(filename)
+    else:
+        d2d_nli_path = util.get_input_path(working_path / "step2_query_claim_nli" / "d2d_nli.csv")
+        c_relatedness_path = util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv")
+        claim_claim_refuting, claim_claim_supporting = conflict_supporting_file_filter2(d2d_nli_path)
+        claim_claim_related = relevant_file_filter2(c_relatedness_path)
     
     ###
     # identify ttl file: can be buried more deeply somewhere under kb_path
-    kb_path = args.kb_path
-    if kb_path is None:
-        print("Error: KB not found", kb_path)
+    if kb_mainpath is None:
+        print("Error: KB not found", kb_mainpath)
         sys.exit(1)
 
     # TODO: there is a known bug in rdflib that
@@ -744,10 +786,12 @@ def main():
     ###jy
     #rdflib.term._toPythonMapping.pop(rdflib.XSD['gYear'])
 
-    print('Reading kb from {}'.format(kb_path))
     # rdflib graph object
-    kb_graph = Graph()
-    kb_graph.parse(kb_path, format='ttl')
+    kb_graph = {}
+    for dir in kb_match.keys():
+        print('Reading kb from {}'.format(kb_match[dir]))
+        kb_graph[dir] = Graph()
+        kb_graph[dir].parse(kb_match[dir], format='ttl')
     
     '''
     print("creating query directory \n")
@@ -767,18 +811,24 @@ def main():
         # associated_kes: a list of labels of knowledge elements, both sameas clusters and prototypes
         # associated_stmts: one type statement per KE, plus other statements as long as they connect
         #        two associated KEs
-    
-        material_dict = find_claim_associated_kes(claim, json_graph)
+        print("dealing {} \n".format(claim))
+        claim_dir = claim_filename[claim]
+        material_dict = find_claim_associated_kes(claim, json_graph[claim_dir])
         if material_dict is None:
             print("Error: couldn't find claim", claim)
             sys.exit(1)    
 
-        #subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim, doc_claim_match_supporting_query, doc_claim_match_refuting_query, claim_related) 
-        print("making turtle file for claim: {}".format(claim))
-        subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim, claim_claim_refuting, claim_claim_supporting, claim_claim_related) 
-        
+        if args.condition == "Condition5":
+            subgraph = build_subgraph_for_claim(material_dict, kb_graph[claim_dir], json_graph[claim_dir], claim, doc_claim_match_supporting_query, doc_claim_match_refuting_query, claim_related) 
+        else:
+            subgraph = build_subgraph_for_claim(material_dict, kb_graph[claim_dir], json_graph[claim_dir], claim, claim_claim_refuting, claim_claim_supporting, claim_claim_related) 
+            
         for query in claim_related[claim]: 
-            file_path = os.path.join(str(str(output_path) + '/' + query + '/'), claim + ".ttl")
+            new_query = query[6:]
+            if args.condition == "Condition5":
+                file_path = os.path.join(str(str(output_path) + '/' + new_query + '/'), claim + ".ttl")
+            else:
+                file_path = os.path.join(str(str(output_path) + '/' + query + '/'), claim + ".ttl")
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
       

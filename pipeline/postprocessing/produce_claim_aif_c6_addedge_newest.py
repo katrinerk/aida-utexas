@@ -185,8 +185,42 @@ def find_claim_associated_kes(claim_id, json_graph):
         
     return None
 
+# NEW
+def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_mapping, json_graph):
+    
+    assert json_graph.is_statement(stmt_label)
+    stmt_entry = json_graph.node_dict[stmt_label]
+
+    stmt_subj = stmt_entry.subject
+    stmt_pred = stmt_entry.predicate
+    stmt_obj = stmt_entry.object
+    assert stmt_subj is not None and stmt_pred is not None and stmt_obj is not None
+
+    # Find the statement node in the KB
+    kb_stmt_id = URIRef(stmt_label)
+    if kb_stmt_id not in kb_nodes_by_category['Statement']:
+        kb_stmt_pred = RDF.type if stmt_pred == 'type' else rdflib.term.Literal(stmt_pred, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string'))
+        kb_stmt_obj = rdflib.term.Literal(stmt_obj, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')) if stmt_pred == 'type' else URIRef(stmt_obj)
+
+        # Does this work now? 
+        # Problem: the kb_stmt_key_mapping keys have a shape like this:
+        # ( rdflib.term.URIRef('http://www.isi.edu/gaia/relations/uiuc/L0C04ATCO/EN_Relation_002421'),
+        # rdflib.term.Literal('A1', datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')),
+        # rdflib.term.URIRef('http://www.isi.edu/gaia/entity/prototype/eHWINSZd7y'))
+        #
+        # how do we get there from stmt_subj, stmt_pred, stmt_obj?
+        thekey = (URIRef(stmt_subj), kb_stmt_pred, kb_stmt_obj)
+        if thekey not in kb_stmt_key_mapping or len(kb_stmt_key_mapping[thekey]) == 0:
+            kb_stmt_id = None
+            logging.warning(f"Tried to match statement key, failing with {thekey}")
+        else:
+            kb_stmt_id = next(iter( kb_stmt_key_mapping[thekey]))
+
+
+    return kb_stmt_id
+
 #############################
-def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, claim_claim_refuting, claim_claim_supporting, claim_claim_related):
+def build_subgraph_for_claim(material_dict, kb_graph, json_graph, kb_nodes_by_category, kb_mappings, claim_name, claim_claim_refuting, claim_claim_supporting, claim_claim_related):
 
     ##########
     # make collection of all triples that need to go into the subgraph
@@ -205,16 +239,21 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim_name, cl
         all_triples.update(triples_for_ere(kb_graph, kb_ere_id))
 
     # type statements
-    for kb_stmt_id in material_dict['type_stmts']:
-        #jy
-        t_stmt_id = URIRef(kb_stmt_id)
-        all_triples.update(triples_for_type_stmt(kb_graph, t_stmt_id))
+    for stmt in material_dict['type_stmts']: 
+        kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, kb_mappings, json_graph)
+        if kb_stmt_id is None:
+            logging.warning(f"Warning: could not match type statement, skipping: {stmt}")
+        else:
+            all_triples.update(triples_for_type_stmt(kb_graph, kb_stmt_id))
 
     # edge statements
-    for kb_stmt_id in material_dict["edge_stmts"]:
-        #jy
-        e_stmt_id = URIRef(kb_stmt_id)
-        all_triples.update(triples_for_edge_stmt(kb_graph, e_stmt_id))
+    for stmt in material_dict["edge_stmts"]:
+        kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, kb_mappings, json_graph)
+
+        if kb_stmt_id is None:
+            logging.warning(f"Warning: could not match edge statement, skipping: {stmt}")
+        else:
+            all_triples.update(triples_for_edge_stmt(kb_graph, kb_stmt_id))
         
     ### jy
     # add relevant/supporting/refuting doc claims for condition 7
@@ -749,16 +788,8 @@ def main():
     kb_graph = Graph()
     kb_graph.parse(kb_path, format='ttl')
     
-    '''
-    print("creating query directory \n")
-    for query in query_relevant_doc_claim.keys():
-        if query_relevant_doc_claim[query] == None:
-            continue
-        output_dir = Path(args.output_dir + '/{}'.format(query))
-        os.makedirs(output_dir)
-    
-    output_dir = Path(args.output_dir)
-    '''
+    kb_nodes_by_category = catalogue_kb_nodes(kb_graph) 
+    kb_stmt_key_mapping = index_statement_nodes(kb_graph, kb_nodes_by_category['Statement'])
     
     
     print("dealing single claim now \n")
@@ -775,14 +806,14 @@ def main():
 
         #subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim, doc_claim_match_supporting_query, doc_claim_match_refuting_query, claim_related) 
         print("making turtle file for claim: {}".format(claim))
-        subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, claim, claim_claim_refuting, claim_claim_supporting, claim_claim_related) 
+        subgraph = build_subgraph_for_claim(material_dict, kb_graph, json_graph, kb_nodes_by_category, kb_stmt_key_mapping, claim, claim_claim_refuting, claim_claim_supporting, claim_claim_related) 
         
         for query in claim_related[claim]: 
             file_path = os.path.join(str(str(output_path) + '/' + query + '/'), claim + ".ttl")
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
       
-
+    print("/n The whole post processing ends here.")
 
 if __name__ == '__main__':
     main()

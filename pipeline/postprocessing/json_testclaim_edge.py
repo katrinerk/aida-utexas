@@ -29,13 +29,15 @@ def get_cluster_info_forgraph(json_graph):
     node2cluster = {} # store node label -> sameAsClusterNode
     clusterlabel = set() # store sameAsCluster node label
     cluster2members = defaultdict(list) # store cluster label -> members
-    
+    #file_path = open("/Users/cookie/Downloads/test.txt", "x")
     for node_label, node in json_graph.node_dict.items():
         if node.type == 'SameAsCluster':
             clusterlabel.add(node_label)
             node2cluster[node_label] = node
+            #file_path.write("cluster: {}, node name: {} \n".format(node, node_label))
         elif node.type == "ClusterMembership":
             cluster2members[ node.cluster].append(node.clusterMember)
+            #file_path.write("cluster: {}, clustermember: {}\n".format(node, node.clusterMember))
 
 
     return { "node2cluster" : node2cluster,
@@ -72,16 +74,19 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
     # determine EREs that are associated KEs
     # EREs: associated KEs
     eres = set(this_claim_entry.associated_kes)
-
+   
     # for KEs that are clusters, add prototypes and other members to list of EREs
     for ake in this_claim_entry.associated_kes:
         # if we got a cluster, find the prototype
         if str(ake) in clusterinfo["clusterlabels"]:
+            if str(clusterinfo["node2cluster"][str(ake)].prototype) == "http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399":
+                print("add prototypes: ake: {}, clusterinfo: http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399".format(str(ake)))
             eres.add(clusterinfo["node2cluster"][str(ake)].prototype)
             # and all members
             for member in clusterinfo["cluster2members"][ str(ake) ]:
+                if str(member) == "http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399":
+                    print("add other members: ake: {}, clusterinfo: http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399".format(str(ake)))
                 eres.add(member)
-
 
     ###
     # test whether there are associated KEs that are events or relations
@@ -89,6 +94,9 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
     evrel_with_edge = set()
     for ake in list(eres):
         if json_graph.is_event(ake) or json_graph.is_relation(ake):
+            if str(ake) == "http://www.isi.edu/gaia/events/uiuc/L0C04CA8C/EN_Event_030294" or str(ake) == "http://www.isi.edu/gaia/events/uiuc/L0C04CA8C/EN_Event_030295":
+                 for stmt in json_graph.each_ere_adjacent_stmt(ake):
+                    print("stmt: " + stmt + "\n")
             for stmt in json_graph.each_ere_adjacent_stmt(ake):
                 if json_graph.is_type_stmt(stmt):
                     continue
@@ -96,6 +104,7 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
                     obj = json_graph.stmt_object(stmt)
                     if obj in eres:
                         evrel_with_edge.add(ake)
+                        print("subject {} : object {}".format(ake, obj))
 
     # return: True (test passed) if we have at least one event or relation with an edge,
     # else false
@@ -105,8 +114,8 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 # main
 
 def main():
-    claim_id = "claim_L0C049P3R_2"
-    graph_path = "/Users/cookie/Downloads/GAIA_English.Colorado_TA2_20220211.ttl.json"
+    claim_id = "claim_L0C04CA8C_5"
+    graph_path = "/Users/cookie/Box/AIDA/Evaluation 2022/Evaluation run/TA2 processed/GAIAta2_GAIAta1_highrecall/eval-ta1.20220307_cond56/json/NIST/task2_kb.ttl.json"
 
     json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
 
