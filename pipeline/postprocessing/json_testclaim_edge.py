@@ -79,13 +79,13 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
     for ake in this_claim_entry.associated_kes:
         # if we got a cluster, find the prototype
         if str(ake) in clusterinfo["clusterlabels"]:
-            if str(clusterinfo["node2cluster"][str(ake)].prototype) == "http://www.isi.edu/gaia/entities/uiuc/L0C04F73G/EN_Entity_EDL_ENG_0005337":
-                print("add prototypes: ake: {}, clusterinfo: http://www.isi.edu/gaia/entities/uiuc/L0C04F73G/EN_Entity_EDL_ENG_0005337".format(str(ake)))
+            if str(clusterinfo["node2cluster"][str(ake)].prototype) == "http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399":
+                print("add prototypes: ake: {}, clusterinfo: http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399".format(str(ake)))
             eres.add(clusterinfo["node2cluster"][str(ake)].prototype)
             # and all members
             for member in clusterinfo["cluster2members"][ str(ake) ]:
-                if str(member) == "http://www.isi.edu/gaia/entities/uiuc/L0C04F73G/EN_Entity_EDL_ENG_0005337":
-                    print("add other members: ake: {}, clusterinfo: http://www.isi.edu/gaia/entities/uiuc/L0C04F73G/EN_Entity_EDL_ENG_0005337".format(str(ake)))
+                if str(member) == "http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399":
+                    print("add other members: ake: {}, clusterinfo: http://www.isi.edu/gaia/events/uiuc/L0C04ABT4/EN_Event_006399".format(str(ake)))
                 eres.add(member)
 
     ###
@@ -94,7 +94,7 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
     evrel_with_edge = set()
     for ake in list(eres):
         if json_graph.is_event(ake) or json_graph.is_relation(ake):
-            if str(ake) == "http://www.isi.edu/gaia/events/uiuc/L0C04F73G/EN_Event_014965":
+            if str(ake) == "http://www.isi.edu/gaia/events/uiuc/L0C04CA8C/EN_Event_030294" or str(ake) == "http://www.isi.edu/gaia/events/uiuc/L0C04CA8C/EN_Event_030295":
                  for stmt in json_graph.each_ere_adjacent_stmt(ake):
                     print("stmt: " + stmt + "\n")
             for stmt in json_graph.each_ere_adjacent_stmt(ake):
@@ -114,7 +114,7 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 # main
 
 def main():
-    claim_id = "claim_L0C04F73G_2"
+    claim_id = "claim_L0C04CA8C_5"
     graph_path = "/Users/cookie/Box/AIDA/Evaluation 2022/Evaluation run/TA2 processed/GAIAta2_GAIAta1_highrecall/eval-ta1.20220307_cond56/json/NIST/task2_kb.ttl.json"
 
     json_graph = JsonGraph.from_dict(util.read_json_file(graph_path, 'JSON graph'))
