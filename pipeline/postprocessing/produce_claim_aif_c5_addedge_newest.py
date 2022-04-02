@@ -731,11 +731,11 @@ def main():
 
     print('Reading kb from {}'.format(kb_path))
     # rdflib graph object
-    kb_graph = Graph()
-    kb_graph.parse(kb_path, format='ttl')
+    # kb_graph = Graph()
+    # kb_graph.parse(kb_path, format='ttl')
     try:
-        graph_file = open ('kb_graph_file', 'wb')
-        pickle.dump(kb_graph, graph_file)
+        graph_file = open ('kb_graph_file', 'rb')
+        # pickle.dump(kb_graph, graph_file)
         kb_graph_cp = pickle.load(graph_file)
         kb_nodes_by_category_cp = catalogue_kb_nodes(kb_graph_cp)
         ########### test
