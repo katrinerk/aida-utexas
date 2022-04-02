@@ -123,6 +123,9 @@ def extract_stmt_components(kb_graph, stmt_id):
     """
     Find the subject, the predicate, and the object of a statement from a graph
     """
+    stmt_subj = None
+    stmt_pred = None 
+    stmt_obj = None
     
     print("The current stmt_id is  {}\n".format(stmt_id))
     try:
@@ -179,7 +182,7 @@ def index_statement_nodes(kb_graph, kb_stmt_set=None):
         #######test
         print("Try to find the subject, predicate and object of the statement: {} \n".format(stmt_id))
         stmt_subj, stmt_pred, stmt_obj = extract_stmt_components(kb_graph, stmt_id)
-        print("subj: {}, pred: {}, obj{} \n".format(stmt_subj, stmt_pred, stmt_obj))
+        # print("subj: {}, pred: {}, obj: {} \n".format(stmt_subj, stmt_pred, stmt_obj))
         
         kb_stmt_key_mapping[(stmt_subj, stmt_pred, stmt_obj)].add(stmt_id)
 
