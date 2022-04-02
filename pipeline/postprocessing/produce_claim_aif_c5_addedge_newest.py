@@ -5,7 +5,7 @@ import sys
 import os
 import pandas
 import logging
-
+import pickle
 # find relative path_jy
 from pathlib import Path
 currpath = Path(os.getcwd())
@@ -733,8 +733,28 @@ def main():
     # rdflib graph object
     kb_graph = Graph()
     kb_graph.parse(kb_path, format='ttl')
-    
+    try:
+        graph_file = open ('kb_graph_file', 'wb')
+        pickle.dump(kb_graph, graph_file)
+        kb_graph_cp = pickle.load(graph_file)
+        kb_nodes_by_category_cp = catalogue_kb_nodes(kb_graph_cp)
+        ########### test
+        print("\n -------------------------------------------- \n Print all statement idsin cooy file: \n")
+        cnt = 1
+        for stmt_id in kb_nodes_by_category_cp['Statement']:
+            print("{} : {}\n".format(cnt, stmt_id))
+        graph_file.close()
+    except:
+        print("fail to serialize")
+        
     kb_nodes_by_category = catalogue_kb_nodes(kb_graph) 
+    ########### test
+    print("\n -------------------------------------------- \n Print all statement ids: \n")
+    cnt = 1
+    for stmt_id in kb_nodes_by_category['Statement']:
+        print("{} : {}\n".format(cnt, stmt_id))
+        
+    print("\n -------------------------------------------- \n Start statement mapping")
     kb_stmt_key_mapping = index_statement_nodes(kb_graph, kb_nodes_by_category['Statement'])
     
     
@@ -759,7 +779,7 @@ def main():
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
 
-    print("/n The whole post processing ends here.")
+    print("\n The whole post processing ends here.")
 
 
 if __name__ == '__main__':
