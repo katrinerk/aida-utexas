@@ -3,30 +3,25 @@ import csv
 import ast
 import argparse
 
-''' read orginal queries.tsv with topic info to dictionary
-	with format query_id: [query_filename, query_id, query...]'''
-def queries_to_dict(filepath):
-	queries = {}
+from pathlib import Path
+
+########
+# given a queries.tsv or docclaims.tsv file, return:
+# mapping from query_id to [filename, id, text, topic, subtopic, template]
+def query_or_claim_to_dict(filepath):
+	mapping = {}
 	with open(filepath) as f:
-		query_reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-		for line in query_reader:
+		reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
+		for line in reader:
 			line[-1] = ast.literal_eval(line[-1])
-			queries[line[1]] = line
-	return queries
+			mapping[line[1]] = line
+	return mapping
 
 
-''' read orginal docclaims.tsv with topic info to dictionary
-	with format claim_id: [claim_filename, claim_id, claim...]'''
-def docclaims_to_dict(filepath):
-	docclaims = {}
-	with open(filepath) as f:
-		claim_reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-		for line in claim_reader:
-			line[-1] = ast.literal_eval(line[-1])
-			docclaims[line[1]] = line
-	return docclaims
 
-
+########
+# check if the pair (query, docclaim) have matched topic, 
+# subtopic and template
 def check_match(queries, docclaims, query_id, claim_id):
 	# check topic match
 	if queries[query_id][-3] == docclaims[claim_id][-3]:
@@ -39,53 +34,44 @@ def check_match(queries, docclaims, query_id, claim_id):
 	return False
 
 
-def find_matching(queries, docclaims, redundency_output):
+
+##########
+# given filepath to queries.tsv & docclaims.tsv & redundancy score:
+# return all docclaims that are RELATED to query 
+#							and have topic, subtopic and template matched
+def find_matching(queries, docclaims, redundancy_output):
 	matching = []
 	nli = []
 
-	for line in redundency_output:
-		# select claims above a given threshold
+	# column indexes in redundancy output
+	# ['Query_Filename', 'Query_ID', 'Query_Sentence', 'Claim_Filename', 
+	# 'Claim_ID', 'Claim_Sentence', 'Redundant_or_Independent', 'Score']
+
+	for line in redundancy_output:
+		# select all related docclaims
 		if line[-2] == "Related":
 			query_id = line[1]
 			claim_id = line[4]
-			# select claims with matching topic, subtopic and template
+			# select docclaims with matched topic, subtopic and template
 			if check_match(queries, docclaims, query_id, claim_id):
 				query_filename = line[0]
 				claim_filename = line[3]
+				# nli keep more fields for data analysis
 				matching.append([query_filename, query_id, claim_filename, claim_id])
 				nli.append(line)
 
 	return matching, nli
 
 
-"""write matching output to csv"""
-def get_matching(query_file, docclaim_file, redundancy_file, output_path):
-	
-	queries = queries_to_dict(query_file)
-	docclaims = docclaims_to_dict(docclaim_file)
-
-	# read redundency classifier output
-	with open(redundancy_file) as f:
-		redundancy_reader = csv.reader(f)
-		redundancy_output = [line for line in redundancy_reader]
-
-	matching, _ = find_matching(queries, docclaims, redundancy_output)
-
-	fields = ['Query_Filename', 'Query_ID', 'Claim_Filename', 'Claim_ID'] 
-
-	with open(output_path, 'w', newline='') as csvfile: 
-	    csvwriter = csv.writer(csvfile) 
-	    csvwriter.writerow(fields) 
-	    csvwriter.writerows(matching)
-
-
-"""write nli input to csv"""
+###########
+# wrap up all matching steps
+# write matched docclaims to csv for later NLI task
 def get_nli_input(query_file, docclaim_file, redundancy_file, output_path):
 
-	queries = queries_to_dict(query_file)
-	docclaims = docclaims_to_dict(docclaim_file)
+	docclaims = query_or_claim_to_dict(docclaim_file)
+	queries = query_or_claim_to_dict(query_file)
 
-	# read redundency classifier output
+	# read redundancy classifier output
 	with open(redundancy_file) as f:
 		redundancy_reader = csv.reader(f)
 		redundancy_output = [line for line in redundancy_reader]
@@ -105,40 +91,30 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
 
-	parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
-
-	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed", 
+	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed", 
 							help="path to preprocessed docclaims")
 
-	parser.add_argument('--query_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/preprocessed/query", 
+	parser.add_argument('--query_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed/query", 
 							help="path to preprocessed query")
 
-	parser.add_argument('--redundancy_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/working", 
+	parser.add_argument('--redundancy_file', type=str, required=False, default="../../evaluation_2022/evaluation/working", 
 							help="path to redundancy classifier output file")
 
-	parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/dryrun_data/working", 
+	parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/evaluation/working", 
 							help="path to working space for output result")
 
-	parser.add_argument('--write_matching', type=str, required=False, default = "True", 
-							help="write matched query_claim pairs")
-
-	parser.add_argument('--write_nli_input', type=str, required=False, default = "True", 
-							help="write matched query_claim pairs in the format consuming by NLI model")
 	args = parser.parse_args()
 
-	docclaim_file = os.path.join(args.docclaim_file, args.data, "docclaims.tsv")
-	query_file = os.path.join(args.query_file, args.condition, "queries.tsv")
-	redundancy_file = os.path.join(args.redundancy_file, args.data, args.condition, "step1_query_claim_relatedness/q2d_relatedness.csv")
+	docclaim_file = Path(os.path.join(args.docclaim_file, args.data, "condition5/docclaims.tsv"))
+	query_file = Path(os.path.join(args.query_file, "condition5/queries.tsv"))
+	redundancy_file = Path(os.path.join(args.redundancy_file, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv"))
 
-	if args.write_matching == "True":
-		output_path = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/query_claim_matching.csv")
-		get_matching(query_file, docclaim_file, redundancy_file, output_path)
-
-	if args.write_nli_input == "True":
-		output_path = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/nli_input.csv")
-		get_nli_input(query_file, docclaim_file, redundancy_file, output_path)
-
-
+	output_dir = os.path.join(args.output_path, args.data, "condition5/step2_query_claim_nli")
+	if not Path(output_dir).exists():
+		os.mkdir(output_dir)
+	output_path = Path(os.path.join(output_dir, "nli_input.csv"))
+	get_nli_input(query_file, docclaim_file, redundancy_file, output_path)
+	print("finish")
 
 if __name__ == '__main__':
     main()

@@ -3,6 +3,8 @@ This is a strong pre-trained RoBERTa-Large NLI model.
 
 The training data is a combination of well-known NLI datasets: 
 SNLI, MNLI, FEVER-NLI, ANLI (R1, R2, R3).
+
+Not used in evaluation
 '''
 
 import os

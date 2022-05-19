@@ -1,3 +1,5 @@
+'''Read in train dataset, validate dataset and test dataset'''
+
 import csv
 import pickle
 import numpy as np
