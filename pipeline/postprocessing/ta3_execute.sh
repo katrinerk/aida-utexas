@@ -58,4 +58,5 @@ else
         python3 produce_claim_aif_c5_addedge_newest.py $working_dir $run_id Condition5 $graph_path $kb_path $output_dir
         python3 produce_claim_aif_c6_addedge_newest.py $working_dir $run_id Condition6 $graph_path $kb_path $output_dir
         python3 produce_claim_aif_c6_addedge_newest.py $working_dir $run_id Condition7 $graph_path $kb_path $output_dir
+    fi
 fi
