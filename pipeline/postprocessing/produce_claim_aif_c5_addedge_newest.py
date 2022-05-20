@@ -1,17 +1,16 @@
 # Code by Pengxiang Cheng
 # Attempt to adapt to claim output: Katrin Erk
+# Update by Jiaying Li
 
 import sys
 import os
 import pandas
 import logging
 import pickle
-# find relative path_jy
+
 from pathlib import Path
 currpath = Path(os.getcwd())
-
 sys.path.insert(0, str(currpath.parents[1]))
-
 
 import math
 from argparse import ArgumentParser
@@ -75,8 +74,7 @@ def print_graph(g):
     return stream.getvalue().decode()
 
 #############################
-# NEW
-# (or rather updated)
+# NEW (or rather updated)
 # determine set of all clusters relevant for hte given EREs,
 # and for each cluster prototype, determine handle
 # return mapping from prototype to handles
@@ -112,7 +110,7 @@ def compute_handle_mapping(ere_set, json_graph, member_to_clusters, cluster_to_p
 
     return proto_handles
 
-#########3
+#########
 # NEW compute info on clusters needed for handling prototype handles
 # returns: ere_set, member_to_clusters, cluster_to_prototype 
 def compute_cluster_info(json_graph, ere_list):
@@ -132,8 +130,6 @@ def compute_cluster_info(json_graph, ere_list):
 # 'claim',
 # 'eres'
 def find_claim_associated_kes(claim_id, json_graph):
-
-
     node2cluster = {} # store node label -> sameAsClusterNode
     clusterlabel = set() # store sameAsCluster node label
     for node_label, node in json_graph.node_dict.items():
@@ -149,8 +145,7 @@ def find_claim_associated_kes(claim_id, json_graph):
             retv["claim"] = claim_label
             retv["edge_stmts"] = set()
             retv["type_stmts"] = set()
-            
-            
+                      
             # found the right associated KEs
             retv["eres"] = set(claim_entry.associated_kes)
 
@@ -186,12 +181,10 @@ def find_claim_associated_kes(claim_id, json_graph):
         
     return None
 
-# NEW
 def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_mapping, json_graph):
     
     assert json_graph.is_statement(stmt_label)
     stmt_entry = json_graph.node_dict[stmt_label]
-
     stmt_subj = stmt_entry.subject
     stmt_pred = stmt_entry.predicate
     stmt_obj = stmt_entry.object
@@ -203,17 +196,10 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
         kb_stmt_pred = RDF.type if stmt_pred == 'type' else rdflib.term.Literal(stmt_pred, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string'))
         kb_stmt_obj = rdflib.term.Literal(stmt_obj, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')) if stmt_pred == 'type' else URIRef(stmt_obj)
 
-        # Does this work now? 
-        # Problem: the kb_stmt_key_mapping keys have a shape like this:
-        # ( rdflib.term.URIRef('http://www.isi.edu/gaia/relations/uiuc/L0C04ATCO/EN_Relation_002421'),
-        # rdflib.term.Literal('A1', datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')),
-        # rdflib.term.URIRef('http://www.isi.edu/gaia/entity/prototype/eHWINSZd7y'))
-        #
-        # how do we get there from stmt_subj, stmt_pred, stmt_obj?
         thekey = (URIRef(stmt_subj), kb_stmt_pred, kb_stmt_obj)
         if thekey not in kb_stmt_key_mapping or len(kb_stmt_key_mapping[thekey]) == 0:
             kb_stmt_id = None
-            logging.warning(f"Tried to match statement key, failing with {thekey}")
+            logging.warning("Tried to match statement key, failing with {}".format(thekey))
         else:
             kb_stmt_id = next(iter( kb_stmt_key_mapping[thekey]))
 
@@ -243,7 +229,7 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, kb_nodes_by_ca
     for stmt in material_dict['type_stmts']: 
         kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, kb_mappings, json_graph)
         if kb_stmt_id is None:
-            logging.warning(f"Warning: could not match type statement, skipping: {stmt}")
+            logging.warning("Warning: could not match type statement, skipping: {}".format(stmt))
         else:
             all_triples.update(triples_for_type_stmt(kb_graph, kb_stmt_id))
 
@@ -252,11 +238,10 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, kb_nodes_by_ca
         kb_stmt_id = match_stmt_in_kb(stmt, kb_graph, kb_nodes_by_category, kb_mappings, json_graph)
 
         if kb_stmt_id is None:
-            logging.warning(f"Warning: could not match edge statement, skipping: {stmt}")
+            logging.warning("Warning: could not match edge statement, skipping: {}".format(stmt))
         else:
             all_triples.update(triples_for_edge_stmt(kb_graph, kb_stmt_id))
 
-    ### jy
     # add relevant/supporting/refuting query claims to doc claims for condition 5
     # try to add related/support claims to that claim in the rdflib
     
@@ -297,7 +282,7 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, kb_nodes_by_ca
                 all_triples.add((claim_id, rpred, obj))
                 marked_claims.add(claim2)     
 
-    #############3
+    #############
     # logging.info('Constructing a subgraph')
     # Start building the subgraph
     subgraph = Graph()
@@ -307,20 +292,17 @@ def build_subgraph_for_claim(material_dict, kb_graph, json_graph, kb_nodes_by_ca
         if str(namespace) not in [AIDA, LDC, LDC_ONT]:
             subgraph.bind(prefix, namespace)
     # Bind the AIDA, LDC, LDC_ONT, and UTEXAS namespaces to the subgraph
-    # jy: may need to delete these unnecessary prefixes 02/20
     subgraph.bind('aida', AIDA, override=True)
     subgraph.bind('ldc', LDC, override=True)
     subgraph.bind('ldcOnt', LDC_ONT, override=True)
     subgraph.bind('utexas', UTEXAS)
     subgraph.bind('ex', EX)
 
-
     # logging.info('Adding all content triples to the subgraph')
     # Add all triples
     for triple in all_triples:
         subgraph.add(triple)
 
-    # NEW
     # fix prototype handles
     # Compute cluster info
     ere_set, member_to_clusters, cluster_to_prototype = compute_cluster_info(json_graph, material_dict["eres"])
@@ -347,7 +329,7 @@ def find_ttl_file(startpath, filename):
             return fullname
     return None
    
-### jy
+###
 # return supporting/refuting relations between queries and doc claims
 def conflict_supporting_file_filter(csvfile_path):
     filepath = Path(csvfile_path)
@@ -379,7 +361,7 @@ def conflict_supporting_file_filter(csvfile_path):
                          
     return (hypo_match_refuting_premise, hypo_match_supporting_premise, claim_ttl)  
 
-### jy
+###
 # return relevant relations between queries and doc claims
 def relevant_file_filter(csvfile_path):
     filepath = Path(csvfile_path)       
@@ -469,10 +451,9 @@ def get_cluster_info_forgraph(json_graph):
              "cluster2members" : cluster2members}
 
 ###
-# Katrin Erk March 2022: given a json graph and a claim ID,
+# Given a json graph and a claim ID,
 # test whether the claim has at least one associated KE that is
 # an event or relation with at least one edge that also goes to an associated KE
-#
 # returns: True if test passed, else False
 def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 
@@ -490,7 +471,7 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 
     if this_claim_label is None:
         # we didn't find the claim
-        logging.warning(f'Test for edge presence in claim: claim not found: {claim_id}')
+        logging.warning('Test for edge presence in claim: claim not found: {}'.format(claim_id))
         return False
 
     ####
@@ -528,14 +509,12 @@ def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 
 def main():
     parser = ArgumentParser()   
-    parser.add_argument('working_dir', help="Working directory with intermediate system results")
+    parser.add_argument('working_dir', help="Working directory with intermediate working results")
     parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
     parser.add_argument('condition', help="Condition5, Condition6, Condition7")
     parser.add_argument('graph_path', help='path to the graph json file') # single big json file
     parser.add_argument('kb_path', help='path to AIF file') # single big file
-    
     parser.add_argument('output_dir', help='path to output directory')
-
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
     args = parser.parse_args()
@@ -543,6 +522,15 @@ def main():
     # sanity check on condition
     if args.condition not in ["Condition5", "Condition6", "Condition7"]:
         print("Error: need a condition that is Condition5, Condition6, Condition7")
+        sys.exit(1)
+
+    #sanity chck on graph_path and kb_path
+    if not Path(args.graph_path).is_file():
+        print("Error: The graph json file must be a json file")
+        sys.exit(1)
+        
+    if not Path(args.kb_path).is_file():
+        print("Error: The aif file must be a single file")
         sys.exit(1)
 
     working_mainpath = util.get_input_path(args.working_dir)
@@ -565,7 +553,6 @@ def main():
             all_claims.add(claim_id)
     
     clusterinfo = get_cluster_info_forgraph(json_graph)
-    
     good_claims = []
      
     for claim in all_claims:
@@ -661,9 +648,6 @@ def main():
     # Condition5: Query_ID Claim_ID Rank Relation_to_Query
     # Condition6: Query_ID Claim_ID Rank
     # Condition7: Query_ID Claim_ID Rank
-
-    # output is to: [working_path] / step4_ranking
-    #jy:update
     output_path = util.get_output_dir(str(args.output_dir + '/' +  "output" + '/' + args.run_id + '/' + "NIST" + '/' + args.condition), overwrite_warning=not args.force)
 
     for query_id in query_related.keys():
@@ -673,12 +657,6 @@ def main():
         os.makedirs(output_dir)
         # make a ranking
         ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score, query_2_text, claim_2_text)
-        
-        # print("Sanity check")
-        # print("Query", query_id, query_2_text[query_id], "\n")
-        # for claim in ranked_claims:
-        #     print(claim, claim_scores[claim], claim_2_text[claim])
-
         # and write it to a file
         
         output_filename = output_dir / (new_query_id + ".ranking.tsv")
@@ -725,46 +703,38 @@ def main():
     #  This is a temporary workaround to patch the _toPythonMapping locally.
     #  c.f.: https://github.com/RDFLib/rdflib/issues/806
     # noinspection PyProtectedMember
-    
-    ###jy
-    #rdflib.term._toPythonMapping.pop(rdflib.XSD['gYear'])
 
     print('Reading kb from {}'.format(kb_path))
     # rdflib graph object
     kb_graph = Graph()
-    # kb_graph.parse(kb_path, format='ttl')
-    try:
-        graph_file = open ('kb_graph_file', 'rb')
-        # pickle.dump(kb_graph, graph_file)
-        kb_graph = pickle.load(graph_file)
-        kb_nodes_by_category_cp = catalogue_kb_nodes(kb_graph)
-        ########### test
-        print("\n -------------------------------------------- \n Print all statement idsin cooy file: \n")
-        cnt = 1
-        for stmt_id in kb_nodes_by_category_cp['Statement']:
-            print("{} : {}\n".format(cnt, stmt_id))
-        graph_file.close()
-    except:
-        print("fail to serialize")
-        
-    kb_nodes_by_category = catalogue_kb_nodes(kb_graph) 
-    ########### test
-    print("\n -------------------------------------------- \n Print all statement ids: \n")
-    cnt = 1
-    for stmt_id in kb_nodes_by_category['Statement']:
-        print("{} : {}\n".format(cnt, stmt_id))
-        
-    print("\n -------------------------------------------- \n Start statement mapping")
-    kb_stmt_key_mapping = index_statement_nodes(kb_graph, kb_nodes_by_category['Statement'])
+    kb_graph.parse(kb_path, format='ttl')
     
+    ############ store the parsed kb_graph for possible reuse
+    # try:
+    #     graph_file = open ('kb_graph_file', 'rb')
+    #     # pickle.dump(kb_graph, graph_file)
+    #     kb_graph = pickle.load(graph_file)
+    #     kb_nodes_by_category_cp = catalogue_kb_nodes(kb_graph)
+    #     ########### test
+    #     print("\n -------------------------------------------- \n Print all statement idsin cooy file: \n")
+    #     cnt = 1
+    #     for stmt_id in kb_nodes_by_category_cp['Statement']:
+    #         print("{} : {}\n".format(cnt, stmt_id))
+    #     graph_file.close()
+    # except:
+    #     print("fail to serialize")
+        
+    ########### match nameless nodes and edges
+    kb_nodes_by_category = catalogue_kb_nodes(kb_graph) 
+    kb_stmt_key_mapping = index_statement_nodes(kb_graph, kb_nodes_by_category['Statement'])
     
     print("dealing single claim now \n")
 
     for claim in claim_related.keys():
         # from the json file, extract the correct claim and its associated KEs
-        # associated_kes: a list of labels of knowledge elements, both sameas clusters and prototypes
+        # associated_kes: a list of labels of knowledge elements, both same clusters and prototypes
         # associated_stmts: one type statement per KE, plus other statements as long as they connect
-        #        two associated KEs
+        # two associated KEs
     
         material_dict = find_claim_associated_kes(claim, json_graph)
         if material_dict is None:
@@ -779,7 +749,7 @@ def main():
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
 
-    print("\n The whole post processing ends here.")
+    print("\n The whole postprocessing for {} ends here.".format(args.condition))
 
 
 if __name__ == '__main__':

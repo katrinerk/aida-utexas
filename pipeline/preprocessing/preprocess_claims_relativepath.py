@@ -1,11 +1,10 @@
 import os
 import sys
 
-# find relative path_jy
+
 from pathlib import Path
 currpath = Path(os.getcwd())
-
-sys.path.insert(0, str(currpath.parents[1]))
+sys.path.insert(0, str(currpath.parents[1]))# find relative path_jy
 
 import io
 import json
