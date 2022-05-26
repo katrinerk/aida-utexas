@@ -3,7 +3,7 @@ but pools the final hidden state output such that cosine similarity can be measu
 The models here are further trained from their Huggingface equivalents on a dataset of 
 [over 1 billion pairs](https://huggingface.co/datasets/sentence-transformers/embedding-training-data) 
 trained to detect similarity."""
-
+import sys
 import os
 import argparse
 import csv
@@ -159,23 +159,24 @@ def write_output(output_path, rows, header):
 def main():
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
+
+	parser.add_argument('--run', type=str, required=True, help="for example: ta2_colorado")
 
 	parser.add_argument('--type', type=str, required=True, help="query_claim or claim_claim")
 
 	parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
 
-	parser.add_argument('--threshold', type=float, required=False, default=0.58, 
+	parser.add_argument('--threshold', type=float, required=True, default=0.58, 
 						help="the threshold used to separate redundant from independent sentences.")
 
-	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed", 
+	parser.add_argument('--docclaim_dir', type=str, required=True, 
 						help="path to preprocessed docclaims")
-
-	parser.add_argument('--query_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed/query", 
+	
+	parser.add_argument('--query_dir', type=str, required=True, 
 						help="path to preprocessed query")
-
-	parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/evaluation/working", 
-						help="path to working space for output result")
+	
+	parser.add_argument('--workspace', type=str, required=True,
+						help="path the directory for processing work")
 	args = parser.parse_args()
 	
 	# sanity check on condition
@@ -190,11 +191,11 @@ def main():
 
 	if args.type == "query_claim":
 
-		docclaim_file = Path(os.path.join(args.docclaim_file, args.data, args.condition, "docclaims.tsv"))
-		query_file = Path(os.path.join(args.query_file, args.condition, "queries.tsv"))
-		output_dir = os.path.join(args.output_path, args.data, args.condition, "step1_query_claim_relatedness")
+		docclaim_file = Path(os.path.join(args.docclaim_dir, args.run, "docclaims.tsv"))
+		query_file = Path(os.path.join(args.query_dir, args.condition, "queries.tsv"))
+		output_dir = os.path.join(args.workspace, args.run, args.condition, "step1_query_claim_relatedness")
 		if not Path(output_dir).exists():
-			os.mkdir(output_dir)
+			os.makedirs(output_dir)
 		output_path = Path(os.path.join(output_dir, "q2d_relatedness.csv"))
 
 		claims_split_by_document, claims_to_id = read_query_or_docclaim(docclaim_file)
@@ -203,11 +204,19 @@ def main():
 		write_output(output_path, rows, args.type)
 
 	if args.type == "claim_claim":
-		input_file = Path(os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking/claim_claim.csv"))
+		working_dir = os.path.join(args.workspace, args.run, args.condition, "step2_query_claim_nli")
+		if not Path(working_dir).exists():
+			print("claim_claim.csv or claim_claim_for_relatedness.csv not found")
+			sys.exit(1)
 		
-		output_dir = os.path.join(args.output_path, args.data, args.condition, "step3_claim_claim_ranking")
+		if args.condition in ['condition5', 'condition7']:
+			input_file = Path(os.path.join(working_dir, "claim_claim.csv"))
+		else:
+			input_file = Path(os.path.join(working_dir, "claim_claim_for_relatedness.csv"))
+
+		output_dir = os.path.join(args.workspace, args.run, args.condition, "step3_claim_claim_ranking")
 		if not Path(output_dir).exists():
-			os.mkdir(output_dir)
+			os.makedirs(output_dir)
 		output_path = Path(os.path.join(output_dir, "claim_claim_relatedness.csv"))
 
 		claim1_split_by_document, claim1_to_id, claim2_split_by_document, claim2_to_id = read_claim_claim_pair(input_file)

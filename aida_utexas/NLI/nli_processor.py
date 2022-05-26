@@ -5,6 +5,8 @@ Not used in evaluation
 '''
 
 import os
+import sys
+import csv
 import logging
 import torch
 import argparse
@@ -16,7 +18,6 @@ from torch import optim
 from torch.utils.data import Dataset
 from fairseq.models.roberta import RobertaModel
 from fairseq.data.data_utils import collate_tokens
-from data_processor import *
 
 logger = logging.getLogger(__name__)
 
@@ -139,44 +140,41 @@ def main():
     parser.add_argument('--batch', type=int, required=False, default=1, 
                         help="please ensure dataset size is multiple of batch size")
 
-    parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
+    parser.add_argument('--run', type=str, required=True, help="for example: ta2_colorado")
 
     parser.add_argument('--type', type=str, required=True, help="query_claim or claim_claim")
 
-    parser.add_argument('--condition', type=str, required=True, help="condition5, contition6, condition7")
-
-    parser.add_argument('--input_file', type=str, required=False, default="../../evaluation_2022/dryrun_data/working",
-                        help="path to related matched query-claim pair file")
+    parser.add_argument('--condition', type=str, required=True, 
+                        help="condition5, contition6, condition7")
     
-    parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/dryrun_data/working", 
-						help="path to working space for output result")
+    parser.add_argument('--workspace', type=str, required=True, help="path the directory for processing work")
     
     args = parser.parse_args()
-
+    
     # sanity check on condition
     if args.condition not in ["condition5", "condition6", "condition7"]:
         print("Error: need a condition that is condition5, condition6, condition7")
         sys.exit(1)
-
-	
-	# sanity check on work type
+        
+    # sanity check on work type
     if args.type not in ["query_claim", "claim_claim"]:
         print("Error: need a type that is query_claim or claim_claim")
         sys.exit(1)
 
 
     if args.type == "query_claim":
-        input_file = Path(os.path.join(args.input_file, args.data, args.condition, "step2_query_claim_nli/nli_input.csv"))
-        output_dir = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli")
+        input_file = Path(os.path.join(args.workspace, args.run, args.condition, "step2_query_claim_nli/nli_input.csv"))
+        output_dir = os.path.join(args.workspace, args.run, args.condition, "step2_query_claim_nli")
         if not Path(output_dir).exists():
-            os.mkdir(output_dir)
+            #os.mkdir(output_dir)
+            os.makedirs(output_dir)
         output_path = Path(os.path.join(output_dir, "q2d_nli.csv"))
     elif args.type == "claim_claim":
-        input_file = Path(os.path.join(args.input_file, args.data, args.condition, "step2_query_claim_nli/claim_claim.csv"))
-        output_dir = os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli")
+        input_file = Path(os.path.join(args.workspace, args.run, args.condition, "step2_query_claim_nli/claim_claim.csv"))
+        output_dir = os.path.join(args.workspace, args.run, args.condition, "step2_query_claim_nli")
         if not Path(output_dir).exists():
-            os.mkdir(output_dir)
-        output_path = Path(os.path.join(args.output_path, args.data, args.condition, "step2_query_claim_nli/d2d_nli.csv"))
+            os.makedirs(output_dir)
+        output_path = Path(os.path.join(output_dir, "d2d_nli.csv"))
 
     # setting device on GPU if available, else CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

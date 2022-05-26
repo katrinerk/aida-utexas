@@ -89,32 +89,31 @@ def get_nli_input(query_file, docclaim_file, redundancy_file, output_path):
 
 def main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--data', type=str, required=True, help="for example: ta2_colorado")
+	parser.add_argument('--run', type=str, required=True, help="for example: ta2_colorado")
 
-	parser.add_argument('--docclaim_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed", 
+	parser.add_argument('--condition', type=str, required=True, 
+							help="condition5, contition6, condition7")
+
+	parser.add_argument('--docclaim_dir', type=str, required=True, 
 							help="path to preprocessed docclaims")
-
-	parser.add_argument('--query_file', type=str, required=False, default="../../evaluation_2022/evaluation/preprocessed/query", 
+	
+	parser.add_argument('--query_dir', type=str, required=True, 
 							help="path to preprocessed query")
 
-	parser.add_argument('--redundancy_file', type=str, required=False, default="../../evaluation_2022/evaluation/working", 
-							help="path to redundancy classifier output file")
-
-	parser.add_argument('--output_path', type=str, required=False, default = "../../evaluation_2022/evaluation/working", 
-							help="path to working space for output result")
+	parser.add_argument('--workspace', type=str, required=True, 
+							help="path the directory for processing work")
 
 	args = parser.parse_args()
 
-	docclaim_file = Path(os.path.join(args.docclaim_file, args.data, "condition5/docclaims.tsv"))
-	query_file = Path(os.path.join(args.query_file, "condition5/queries.tsv"))
-	redundancy_file = Path(os.path.join(args.redundancy_file, args.data, "condition5/step1_query_claim_relatedness/q2d_relatedness.csv"))
+	docclaim_file = Path(os.path.join(args.docclaim_dir, args.run, "docclaims.tsv"))
+	query_file = Path(os.path.join(args.query_dir, args.condition, "queries.tsv"))
+	redundancy_file = Path(os.path.join(args.workspace, args.run, args.condition, "step1_query_claim_relatedness/q2d_relatedness.csv"))
 
-	output_dir = os.path.join(args.output_path, args.data, "condition5/step2_query_claim_nli")
+	output_dir = os.path.join(args.workspace, args.run, "condition5/step2_query_claim_nli")
 	if not Path(output_dir).exists():
-		os.mkdir(output_dir)
+		os.makedirs(output_dir)
 	output_path = Path(os.path.join(output_dir, "nli_input.csv"))
 	get_nli_input(query_file, docclaim_file, redundancy_file, output_path)
-	print("finish")
 
 if __name__ == '__main__':
     main()

@@ -121,14 +121,15 @@ def main():
     ######3
     # parsing arguments
     parser = ArgumentParser()
-    parser.add_argument('aif_path', help='Path to document-level AIF files')
-    parser.add_argument('doc_output_dir', help='Directory to write document-level output. tsv will be here, json files in a subdirectory called json')
-    parser.add_argument('-q', '--query_path',
-                        help='Path to the directory with conditions 5,6,7 query info (or empty)', default = None, type = str)
-    parser.add_argument('-Q', '--query_output_dir', help='Directory to write query files. Will have Condition 5,6,7 subdirectories with tsv files, json files in Condition 5/json', default = None, type = str)
+    parser.add_argument('--aif_path', type=str, required=True, help='Path to document-level AIF files')
+    parser.add_argument('--doc_output_dir', type=str, required=True, 
+                        help='Directory to write document-level output. tsv will be here, json files in a subdirectory called json')
+    parser.add_argument('-q', '--query_path', default = None, type = str,
+                        help='Path to the directory with conditions 5,6,7 query info (or empty)')
+    parser.add_argument('-Q', '--query_output_dir', default = None, type = str,
+                        help='Directory to write query files. Will have Condition 5,6,7 subdirectories with tsv files, json files in Condition 5/json')
     parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
-    
     
     args = parser.parse_args()
     
@@ -146,7 +147,7 @@ def main():
         # this will overwrite everything in this output directory! 
         query_out_dir = util.get_output_path(args.query_output_dir, overwrite_warning=not args.force)
 
-        for condition in ["Condition5", "Condition6", "Condition7"]:
+        for condition in ["condition5", "condition6", "condition7"]:
             # determine input directory
             this_in_dir = query_in_path / condition
 
@@ -159,7 +160,7 @@ def main():
 
             
             # in condition 5, convert query ttl to json and make queries.tsv
-            if condition == "Condition5":
+            if condition == "condition5":
                 
                 query_out_json_dir = util.get_output_dir(this_out_dir / "json/", overwrite_warning=not args.force)
                 query_in_ttl_dir = util.get_input_path(this_in_dir / "Query_Claim_Frames")
@@ -174,7 +175,7 @@ def main():
                 fout.close()
 
             # in condition 6, convert topics.tsv file to queries.tsv format
-            elif condition == "Condition6":
+            elif condition == "condition6":
                 claims = parse_cond6(topicfilename)
                 
                 output_path = this_out_dir / "queries.tsv"
@@ -185,7 +186,7 @@ def main():
                 fout.close()
                 
 
-            elif condition == "Condition7":
+            elif condition == "condition7":
                 claims = parse_cond7(topicfilename)
                 
                 output_path = this_out_dir / "queries.tsv"

@@ -530,7 +530,7 @@ def main():
     parser = ArgumentParser()   
     parser.add_argument('working_dir', help="Working directory with intermediate system results")
     parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
-    parser.add_argument('condition', help="Condition5, Condition6, Condition7")
+    parser.add_argument('condition', help="condition5, condition6, condition7")
     parser.add_argument('graph_path', help='path to the graph json file') # single big json file
     parser.add_argument('kb_path', help='path to AIF file') # single big file
     
@@ -541,8 +541,8 @@ def main():
     args = parser.parse_args()
     
     # sanity check on condition
-    if args.condition not in ["Condition5", "Condition6", "Condition7"]:
-        print("Error: need a condition that is Condition5, Condition6, Condition7")
+    if args.condition not in ["condition5", "condition6", "condition7"]:
+        print("Error: need a condition that is condition5, condition6, condition7")
         sys.exit(1)
 
     working_mainpath = util.get_input_path(args.working_dir)

@@ -3,10 +3,10 @@ import os
 
 
 # find relative path_jy
+'''
 from pathlib import Path
 currpath = Path(os.getcwd())
-
-sys.path.insert(0, str(currpath.parents[1]))
+sys.path.insert(0, str(currpath.parents[1]))'''
 
 
 import io
@@ -288,16 +288,15 @@ def main():
     ######3
     # parsing arguments
     parser = ArgumentParser()
-    parser.add_argument('query_dir', help='Directory with preprocessed query files (cond5,6,7)')
-    parser.add_argument('docclaim_dir', help="Directory with text claims in tsv")
-    parser.add_argument('working_dir', help="Working directory with intermediate system results")
-    parser.add_argument('run_id', help="run ID, same as subdirectory of Working")
-    parser.add_argument('condition', help="condition5, condition6, condition7")
+    parser.add_argument('--query_dir', type=str, required=True, help='Directory with preprocessed query files (cond5,6,7)')
+    parser.add_argument('--docclaim_dir', type=str, required=True, help="Directory with text claims in tsv")
+    parser.add_argument('--working_dir', type=str, required=True, help="Working directory with intermediate system results")
+    parser.add_argument('--run_id', type=str, required=True, help="run ID, same as subdirectory of Working")
+    parser.add_argument('--condition', type=str, required=True, help="condition5, condition6, condition7")
     parser.add_argument('-f', '--force', action='store_true',
                         help='If specified, overwrite existing output files without warning')
-    parser.add_argument('-t', '--threshold', help="threshold for counting a claim as related", type = float)
-    
-    
+    parser.add_argument('-t', '--threshold', type = float, required=True, help="threshold for counting a claim as related")
+        
     args = parser.parse_args()
 
     # sanity check on condition
@@ -317,7 +316,7 @@ def main():
     # read docclaims tsv
 
     docclaims_path = util.get_input_path(args.docclaim_dir)
-    docclaims_file = util.get_input_path(docclaims_path / "docclaims.tsv")
+    docclaims_file = util.get_input_path(docclaims_path / args.run_id / "docclaims.tsv")
 
     docclaim_filetext, docclaim_topics = read_query_or_docclaim_tsv(str(docclaims_file))
 
