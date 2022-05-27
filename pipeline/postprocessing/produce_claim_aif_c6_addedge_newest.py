@@ -182,13 +182,13 @@ def find_claim_associated_kes(claim_id, json_graph):
 # NEW
 def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_mapping, json_graph):
     
-    assert json_graph.is_statement(stmt_label)
+    assert json_graph.is_statement(stmt_label), f"stmt_label got:{stmt_label}"
     stmt_entry = json_graph.node_dict[stmt_label]
 
     stmt_subj = stmt_entry.subject
     stmt_pred = stmt_entry.predicate
     stmt_obj = stmt_entry.object
-    assert stmt_subj is not None and stmt_pred is not None and stmt_obj is not None
+    assert stmt_subj is not None and stmt_pred is not None and stmt_obj is not None, f"stmt_subj got: {stmt_subj}, stmt_pred got: {stmt_pred}, stmt_obj got: {stmt_obj}"
 
     # Find the statement node in the KB
     kb_stmt_id = URIRef(stmt_label)
