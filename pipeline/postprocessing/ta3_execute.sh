@@ -28,7 +28,7 @@ else
 fi
 
 ########conducting working process
-echo "Conducting working of ta3"
+echo "Conducting main processing of ta3"
 
 
 
