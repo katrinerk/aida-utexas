@@ -1,17 +1,16 @@
 # Code by Pengxiang Cheng
 # Attempt to adapt to claim output: Katrin Erk
+# Update by Jiaying Li
 
 import sys
 import os
 import pandas
 import logging
 
-# find relative path_jy
+
 from pathlib import Path
 currpath = Path(os.getcwd())
-
 sys.path.insert(0, str(currpath.parents[1]))
-
 
 import math
 from argparse import ArgumentParser
@@ -75,8 +74,7 @@ def print_graph(g):
     return stream.getvalue().decode()
 
 #############################
-# NEW
-# (or rather updated)
+# NEW (or rather updated)
 # determine set of all clusters relevant for hte given EREs,
 # and for each cluster prototype, determine handle
 # return mapping from prototype to handles
@@ -112,7 +110,7 @@ def compute_handle_mapping(ere_set, json_graph, member_to_clusters, cluster_to_p
 
     return proto_handles
 
-#########3
+#########
 # NEW compute info on clusters needed for handling prototype handles
 # returns: ere_set, member_to_clusters, cluster_to_prototype 
 def compute_cluster_info(json_graph, ere_list):
@@ -131,15 +129,12 @@ def compute_cluster_info(json_graph, ere_list):
 # 'claim',
 # 'eres'
 def find_claim_associated_kes(claim_id, json_graph):
-
-
     node2cluster = {} # store node label -> sameAsClusterNode
     clusterlabel = set() # store sameAsCluster node label
     for node_label, node in json_graph.node_dict.items():
         if node.type == 'SameAsCluster':
             clusterlabel.add(node_label)
             node2cluster[node_label] = node       
-    
     retv = { }
     
     for claim_label, claim_entry in json_graph.each_claim():
@@ -148,7 +143,6 @@ def find_claim_associated_kes(claim_id, json_graph):
             retv["claim"] = claim_label
             retv["edge_stmts"] = set()
             retv["type_stmts"] = set()
-            
             
             # found the right associated KEs
             retv["eres"] = set(claim_entry.associated_kes)
@@ -188,13 +182,13 @@ def find_claim_associated_kes(claim_id, json_graph):
 # NEW
 def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_mapping, json_graph):
     
-    assert json_graph.is_statement(stmt_label)
+    assert json_graph.is_statement(stmt_label), f"stmt_label got:{stmt_label}"
     stmt_entry = json_graph.node_dict[stmt_label]
 
     stmt_subj = stmt_entry.subject
     stmt_pred = stmt_entry.predicate
     stmt_obj = stmt_entry.object
-    assert stmt_subj is not None and stmt_pred is not None and stmt_obj is not None
+    assert stmt_subj is not None and stmt_pred is not None and stmt_obj is not None, f"stmt_subj got: {stmt_subj}, stmt_pred got: {stmt_pred}, stmt_obj got: {stmt_obj}"
 
     # Find the statement node in the KB
     kb_stmt_id = URIRef(stmt_label)
@@ -202,20 +196,12 @@ def match_stmt_in_kb(stmt_label, kb_graph, kb_nodes_by_category, kb_stmt_key_map
         kb_stmt_pred = RDF.type if stmt_pred == 'type' else rdflib.term.Literal(stmt_pred, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string'))
         kb_stmt_obj = rdflib.term.Literal(stmt_obj, datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')) if stmt_pred == 'type' else URIRef(stmt_obj)
 
-        # Does this work now? 
-        # Problem: the kb_stmt_key_mapping keys have a shape like this:
-        # ( rdflib.term.URIRef('http://www.isi.edu/gaia/relations/uiuc/L0C04ATCO/EN_Relation_002421'),
-        # rdflib.term.Literal('A1', datatype=rdflib.term.URIRef('http://www.w3.org/2001/XMLSchema#string')),
-        # rdflib.term.URIRef('http://www.isi.edu/gaia/entity/prototype/eHWINSZd7y'))
-        #
-        # how do we get there from stmt_subj, stmt_pred, stmt_obj?
         thekey = (URIRef(stmt_subj), kb_stmt_pred, kb_stmt_obj)
         if thekey not in kb_stmt_key_mapping or len(kb_stmt_key_mapping[thekey]) == 0:
             kb_stmt_id = None
             logging.warning(f"Tried to match statement key, failing with {thekey}")
         else:
             kb_stmt_id = next(iter( kb_stmt_key_mapping[thekey]))
-
 
     return kb_stmt_id
 
@@ -350,7 +336,7 @@ def find_ttl_file(startpath, filename):
             return fullname
     return None
    
-### jy
+### 
 # return supporting/refuting relations between queries and doc claims
 def conflict_supporting_file_filter(csvfile_path):
     filepath = Path(csvfile_path)
@@ -382,7 +368,7 @@ def conflict_supporting_file_filter(csvfile_path):
                          
     return (hypo_match_refuting_premise, hypo_match_supporting_premise, claim_ttl)  
 
-### jy
+### 
 # return relevant relations between queries and doc claims
 def relevant_file_filter(csvfile_path):
     filepath = Path(csvfile_path)       
@@ -410,7 +396,7 @@ def relevant_file_filter(csvfile_path):
             
     return (premise_match_hypo, hypo_match_relevant_premise, claim_ttl)
 
-### jy
+### 
 # return relevant relations between two doc claims
 def relevant_file_filter2(csvfile_path):
     filepath = Path(csvfile_path)       
@@ -428,7 +414,7 @@ def relevant_file_filter2(csvfile_path):
     
     return claim_claim_related
 
-###jy
+###
 # return refuting/supporting relations between 2 doc claims
 def conflict_supporting_file_filter2(csvfile_path):
     filepath = Path(csvfile_path)       
@@ -458,7 +444,6 @@ def conflict_supporting_file_filter2(csvfile_path):
     return (claim_claim_refuting, claim_claim_supporting)  
     
 # make a ranking for a given query
-#jy fix for condition 7
 def make_ranking(query_id, query_claim_score, claim_claim_score):
     # determine the highest-ranked claim
     query_claims = query_claim_score[query_id].keys()
@@ -519,10 +504,9 @@ def get_cluster_info_forgraph(json_graph):
              "cluster2members" : cluster2members}
 
 ###
-# Katrin Erk March 2022: given a json graph and a claim ID,
+# given a json graph and a claim ID,
 # test whether the claim has at least one associated KE that is
 # an event or relation with at least one edge that also goes to an associated KE
-#
 # returns: True if test passed, else False
 def test_claim_has_oneedge(json_graph, claim_id, clusterinfo):
 
@@ -583,9 +567,7 @@ def main():
     parser.add_argument('condition', help="condition5, condition6, condition7")
     parser.add_argument('graph_path', help='path to the graph json file') # single big json file
     parser.add_argument('kb_path', help='path to AIF file') # single big file
-    
     parser.add_argument('output_dir', help='path to output directory')
-
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='If specified, overwrite existing output files without warning')
     args = parser.parse_args()
@@ -593,6 +575,15 @@ def main():
     # sanity check on condition
     if args.condition not in ["condition5", "condition6", "condition7"]:
         print("Error: need a condition that is condition5, condition6, condition7")
+        sys.exit(1)
+        
+    #sanity chck on graph_path and kb_path
+    if not Path(args.graph_path).is_file():
+        print("Error: The graph json file must be a json file")
+        sys.exit(1)
+        
+    if not Path(args.kb_path).is_file():
+        print("Error: The aif file must be a single file")
         sys.exit(1)
 
     working_mainpath = util.get_input_path(args.working_dir)
@@ -715,6 +706,7 @@ def main():
     # Condition6: Query_ID Claim_ID Rank
     # Condition7: Query_ID Claim_ID Rank
 
+
     # output is to: [working_path] / step4_ranking
     #jy:update
     output_path = util.get_output_dir(str(args.output_dir + '/' +  "output" + '/' + args.run_id + '/' + "NIST" + '/' + args.condition), overwrite_warning=not args.force)
@@ -727,12 +719,6 @@ def main():
         # make a ranking
         ranked_claims, claim_scores = make_ranking(query_id, query_claim_score, claim_claim_score)
     
-        # print("Sanity check")
-        # print("Query", query_id, query_2_text[query_id], "\n")
-        # for claim in ranked_claims:
-        #     print(claim, claim_scores[claim], claim_2_text[claim])
-
-        # and write it to a file
         output_filename = output_dir / (query_id + ".ranking.tsv")
 
         # Condition5: write including relation to query
@@ -757,9 +743,8 @@ def main():
                     
     
     ### turtle files output processing
-    #query_relevant_doc_claim, doc_claim_relevant_query, relevant_claim_ttl = relevant_file_filter(args.relative_file_path)
-    #doc_claim_match_refuting_query, doc_claim_match_supporting_query, ct_rf_claim_ttl = conflict_supporting_file_filter(args.suppporting_refuting_file_path)
-    #extract doc-doc relationship
+
+    #extract claim-claim relationship
     d2d_nli_path = util.get_input_path(working_path / "step2_query_claim_nli" / "d2d_nli.csv")
     c_relatedness_path = util.get_input_path(working_path / "step3_claim_claim_ranking" / "claim_claim_relatedness.csv")
     claim_claim_refuting, claim_claim_supporting = conflict_supporting_file_filter2(d2d_nli_path)
@@ -779,9 +764,6 @@ def main():
     #  This is a temporary workaround to patch the _toPythonMapping locally.
     #  c.f.: https://github.com/RDFLib/rdflib/issues/806
     # noinspection PyProtectedMember
-    
-    ###jy
-    #rdflib.term._toPythonMapping.pop(rdflib.XSD['gYear'])
 
     print('Reading kb from {}'.format(kb_path))
     # rdflib graph object
@@ -797,7 +779,7 @@ def main():
         # from the json file, extract the correct claim and its associated KEs
         # associated_kes: a list of labels of knowledge elements, both sameas clusters and prototypes
         # associated_stmts: one type statement per KE, plus other statements as long as they connect
-        #        two associated KEs
+        # two associated KEs
     
         material_dict = find_claim_associated_kes(claim, json_graph)
         if material_dict is None:
@@ -813,7 +795,7 @@ def main():
             with open(file_path, 'w') as fout:
                 fout.write(print_graph(subgraph))
       
-    print("/n The whole post processing ends here.")
+    print("/n The whole postprocessing for {} ends here.".format(args.condition))
 
 if __name__ == '__main__':
     main()
