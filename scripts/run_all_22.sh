@@ -1,7 +1,7 @@
 #!/bin/bash
 
 print_usage() {
-    printf "Usage: run_all_22.sh AIF AIFNAME QUERY WORKSPACE RUN CONDITION"
+    printf "Usage: run_all_22.sh AIF AIFNAME WORKSPACE RUN CONDITION"
     printf "[--threshold THRESHOLD] [--query QUERY]"
     printf "* <AIF>: the path to original AIF data\n"
     printf "* <AIFNAME>: the file of name of original AIF data, the format of the name should be 'XXXXX.ttl'\n" #add new input
