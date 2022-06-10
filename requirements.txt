@@ -5,6 +5,7 @@ pandas
 dill
 gensim
 edit_distance
+csv
 
 sentence_transformers
 six
