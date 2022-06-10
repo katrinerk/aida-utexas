@@ -25,8 +25,10 @@
 * Install PyTorch: https://pytorch.org/get-started/locally/.
 * Install other python dependencies by `pip install -r requirements.txt`.
 * Download NLI model checkpoint by 
-`wget https://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz`
-`tar -xzvf roberta.large.tar.gz`
+```
+wget https://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz
+tar -xzvf roberta.large.tar.gz
+```
 
 
 ### Run Pipeline
@@ -34,15 +36,6 @@
 ```
 ./scripts/run_all_22.sh <AIF> <AIFNAME> <WORKSPACE> <RUN> <CONDITION> [optional_args]
 ```
-
-    printf "* <AIF>: the path to original AIF data\n"
-    printf "* <AIFNAME>: the file of name of original AIF data, the format of the name should be 'XXXXX.ttl'\n" #add new input
-    printf "* <WORKSPACE>: the path to the working directory to do main process\n"
-    printf "* <RUN>: the name of our run, i.e., ta2_colorado\n"
-    printf "* <CONDITION>: the condition to run on , i.e., condition5, condition6\n"
-
-    printf "* --threshold THRESHOLD: the score threshold to determine relatedness/independence, default = 0.58\n"
-    printf "* --query QUERY: the path to original query data, default = None\n"
 
 * `<AIF>` is the path to original AIF data, as the <aif_dir> described above.
 * `<AIFNAME>` is the file of name of original AIF data, the format of the name should be 'XXXXX.ttl'".
