@@ -1,0 +1,17 @@
+FROM pytorch/pytorch:latest
+WORKDIR /aida-utexas
+RUN apt-get update \
+    && apt-get install -y coreutils \
+    && apt-get install -y findutils \
+    && apt-get install -y wget \
+    && apt-get install -y python3 \
+    && apt-get install -y python3-pip
+COPY requirements.txt /aida-utexas/requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+COPY aida_utexas /aida-utexas/aida_utexas
+COPY pipeline /aida-utexas/pipeline
+COPY scripts /aida-utexas/scripts
+COPY resources /aida-utexas/resources
+
+ENTRYPOINT ["/aida-utexas/scripts/run_all_22.sh"]
