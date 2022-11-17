@@ -5,10 +5,13 @@ RUN apt-get update \
     && apt-get install -y findutils \
     && apt-get install -y wget \
     && apt-get install -y python3 \
-    && apt-get install -y python3-pip
+    && apt-get install -y python3-pip \
+    && apt-get install -y tar
 COPY requirements.txt /aida-utexas/requirements.txt
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
+RUN wget https://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz
+RUN tar -xzvf roberta.large.tar.gz
 COPY aida_utexas /aida-utexas/aida_utexas
 COPY pipeline /aida-utexas/pipeline
 COPY scripts /aida-utexas/scripts
