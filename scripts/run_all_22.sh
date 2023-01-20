@@ -37,14 +37,18 @@ parse_args() {
     QUERY="None"
 
     while [ "$1" != "" ]; do
-        case $1 in
+        echo "$1"
+        case "$1" in
         --threshold)
+            THRESHOLD=$2
             shift
-            THRESHOLD=$1
+            shift
             ;;
         --query)
+            QUERY=$2
             shift
-            QUERY=$1
+            shift
+            echo "get query input"
             ;;
         -*|--*)
             echo "Unknown option $1"
@@ -93,30 +97,33 @@ echo "Start preprocessing..."
 pre_out_path="$WORKSPACE/preprocessed/$RUN"
 query_out_path="$WORKSPACE/preprocessed/query"
 
+cd pipeline/preprocessing
+
 if [ "$QUERY" == "None" ]; then 
-    python3 -m pipeline.preprocessing.preprocess_claims_relativepath --aif_path $AIF --doc_output_dir $pre_out_path
+    python3 -m preprocess_claims_relativepath --aif_path $AIF --doc_output_dir $pre_out_path
 else
-    python3 -m pipeline.preprocessing.preprocess_claims_relativepath --aif_path $AIF --doc_output_dir $pre_out_path -q $QUERY -Q $query_out_path
+    python3 -m preprocess_claims_relativepath --aif_path $AIF --doc_output_dir $pre_out_path -q $QUERY -Q $query_out_path
 fi
 
 echo "Finish"
 
+cd ../..
 
 if [ "$CONDITION" = "condition5" ]; then
     echo "Start condition5.sh ..."
-    condition5.sh \
+    ./scripts/condition5.sh \
         "$WORKSPACE" "$RUN" "$THRESHOLD" "$CONDITION"
     echo "Finish"
 
 elif [ "$CONDITION" = "condition6" ]; then
     echo "Start condition6.sh ..."
-    condition6.sh \
+    ./scripts/condition6.sh \
         "$WORKSPACE" "$RUN" "$THRESHOLD" "$CONDITION"
     echo "Finish"
 
 elif [ "$CONDITION" = "condition7" ]; then
     echo "Start condition7.sh ..."
-    condition7.sh \
+    ./scripts/condition7.sh \
         "$WORKSPACE" "$RUN" "$THRESHOLD" "$CONDITION"
     echo "Finish"
 fi
@@ -127,16 +134,20 @@ output_dir="$WORKSPACE/out"
 working_dir="$WORKSPACE/working"
 kb_path="$AIF/$AIFNAME"
 graph_path="$WORKSPACE/preprocessed/$RUN/json/$AIFNAME.json"
+
+cd pipeline/postprocessing
+
 if [ "$CONDITION" = "condition5" ]; then
-    python3 -m pipeline.postprocessing.produce_claim_aif_c5_addedge_newest $working_dir $RUN condition5 $graph_path $kb_path $output_dir
+    python3 -m produce_claim_aif_c5_addedge_newest $working_dir $RUN condition5 $graph_path $kb_path $output_dir
 else 
     if [ "$CONDITION" = "condition6" ]; then 
-        python3 -m pipeline.postprocessing.produce_claim_aif_c6_addedge_newest $working_dir $RUN condition6 $graph_path $kb_path $output_dir
+        python3 -m produce_claim_aif_c6_addedge_newest $working_dir $RUN condition6 $graph_path $kb_path $output_dir
     else 
-        python3 -m pipeline.postprocessing.produce_claim_aif_c6_addedge_newest $working_dir $RUN condition7 $graph_path $kb_path $output_dir
+        python3 -m produce_claim_aif_c6_addedge_newest $working_dir $RUN condition7 $graph_path $kb_path $output_dir
     fi
 fi
     echo "Finish"
 
+cd ../..
 
 echo "ALL DONE"

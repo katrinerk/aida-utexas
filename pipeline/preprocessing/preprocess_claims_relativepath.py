@@ -133,7 +133,7 @@ def main():
     args = parser.parse_args()
     
     ####
-    
+    print("aif_path", args.aif_path, )
     
     ####
     # making query jsons, retaining texts and IDs

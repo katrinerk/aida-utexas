@@ -4,7 +4,6 @@ dill
 pandas
 gensim
 edit_distance
-csv
 sentence_transformers
 six
 torch
