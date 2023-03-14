@@ -15,6 +15,7 @@ import argparse
 import os
 from copy import deepcopy
 from modules import *
+from torch.utils.tensorboard import SummaryWriter
 
 # Make a dir (if it doesn't already exist)
 def verify_dir(dir):
@@ -119,7 +120,7 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
           attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs, learning_rate, save_path, load_path, load_optim,
           use_highest_ranked_gold, valid_every, print_every, device):
     model = CoherenceNetWithGCN(False, indexer_info_dict, attention_type, None, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
-
+    # breakpoint()
     # If a pretrained model should be used, load its parameters in
     if load_path is not None:
         model.load_state_dict(torch.load(load_path)['model'])
@@ -147,6 +148,9 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
 
     prob_force = init_prob_force
 
+    # tensorboard writer
+    writer = SummaryWriter(os.path.join(save_path,"run"))
+
     while train_iter.epoch < num_epochs:
         step = 0
         print("\nEpoch %d\n" % (current_epoch + 1))
@@ -167,12 +171,14 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
             if result: # All graph salads should be valid--we should be able to remove this if condition
                 step += 1
                 train_loss, train_accuracy = result
+                writer.add_scalar("Loss/train", train_loss, step*(current_epoch+1))
+                writer.add_scalar("Acc/train", train_accuracy, step*(current_epoch+1))
                 train_losses.append(train_loss)
                 train_accuracies.append(train_accuracy)
 
                 # Print output report after every <print_every> graph salads
                 if (step % print_every == 0) or (step == train_iter.size):
-                    print("At step %d: loss = %.6f | accuracy = %.4f (%.2fs)." % (step, np.mean(train_losses), np.mean(train_accuracies), time.time() - start))
+                    print("At epoch %d step %d: loss = %.6f | accuracy = %.4f (%.2fs). (total step: %d)" % (current_epoch, step, np.mean(train_losses), np.mean(train_accuracies), time.time() - start, step*(current_epoch+1)))
                     start = time.time()
 
                 # Validate the model on the validation set after every <valid_every> salads
@@ -181,10 +187,11 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
                     model.eval()
                     average_valid_loss, average_valid_accuracy = run_no_backprop(valid_path, extraction_size, model)
                     print("Valid (avg): loss = %.6f | accuracy = %.4f" % (average_valid_loss, average_valid_accuracy))
-
+                    writer.add_scalar("Loss/valid", average_valid_loss, step*(current_epoch+1))
+                    writer.add_scalar("Acc/valid", average_valid_accuracy, step*(current_epoch+1))
                     # Save checkpoint if the reported loss is lower than all previous reported losses
                     if average_valid_loss < best_loss:
-                        torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict()}, os.path.join(save_path, 'gcn2-cuda_best' + '_' + str(step) + '_' + str(current_epoch) + '.ckpt'))
+                        torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict()}, os.path.join(save_path, 'gcn2-cuda_best' + '_' + str(step) + '_' + str(current_epoch)+'_'+format(average_valid_accuracy, '.2f')+ '.ckpt'))
                         best_loss = average_valid_loss
                         print('New best val checkpoint at step ' + str(step) + ' of epoch ' + str(current_epoch + 1))
 
@@ -196,7 +203,7 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
     model.eval()
     average_test_loss, average_test_accuracy = run_no_backprop(test_path, extraction_size, model)
     print("Test (avg): loss = %.6f | accuracy = %.4f" % (average_test_loss, average_test_accuracy))
-    model.train()
+    model.train() # why we need this? 
 
 # Run the model on a set of data for evaluative purposes (called when validating and testing only)
 def run_no_backprop(data_path, extraction_size, model):
