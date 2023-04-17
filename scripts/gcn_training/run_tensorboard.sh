@@ -1,0 +1,1 @@
+tensorboard --logdir_spec Base:/home/cc/data/out_salads_70k_Indexed/model_run/run,Emb:/home/cc/data/out_salads_70k_Indexed_Geo/model_run_emb/run_emb
