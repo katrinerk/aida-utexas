@@ -118,7 +118,7 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
 # Train the model on a set of graph salads
 def train(batch_size, extraction_size, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend,
           attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs, learning_rate, save_path, load_path, load_optim,
-          use_highest_ranked_gold, valid_every, print_every, device):
+          use_highest_ranked_gold, valid_every, print_every, device, log_dir):
     model = CoherenceNetWithGCN(False, indexer_info_dict, attention_type, None, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
     # breakpoint()
     # If a pretrained model should be used, load its parameters in
@@ -149,7 +149,7 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
     prob_force = init_prob_force
 
     # tensorboard writer
-    writer = SummaryWriter(os.path.join(save_path,"run"))
+    writer = SummaryWriter(os.path.join(save_path, log_dir))
 
     while train_iter.epoch < num_epochs:
         step = 0
@@ -171,8 +171,8 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
             if result: # All graph salads should be valid--we should be able to remove this if condition
                 step += 1
                 train_loss, train_accuracy = result
-                writer.add_scalar("Loss/train", train_loss, step*(current_epoch+1))
-                writer.add_scalar("Acc/train", train_accuracy, step*(current_epoch+1))
+                writer.add_scalar("Loss/train", train_loss, step + train_iter.size*current_epoch)
+                writer.add_scalar("Acc/train", train_accuracy, step + train_iter.size*current_epoch)
                 train_losses.append(train_loss)
                 train_accuracies.append(train_accuracy)
 
@@ -187,8 +187,8 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
                     model.eval()
                     average_valid_loss, average_valid_accuracy = run_no_backprop(valid_path, extraction_size, model)
                     print("Valid (avg): loss = %.6f | accuracy = %.4f" % (average_valid_loss, average_valid_accuracy))
-                    writer.add_scalar("Loss/valid", average_valid_loss, step*(current_epoch+1))
-                    writer.add_scalar("Acc/valid", average_valid_accuracy, step*(current_epoch+1))
+                    writer.add_scalar("Loss/valid", average_valid_loss, step + train_iter.size*current_epoch)
+                    writer.add_scalar("Acc/valid", average_valid_accuracy, step + train_iter.size*current_epoch)
                     # Save checkpoint if the reported loss is lower than all previous reported losses
                     if average_valid_loss < best_loss:
                         torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict()}, os.path.join(save_path, 'gcn2-cuda_best' + '_' + str(step) + '_' + str(current_epoch)+'_'+format(average_valid_accuracy, '.2f')+ '.ckpt'))
@@ -196,6 +196,7 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
                         print('New best val checkpoint at step ' + str(step) + ' of epoch ' + str(current_epoch + 1))
 
                     model.train()
+            
 
         current_epoch += 1
 
@@ -203,7 +204,7 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
     model.eval()
     average_test_loss, average_test_accuracy = run_no_backprop(test_path, extraction_size, model)
     print("Test (avg): loss = %.6f | accuracy = %.4f" % (average_test_loss, average_test_accuracy))
-    model.train() # why we need this? 
+    model.train() 
 
 # Run the model on a set of data for evaluative purposes (called when validating and testing only)
 def run_no_backprop(data_path, extraction_size, model):
@@ -288,6 +289,8 @@ if __name__ == "__main__":
                         help="Precision and loss reports are generated every <print_every> training instances")
     parser.add_argument("--device", type=str, default="0",
                         help="CUDA device number (or 'cpu' for cpu)")
+    parser.add_argument("--log_dir", type=str, default="run",
+                        help="Log directory for tensorboard")
 
     args = parser.parse_args()
     locals().update(vars(args))
@@ -321,7 +324,7 @@ if __name__ == "__main__":
     # Train a fresh model
     if mode == 'train':
         train(batch_size, extraction_size, weight_decay, force, init_prob_force, force_decay, force_every, train_path, valid_path, test_path, indexer_info_dict, self_attend, attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs,
-                      learning_rate, save_path, load_path, load_optim, use_highest_ranked_gold, valid_every, print_every, device)
+                      learning_rate, save_path, load_path, load_optim, use_highest_ranked_gold, valid_every, print_every, device, log_dir)
     # Evaluate an existing model on test data
     elif mode == 'validate':
         model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
