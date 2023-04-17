@@ -48,7 +48,8 @@ if __name__ == "__main__":
                     target_ere = data["theGraph"][target_ere_id]
                     if target_ere["type"]=="Entity":
                         if "Geo" in ere_type:
-                            geopolitic.add(target_ere["name"][0])
+                            for name in target_ere["name"]:
+                                geopolitic.add(name)
                             #print(target_ere_id, target_ere)
                             # if(target_ere["type"]=="Entity"):
                             #     print("Find:",ere_type ,target_ere["name"])
@@ -57,6 +58,12 @@ if __name__ == "__main__":
 
                         if "Place" in ere_type:
                             print(ere_type ,target_ere["name"])
+
+                        if "Person" in ere_type:
+                            for name in target_ere["name"]:
+                                if not name[0].islower():
+                                    people.add(name)
+                                    print(ere_type ,target_ere["name"])
                     
             #     for a in adj:
             #         info = a.split("/")
@@ -70,6 +77,10 @@ if __name__ == "__main__":
         # if count==0:
         #     break
     newset = location.union(geopolitic)
-    cw = csv.writer(open("geolocation_full.csv",'w'))
+    cw = csv.writer(open("geolocation_full_tmp.csv",'w'))
     for val in newset:
+        cw.writerow([val])
+
+    cw = csv.writer(open("people_full.csv",'w'))
+    for val in people:
         cw.writerow([val])
