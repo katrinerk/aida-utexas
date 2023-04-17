@@ -1,0 +1,1 @@
+PYTHONPATH="/home/cc/aida-utexas/" python "/home/cc/aida-utexas/augment/add_emb_to_indexer.py"
