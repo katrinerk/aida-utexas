@@ -245,8 +245,20 @@ class CoherenceNetWithGCN(nn.Module):
         stmt_emb = torch.zeros((adj_head.shape[1], self.stmt_embedder.weight.shape[1])).to(device=device)
 
         # Fetch and average embeddings for ERE/stmt names and labels
+        # Ex: embedding mean of [[44648], [5301], [32580]] for ere_emb[0]
+        
         for iter in range(len(ere_labels)):
-            ere_emb[iter] = torch.mean(torch.cat([self.ere_embedder(to_tensor(label_set, device=device)).mean(dim=0).reshape((1, -1)) for label_set in ere_labels[iter] if len(label_set) > 0], dim=0), dim=0)
+            emb_list = []
+            max_last_two_indices = [-float("inf"), -float("inf")]
+            for label_set in ere_labels[iter]:
+                if len(label_set) > 0:
+                    label_tensor = to_tensor(label_set, device=device)
+                    label_emb = self.ere_embedder(label_tensor).mean(dim=0).reshape((1, -1))
+                    max_last_two_indices = [max(max_last_two_indices[i], label_emb[0, -2 + i].item()) for i in range(2)]
+                    emb_list.append(label_emb)
+            emb_list_cat =  torch.cat(emb_list, dim=0)
+            ere_emb[iter] = torch.mean(emb_list_cat, dim=0)
+            ere_emb[iter, -2:] = torch.tensor(max_last_two_indices)
 
         for iter in range(len(stmt_labels)):
             stmt_emb[iter] = torch.mean(torch.cat([self.stmt_embedder(to_tensor(label_set, device=device)).mean(dim=0).reshape((1, -1)) for label_set in stmt_labels[iter] if len(label_set) > 0], dim=0), dim=0)
