@@ -40,6 +40,9 @@ if type(temp) == type(dict()):
 else:
     origin_id, query_stmts, graph_mix, target_graph_id, noisy_merge_points = temp
 
+#print("Total eres:", len(graph_mix.eres.keys()))
+#print("Total stmts:", len(graph_mix.stmts.keys()))
+#breakpoint()
 query_eres = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query_stmts if graph_mix.stmts[stmt_id].tail_id])
 cand_stmts = {item for item in graph_mix.stmts.keys() if graph_mix.stmts[item].tail_id and set.intersection({graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}, query_eres) and item not in query_stmts}
 
@@ -104,8 +107,13 @@ for ere_id in graph_mix.eres.keys():
     temp['data']['origin'] = 'Yes' if ere_id == origin_id else 'No'
 
     if ere.label and ere.category != "Relation":
-        temp['data']['label'] = ere.label[0]
-        temp['data']['length_label'] = max((len(ere.label[0]) * 10), 50)
+        print(ere.label)
+        for label in ere.label:
+            if 'label' in temp['data']:
+                temp['data']['label'] += " | " +label
+            else:
+                temp['data']['label'] = label
+        temp['data']['length_label'] = max((len(temp['data']['label']) * 10), 50)
     else:
         temp['data']['label'] = ''
 
