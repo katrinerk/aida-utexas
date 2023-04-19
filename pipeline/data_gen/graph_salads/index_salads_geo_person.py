@@ -20,13 +20,14 @@ from sklearn.preprocessing import MinMaxScaler
 from wikipedia2vec import Wikipedia2Vec
 
 def getGeoInfo(target, df):
-    target.replace("_"," ")
+    target = target.replace("_"," ")
     if df[df["location"]==target].empty:
         return 0, 0
     else:  
         return df[df["location"]==target]["longitude_sc"].values[0], df[df["location"]==target]["latitude_sc"].values[0]
 
 def getPersonInfo(target, wiki2vec):
+    target = target.replace("_"," ")
     try:
         emb = wiki2vec.get_entity_vector(target)
     except:
@@ -102,8 +103,18 @@ def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim
         # Try to get person first
         if word in people_set:
             embbed = getPersonInfo(word, wiki2vec_model)
+            if embbed is None:
+                print("no person info for word:", word)
         else:
-            embbed = word2vec_model.get_vector(word)
+            try:
+                target_word = word[0].lower() + word[1:]
+                embbed = wiki2vec_model.get_word_vector(target_word.replace("_"," "))
+            except:
+                print("Can't get wiki2vec from word:", target_word)
+                #breakpoint()
+                embbed = word2vec_model.get_vector(word)
+            
+
         lng, lat = getGeoInfo(word, df)
         
         new_embbed = np.concatenate((embbed, np.array([lng, lat])))
@@ -140,7 +151,7 @@ def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim
 
     stmt_emb_mat = np.pad(stmt_emb_mat, [(0,0),(0,2)], mode='constant')
 
-    dill.dump((ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt), open(os.path.join(indexer_dir, "indexers_geoper.p"), "wb"))
+    dill.dump((ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt), open(os.path.join(indexer_dir, "indexers_geoper_allwiki.p"), "wb"))
     print(ere_indexer, stmt_indexer)
     return (ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt)
 
