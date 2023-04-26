@@ -327,8 +327,13 @@ if __name__ == "__main__":
                       learning_rate, save_path, load_path, load_optim, use_highest_ranked_gold, valid_every, print_every, device, log_dir)
     # Evaluate an existing model on test data
     elif mode == 'validate':
-        model = CoherenceNetWithGCN(indexer_info_dict, self_attend, attention_type, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
-        model.load_state_dict(torch.load(load_path, map_location=device)['model'])
+        model = CoherenceNetWithGCN(False, indexer_info_dict, attention_type, None, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
+    
+        #model.load_state_dict(torch.load(load_path, map_location=device)['model'])
+        model.load_state_dict(torch.load(load_path, map_location=device)['model'], strict=False)
+        print(torch.load(load_path, map_location=device)['model'])
+        tmp = torch.load(load_path, map_location=device)
+        breakpoint()
 
         print("\nRunning on test set ...\n")
         model.eval()
