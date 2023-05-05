@@ -14,9 +14,15 @@ import dash_html_components as html
 import sys
 
 if len(sys.argv) == 1:
-    file_name = 'test_ex/new_test_ext_orig.p'
+    file_name = '/home/cc/data/out_salads_70k_Indexed_GeoPerson/Test/enwiki-20100312_0026432145-enwiki-20100312_0005773819-enwiki-20100312_0014504765_target-enwiki-20100312_0005773819_3_4_3_2.p'
 else:
     file_name = sys.argv[1]
+
+# Use this for visualize prediction. Add final stmts from trainer.py in query_pred_stmts_id
+query_pred_stmts_id =[]
+ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt = dill.load(open("/home/cc/data/out_salads_70k_Indexed_GeoPerson/indexers_geoper_allwiki.p", 'rb'))
+
+
 
 # Use this temporarily:
 # graph_dict = dill.load(open(file_name, 'rb'))
@@ -40,9 +46,12 @@ if type(temp) == type(dict()):
 else:
     origin_id, query_stmts, graph_mix, target_graph_id, noisy_merge_points = temp
 
+query_pred_stmts = set()
+for i in query_pred_stmts_id:
+    query_pred_stmts.add(stmt_mat_ind.get_word(i))
+
 #print("Total eres:", len(graph_mix.eres.keys()))
 #print("Total stmts:", len(graph_mix.stmts.keys()))
-#breakpoint()
 query_eres = set.union(*[{graph_mix.stmts[stmt_id].head_id, graph_mix.stmts[stmt_id].tail_id} for stmt_id in query_stmts if graph_mix.stmts[stmt_id].tail_id])
 cand_stmts = {item for item in graph_mix.stmts.keys() if graph_mix.stmts[item].tail_id and set.intersection({graph_mix.stmts[item].head_id, graph_mix.stmts[item].tail_id}, query_eres) and item not in query_stmts}
 
@@ -107,7 +116,6 @@ for ere_id in graph_mix.eres.keys():
     temp['data']['origin'] = 'Yes' if ere_id == origin_id else 'No'
 
     if ere.label and ere.category != "Relation":
-        print(ere.label)
         for label in ere.label:
             if 'label' in temp['data']:
                 temp['data']['label'] += " | " +label
@@ -129,6 +137,7 @@ for stmt_id in graph_mix.stmts.keys():
     temp['data']['label'] = stmt.raw_label
     temp['data']['source'] = stmt.head_id
     temp['data']['query'] = 'Yes' if stmt_id in query_stmts else 'No'
+    temp['data']['query_pred'] = 'Yes' if stmt_id in query_pred_stmts else 'No'
     temp['data']['cand'] = 'Yes' if stmt_id in cand_stmts else 'No'
     if stmt.tail_id:
         temp['data']['target'] = stmt.tail_id
@@ -260,7 +269,16 @@ default_stylesheet = [
         'selector': 'edge[query="Yes"]',
         'style': {
             'line-color': 'red',
-            'mid-target-arrow-color': 'red'
+            'mid-target-arrow-color': 'red',
+            'width': '5'
+        }
+    },
+    {
+        'selector': 'edge[query_pred="Yes"]',
+        'style': {
+            'line-color': 'purple',
+            'mid-target-arrow-color': 'purple',
+            'width': '5'
         }
     },
     {
