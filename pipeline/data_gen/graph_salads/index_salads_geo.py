@@ -2,8 +2,9 @@
 # Modified by Alex Tomkovich in 2019/2020
 
 ######
-# This file converts names (e.g., "Winston Churchill") and labels (e.g., "person")
-# into indices to be referenced in an embeddings matrix.
+# This file uses constructed frequent word dict indexers.p from index_salad
+# and add geolocation embeddings into it with crawled data,
+#  then reconstruct index for every graph salad
 ######
 
 import dill
@@ -19,7 +20,7 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
 def getGeoInfo(target, df):
-    target.replace("_"," ")
+    target = target.replace("_"," ")
     if df[df["location"]==target].empty:
         return 0, 0
     else:  

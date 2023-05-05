@@ -2,8 +2,9 @@
 # Modified by Alex Tomkovich in 2019/2020
 
 ######
-# This file converts names (e.g., "Winston Churchill") and labels (e.g., "person")
-# into indices to be referenced in an embeddings matrix.
+# This file uses constructed frequent word dict indexers.p from index_salad
+# and add geolocation/person embeddings into it with crawled data and wikipedia2vec,
+#  then reconstruct index for every graph salad
 ######
 
 import dill
@@ -56,7 +57,7 @@ def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim
     
     # Get geo labels
     min_max_scaler = MinMaxScaler(feature_range=(-1, 1))
-    df = pd.read_csv("/home/cc/aida-utexas/augment/crawled_geolocation_clean_full.csv")
+    df = pd.read_csv("/home/cc/aida-utexas/augment/crawled_geolocation_clean.csv")
     df = df[df['longitude'].notna()]
     df = df.drop_duplicates()
     x = df["longitude"].values.reshape(-1,1)
@@ -106,13 +107,12 @@ def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim
             if embbed is None:
                 print("no person info for word:", word)
         else:
-            try:
-                target_word = word[0].lower() + word[1:]
-                embbed = wiki2vec_model.get_word_vector(target_word.replace("_"," "))
-            except:
-                print("Can't get wiki2vec from word:", target_word)
-                #breakpoint()
-                embbed = word2vec_model.get_vector(word)
+            # try:
+            #     target_word = word[0].lower() + word[1:]
+            #     embbed = wiki2vec_model.get_word_vector(target_word.replace("_"," "))
+            # except:
+            #     print("Can't get wiki2vec from word:", target_word)
+            embbed = word2vec_model.get_vector(word)
             
 
         lng, lat = getGeoInfo(word, df)
@@ -152,7 +152,6 @@ def create_indexers_for_corpus(train_paths, indexer_dir, word2vec_model, emb_dim
     stmt_emb_mat = np.pad(stmt_emb_mat, [(0,0),(0,2)], mode='constant')
 
     dill.dump((ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt), open(os.path.join(indexer_dir, "indexers_geoper_allwiki.p"), "wb"))
-    print(ere_indexer, stmt_indexer)
     return (ere_indexer, stmt_indexer, ere_emb_mat, stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt)
 
 # Convert ERE/stmt labels to indices
