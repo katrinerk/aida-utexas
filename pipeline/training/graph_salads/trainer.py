@@ -66,6 +66,7 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
 
     # Perform a sequence of candidate admissions
     for i in range(extraction_size):
+        # print("====", i," th iteration of ", extraction_size, "====")
         # For the first extraction, we need to obtain our GCN embeds; after that, we reuse this same set of embeds
         if i == 0:
             _, coherence_out, gcn_embeds = model(graph_dict, None, device)
@@ -76,7 +77,6 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         prediction = F.log_softmax(coherence_out, dim=0)
         predicted_index = select_valid_hypothesis(graph_dict, prediction)#prediction.argmax().item()
         num_correct += 1 if graph_dict['stmt_class_labels'][predicted_index] == 1 else 0
-
         predictions.append(prediction.reshape(-1))
         trues.append(get_tensor_labels(graph_dict, device).reshape(-1))
 
@@ -94,6 +94,8 @@ def admit_seq(force, prob_force, model, optimizer, graph_dict, data_group, use_h
         else:
             next_state(graph_dict, predicted_index)
 
+    # Final expanded query stmts
+    print(repr(graph_dict['query_stmts']))
     # Finish the full inference/extraction sequence, and then remove events that agree in event type and in the IDs of all arguments
     remove_duplicate_events(graph_dict)
     remove_place_only_events(graph_dict)
@@ -120,7 +122,6 @@ def train(batch_size, extraction_size, weight_decay, force, init_prob_force, for
           attention_type, attn_head_stmt_tail, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout, num_epochs, learning_rate, save_path, load_path, load_optim,
           use_highest_ranked_gold, valid_every, print_every, device, log_dir):
     model = CoherenceNetWithGCN(False, indexer_info_dict, attention_type, None, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
-    # breakpoint()
     # If a pretrained model should be used, load its parameters in
     if load_path is not None:
         model.load_state_dict(torch.load(load_path)['model'])
@@ -213,6 +214,7 @@ def run_no_backprop(data_path, extraction_size, model):
     valid_losses, valid_accuracies = [], []
 
     while valid_iter.epoch == 0:
+        # "Test" and "Val" is equivalent
         result = admit_seq(False, None, model, None, valid_iter.next_batch(), "Val", False, extraction_size, False, device)
         if result:
             valid_loss, valid_accuracy = result
@@ -329,11 +331,7 @@ if __name__ == "__main__":
     elif mode == 'validate':
         model = CoherenceNetWithGCN(False, indexer_info_dict, attention_type, None, num_layers, hidden_size, attention_size, conv_dropout, attention_dropout).to(device)
     
-        #model.load_state_dict(torch.load(load_path, map_location=device)['model'])
-        model.load_state_dict(torch.load(load_path, map_location=device)['model'], strict=False)
-        print(torch.load(load_path, map_location=device)['model'])
-        tmp = torch.load(load_path, map_location=device)
-        breakpoint()
+        model.load_state_dict(torch.load(load_path, map_location=device)['model'])
 
         print("\nRunning on test set ...\n")
         model.eval()
