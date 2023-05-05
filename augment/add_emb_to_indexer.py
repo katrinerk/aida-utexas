@@ -51,53 +51,5 @@ if __name__ == "__main__":
             count+=1
             ere_emb_mat[idx][-2] = lng
             ere_emb_mat[idx][-1] = lat
-            # print(ere_emb_mat[idx])
-        # breakpoint()
     
-    # print("Processed #locations: ", count)
     dill.dump((ere_indexer, stmt_indexer, new_ere_emb_mat, new_stmt_emb_mat, num_word2vec_ere, num_word2vec_stmt), open(os.path.join(indexer_dir, "indexers_emb_augment.p"), "wb"))
-
-    print("Processing graph salads...")
-
-    # ere_mat_ind = graph_dict['ere_mat_ind']
-    new_root_path = "/home/cc/data/out_salads_70k_Indexed_geo/"
-    try:
-        os.makedirs(new_root_path)
-    except:
-        print("folder created.")
-    old_root_path = "/home/cc/data/out_salads_70k_Indexed/"
-    dir=["Train","Test","Val"]
-    for d in dir:
-        path = os.path.join(old_root_path, d)
-        for file_name in os.listdir(path):
-            full_path = os.path.join(path, file_name) 
-            graph_dict = dill.load(open(full_path, "rb"))
-            graph_ere_indexer = graph_dict['ere_mat_ind']
-            breakpoint()
-            print(graph_ere_indexer.index_to_word.keys())
-            # for idx in ere_indexer.index_to_word.keys():
-            #     target = ere_indexer.index_to_word[idx]
-            #     if target[0].islower():
-            #         continue
-            #     lng, lat = getGeoInfo(ere_indexer.index_to_word[idx], df)
-            #     print(ere_indexer.index_to_word[idx],lng, lat)
-            #     if(lng!=0 and lat!=0):
-            #     # if((lng & lat).all()):
-            #         print(idx, ere_indexer.index_to_word[idx])
-            #         count+=1
-            #         ere_emb_mat[idx][-2] = lng
-            #         ere_emb_mat[idx][-1] = lat
-
-            
-            
-            
-            
-            dill.dump(graph_dict, open(os.path.join(new_root_path, 'Train', file_name), 'wb'))
-            
-        
-        
-
-
-
-
-    
