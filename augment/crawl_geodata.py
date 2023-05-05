@@ -7,7 +7,7 @@ import time
 
 user_key = ['tycc0123','tycc0124','jiayingli']
 user_idx = 0
-start_idx = 103253
+start_idx = 0
 with open('geolocation_full.csv', mode='r') as csv_file:
     with open('crawled_geolocation_clean.csv', 'w') as csv_output_file:
         with open('crawled_geolocation_nodata.csv', 'w') as csv_output_file_2:
